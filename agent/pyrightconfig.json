@@ -1,0 +1,14 @@
+{
+    "include": ["triage"],
+    "extraPaths": ["triage"],
+    "typeCheckingMode": "strict",
+    "reportMissingTypeArgument": "warning",
+    "reportMissingTypeStubs": "none",
+    "pythonVersion": "3.13",
+    "reportIncompatibleVariableOverride": "none",
+    "reportIncompatibleMethodOverride": "none",
+    "reportUnknownMemberType": "none",
+    "reportUnknownVariableType": "none",
+    "reportUnknownArgumentType": "none",
+    "reportPrivateUsage": "none"
+}

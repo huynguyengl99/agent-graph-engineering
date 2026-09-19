@@ -1,0 +1,61 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = "FastAPI agent service: LangGraph triage graphs over a typed WebSocket"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.1",
+    "pydantic>=2.10.0",
+    "pydantic-ai>=1.0,<2",
+    "langgraph>=1.0,<2",
+    "chanx[fast-channels,cli]>=2.10.2,<3",
+    "openai>=1.57.0",
+    "structlog>=24.4.0",
+    "environs>=11.2.2",
+    "opentelemetry-sdk>=1.30,<2",
+]
+
+[project.optional-dependencies]
+# Forward spans to Langfuse, Jaeger, or any OTLP collector. Not needed for the
+# in-memory /traces view.
+tracing = ["opentelemetry-exporter-otlp-proto-http>=1.30,<2"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.4",
+    "pyright>=1.1.396",
+    "mypy>=1.19.0",
+    "pytest>=9.0.1,<10",
+    "pytest-asyncio>=1.0,<2",
+    "respx>=0.22,<1",
+    "httpx>=0.28,<1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+# The workspace shares one venv, so pytest-django is importable here and
+# activates off DJANGO_SETTINGS_MODULE in the root .env. This service has no
+# Django; without this it tries to boot the backend's settings and every test
+# errors during setup.
+addopts = "-p no:django"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "N", "S", "B", "A", "C4", "DTZ", "T10", "RUF", "PL"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+# Literal status codes and counts read better than named constants in assertions.
+"tests/**" = ["PLR2004"]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+useLibraryCodeForTypes = true
+reportMissingTypeStubs = false

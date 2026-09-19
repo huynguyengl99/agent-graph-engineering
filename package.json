@@ -1,0 +1,27 @@
+{
+  "name": "agent-graph-engineering",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Companion repo for the Agent Graph Engineering blog series",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "gen:all": "pnpm --filter web gen:all",
+    "lint": "pnpm -r lint",
+    "lint:fix": "pnpm -r lint:fix",
+    "format": "pnpm -r format",
+    "format:fix": "pnpm -r format:fix",
+    "typecheck": "pnpm -r typecheck",
+    "check": "pnpm -r check",
+    "fix": "pnpm -r fix"
+  },
+  "packageManager": "pnpm@9.1.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

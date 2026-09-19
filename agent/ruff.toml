@@ -1,0 +1,15 @@
+src = ["triage"]
+target-version = "py313"
+
+[lint]
+ignore = ["B010", "C901", "E501", "F405", "PLC0415"]
+select = ["B", "C90", "E", "F", "I", "N", "PL", "Q", "UP", "W"]
+
+[lint.isort]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[lint.per-file-ignores]
+"*" = ['PLR0913']
+"scripts/*" = ["C901", "PLR"]
+# Literal status codes and counts read better than named constants in assertions.
+"tests/*" = ["PLR2004"]

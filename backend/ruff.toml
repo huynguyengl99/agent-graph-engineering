@@ -1,0 +1,22 @@
+extend-exclude = ["*/migrations/*"]
+src = ["helpdesk"]
+target-version = "py313"
+
+[lint]
+ignore = ["B010", "C901", "E501", "F405", "PLC0415"]
+select = ["B", "C90", "DJ", "E", "F", "I", "N", "PL", "Q", "UP", "W"]
+
+[lint.isort]
+section-order = ["future", "standard-library", "django", "third-party", "first-party", "local-folder"]
+
+[lint.isort.sections]
+django = ["channels", "django", "rest_framework"]
+
+[lint.per-file-ignores]
+"*" = ['PLR0913']
+"*/_*.py" = ["F821"]
+"*/asgi.py" = ["E402"]
+"*/commands/seed_*" = ["PLR2004"]
+"*/tests/*" = ["PLR2004"]
+"scripts/*" = ["C901", "PLR"]
+"*/settings/*" = ["F403"]

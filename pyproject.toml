@@ -1,0 +1,20 @@
+[project]
+name = "agent-graph-engineering"
+version = "0.1.0"
+description = "Companion repo for the Agent Graph Engineering blog series"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "backend",
+  "agent",
+]
+
+[tool.uv.workspace]
+members = ["backend", "agent"]
+
+[tool.uv.sources]
+backend = { workspace = true }
+agent = { workspace = true }
+
+[dependency-groups]
+dev = []

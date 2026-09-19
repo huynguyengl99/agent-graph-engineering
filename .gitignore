@@ -1,0 +1,55 @@
+# Monorepo Root .gitignore
+# Child projects have their own .gitignore files
+
+# Dependencies (root level)
+node_modules/
+
+# Python virtual environments (root level)
+.venv/
+.venv*/
+venv/
+ENV/
+
+# Python package metadata (root level)
+*.egg-info/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build outputs (root level)
+dist/
+build/
+
+# macOS system files
+.DS_Store
+
+# IDE settings (root level)
+.vscode/
+.idea/
+
+# Environment variables (root level)
+.env
+
+# Logs (root level)
+*.log
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Generated code (root level)
+app/src/schemas/backend/
+app/src/types/backend/
+app/src/types/websocket/
+backend/backend_app/agent_client/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Media files (testing)
+media-testing/

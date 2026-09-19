@@ -1,0 +1,20 @@
+{
+    "include": ["helpdesk"],
+    "extraPaths": ["helpdesk"],
+    "typeCheckingMode": "strict",
+    "reportMissingTypeArgument": "warning",
+    "reportMissingTypeStubs": "none",
+    "pythonVersion": "3.13",
+    "reportIncompatibleVariableOverride": "none",
+    "reportIncompatibleMethodOverride": "none",
+    "reportUnknownMemberType": "none",
+    "reportUnknownVariableType": "none",
+    "reportUnknownArgumentType": "none",
+    "reportPrivateUsage": "none",
+    "executionEnvironments": [
+        {
+            "root": "helpdesk/config/settings",
+            "reportConstantRedefinition": "none"
+        }
+    ]
+}

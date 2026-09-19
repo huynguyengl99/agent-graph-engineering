@@ -1,0 +1,80 @@
+# Triage Agent AsyncAPI documentation
+
+WebSocket contract between the Django backend and the triage agent
+
+**Version:** 0.1.0
+
+This WebSocket client was automatically generated from an AsyncAPI 3.0 schema.
+
+## Installation
+
+Install the required dependencies:
+
+```bash
+pip install websockets pydantic
+```
+
+## Usage
+
+Extend the generated client classes and override `handle_message` to process incoming messages:
+
+```python
+import asyncio
+from typing import assert_never
+from agent_client.triage import TriageClient, IncomingMessage
+
+class MyTriageClient(TriageClient):
+    async def handle_message(self, message: IncomingMessage) -> None:
+        # Handle incoming messages using pattern matching
+        match message:
+            case SomeMessageType():
+                print(f"Received SomeMessageType: {message}")
+                # Handle this message type
+            case AnotherMessageType():
+                print(f"Received AnotherMessageType: {message}")
+                # Handle this message type
+            case _:
+                assert_never(message)
+
+    async def handle_error(self, error):
+        # Handle errors during message processing
+        print(f"Error: {error}")
+
+async def main():
+    # Create client instance
+    client = MyTriageClient(        "ws://localhost:8000"
+    )
+
+    # Start the client (connects and listens for messages)
+    await client.handle()
+
+asyncio.run(main())
+```
+
+## Message Models
+
+Each channel module exports:
+- **Client class** - WebSocket client for that channel
+- **Message classes** - Individual message models (e.g., `ChatMessage`)
+- **Payload classes** - Message payload models (e.g., `ChatPayload`)
+- **IncomingMessage** - Union type of all messages the client can receive
+- **OutgoingMessage** - Union type of all messages the client can send
+
+Import from channel modules:
+```python
+from agent_client.triage import TriageClient, IncomingMessage, OutgoingMessage
+```
+
+## Sending Messages
+
+Use `send_message()` to send messages to the server:
+
+```python
+from agent_client.triage import TriageClient, OutgoingMessage
+
+class MyTriageClient(TriageClient):
+    async def handle_message(self, message):
+        # Echo back the message
+        response = OutgoingMessage(...)  # Create your message
+        await self.send_message(response)
+```

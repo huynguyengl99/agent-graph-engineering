@@ -1,0 +1,65 @@
+{{! Template for generating Zodios client per tag }}
+/**
+ * Generated Zodios client for {{tag}} endpoints
+ *
+ * DO NOT EDIT - This file is auto-generated from OpenAPI schema
+ * Run `pnpm gen:schema` to regenerate
+ */
+
+import { makeApi } from "@zodios/core";
+import { z } from "zod";
+{{#if hasSharedSchemas}}
+import * as common from "./common";
+{{/if}}
+
+{{! Define local schemas for this tag }}
+{{#each schemas}}
+{{#unless isCommon}}
+export const {{name}}Schema = {{{schema}}};
+export type {{name}} = z.infer<typeof {{name}}Schema>;
+{{/unless}}
+{{/each}}
+
+{{! API endpoints }}
+export const {{tag}}Api = makeApi([
+{{#each endpoints}}
+  {
+    method: "{{method}}",
+    path: "{{path}}",
+    alias: "{{operationId}}",
+    description: "{{summary}}",
+    {{#if requestSchema}}
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: {{requestSchema}},
+      },
+    ],
+    {{/if}}
+    {{#if pathParams}}
+    parameters: [
+      {{#each pathParams}}
+      {
+        name: "{{name}}",
+        type: "Path",
+        schema: z.string(){{#if required}}{{else}}.optional(){{/if}},
+      },
+      {{/each}}
+    ],
+    {{/if}}
+    {{#if queryParams}}
+    parameters: [
+      {{#each queryParams}}
+      {
+        name: "{{name}}",
+        type: "Query",
+        schema: {{{schema}}}{{#unless required}}.optional(){{/unless}},
+      },
+      {{/each}}
+    ],
+    {{/if}}
+    response: {{responseSchema}},
+  },
+{{/each}}
+]);

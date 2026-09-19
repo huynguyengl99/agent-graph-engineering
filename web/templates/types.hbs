@@ -1,0 +1,42 @@
+{{! Template for generating pure TypeScript types per tag }}
+/**
+ * Generated TypeScript types for {{tag}}
+ *
+ * DO NOT EDIT - This file is auto-generated from OpenAPI schema
+ * Run `pnpm gen:type` to regenerate
+ */
+
+{{#each types}}
+{{#if isEnum}}
+export enum {{name}} {
+  {{#each values}}
+  {{key}} = "{{value}}",
+  {{/each}}
+}
+{{else if isDiscriminatedUnion}}
+/**
+ * Polymorphic type: {{name}}
+ * Discriminator: {{discriminator}}
+ */
+{{#each variants}}
+export interface {{../name}}{{variant}} {
+  {{discriminator}}: "{{discriminatorValue}}";
+  {{#each fields}}
+  {{name}}{{#unless required}}?{{/unless}}: {{type}};
+  {{/each}}
+}
+{{/each}}
+
+export type {{name}} = {{#each variants}}{{#unless @first}} | {{/unless}}{{../name}}{{variant}}{{/each}};
+{{else}}
+export interface {{name}} {
+  {{#each fields}}
+  {{#if description}}
+  /** {{description}} */
+  {{/if}}
+  {{name}}{{#unless required}}?{{/unless}}: {{type}};
+  {{/each}}
+}
+{{/if}}
+
+{{/each}}

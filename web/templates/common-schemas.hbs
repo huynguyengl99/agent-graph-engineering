@@ -1,0 +1,39 @@
+{{! Template for common/shared Zod schemas }}
+/**
+ * Common Zod schemas shared across all endpoints
+ *
+ * DO NOT EDIT - This file is auto-generated from OpenAPI schema
+ * Run `pnpm gen:schema` to regenerate
+ */
+
+import { z } from "zod";
+
+{{#each schemas}}
+{{#if description}}
+/**
+ * {{description}}
+ */
+{{/if}}
+{{#if isDiscriminatedUnion}}
+// Polymorphic schema with discriminator: {{discriminator}}
+{{#each variants}}
+const {{../name}}{{variant}}Schema = z.object({
+  {{discriminator}}: z.literal("{{discriminatorValue}}"),
+  {{#each fields}}
+  {{name}}: {{{zodType}}}{{#unless required}}.optional(){{/unless}},
+  {{/each}}
+});
+{{/each}}
+
+export const {{name}}Schema = z.discriminatedUnion("{{discriminator}}", [
+  {{#each variants}}
+  {{../name}}{{variant}}Schema,
+  {{/each}}
+]);
+{{else}}
+export const {{name}}Schema = {{{zodSchema}}};
+{{/if}}
+
+export type {{name}} = z.infer<typeof {{name}}Schema>;
+
+{{/each}}

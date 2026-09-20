@@ -62,7 +62,10 @@ classifier_agent = Agent(
 )
 
 
-decision_agent = Agent(
+# A union output_type is the documented way to give the model a choice, but the
+# Agent overloads are typed for `type[T] | Sequence[Any]` and do not admit a
+# `X | Y` UnionType. Runtime is fine; only the stub cannot express it.
+decision_agent: Agent[TicketContext, TriageDecision] = Agent(  # type: ignore[call-overload]
     _model(settings.decision_model),
     output_type=TriageDecision,
     deps_type=TicketContext,

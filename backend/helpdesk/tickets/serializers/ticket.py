@@ -1,4 +1,6 @@
 """Ticket serializers."""
+from typing import Any
+
 from rest_framework import serializers
 
 from helpdesk.accounts.serializers import UserSerializer
@@ -34,7 +36,7 @@ class TicketCreateSerializer(serializers.ModelSerializer[Ticket]):
         model = Ticket
         fields = ["title", "description", "priority"]
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> Ticket:
         """Create ticket with current user as creator."""
         validated_data["created_by"] = self.context["request"].user
         return super().create(validated_data)

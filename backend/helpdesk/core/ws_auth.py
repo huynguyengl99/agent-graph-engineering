@@ -19,7 +19,7 @@ def _user_from_token(raw_token: str) -> Any:
     from rest_framework_simplejwt.tokens import AccessToken
 
     try:
-        token = AccessToken(raw_token)
+        token = AccessToken(raw_token)  # type: ignore[arg-type]
         return get_user_model().objects.get(pk=token["user_id"])
     except (TokenError, KeyError, get_user_model().DoesNotExist):
         return AnonymousUser()

@@ -4,6 +4,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 from triage.agents.triage_agents import (
+    TicketContext,
     answer_agent,
     classifier_agent,
     decision_agent,
@@ -21,6 +22,16 @@ from triage.tools.reply import send_reply_to_customer
 from triage.tracing import TICKET_ATTRIBUTE, tracer
 
 
+def _context_of(state: TriageState) -> TicketContext:
+    """Re-validate the context after a checkpoint round-trip.
+
+    Same reason as `_answer_of`: resuming an interrupt reloads state through the
+    serializer, which can hand a dataclass back as a plain dict.
+    """
+    context = state["context"]
+    return context if isinstance(context, TicketContext) else TicketContext(**context)
+
+
 def _node_span(name: str, state: TriageState):
     """One span per node, tagged with the ticket.
 
@@ -28,10 +39,8 @@ def _node_span(name: str, state: TriageState):
     whichever node opened this one. That nesting is the whole point: the trace
     shows the route taken, not just a flat list of completions.
     """
-    context = state["context"]
-    ticket_id = getattr(context, "ticket_id", None) or context["ticket_id"]
     return tracer().start_as_current_span(
-        f"node.{name}", attributes={TICKET_ATTRIBUTE: str(ticket_id)}
+        f"node.{name}", attributes={TICKET_ATTRIBUTE: _context_of(state).ticket_id}
     )
 
 
@@ -63,7 +72,7 @@ async def search_kb(state: TriageState) -> TriageState:
             span.set_attribute("triage.tool_error", output.error_type or "")
             return {
                 "kb_snippets": [],
-                "tool_error": output.user_error or output.error,
+                "tool_error": output.user_error or output.error or "",
             }
 
         span.set_attribute("triage.articles", len(output.result))
@@ -149,14 +158,11 @@ async def send_reply(state: TriageState) -> TriageState:
     """The irreversible step. Only reachable once approval has been granted."""
     with _node_span("send_reply", state) as span:
         answer = _answer_of(state)
-        context = state["context"]
-        ticket_id = (
-            context.ticket_id if hasattr(context, "ticket_id") else context["ticket_id"]
-        )
+        ticket_id = _context_of(state).ticket_id
         output = await send_reply_to_customer(ticket_id, answer.content, approved=True)
         if not output.ok:
             span.set_attribute("triage.tool_error", output.error_type or "")
-            return {"tool_error": output.user_error or output.error}
+            return {"tool_error": output.user_error or output.error or ""}
         return {"delivery_receipt": str(output.result)}
 
 

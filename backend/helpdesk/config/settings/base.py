@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Security
 SECRET_KEY = env.str("DJANGO_SECRET_KEY", "django-insecure-change-me")
 DEBUG = env.bool("DJANGO_DEBUG", False)
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", [])
+ALLOWED_HOSTS: list[str] = env.list("DJANGO_ALLOWED_HOSTS", [])
 
 # Application definition
 INSTALLED_APPS = [

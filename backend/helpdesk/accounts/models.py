@@ -1,5 +1,6 @@
 """User model."""
 import uuid
+from typing import Any
 
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -13,7 +14,7 @@ class UserManager(BaseUserManager["User"]):
     """Custom user manager."""
 
     def create_user(
-        self, email: str, password: str | None = None, **extra_fields
+        self, email: str, password: str | None = None, **extra_fields: Any
     ) -> "User":
         """Create and save a user with the given email and password."""
         if not email:
@@ -25,7 +26,7 @@ class UserManager(BaseUserManager["User"]):
         return user
 
     def create_superuser(
-        self, email: str, password: str | None = None, **extra_fields
+        self, email: str, password: str | None = None, **extra_fields: Any
     ) -> "User":
         """Create and save a superuser with the given email and password."""
         extra_fields.setdefault("is_staff", True)
@@ -57,7 +58,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS: list[str] = []
+    REQUIRED_FIELDS: list[str] = []  # type: ignore[misc]
 
     class Meta:
         verbose_name = "user"

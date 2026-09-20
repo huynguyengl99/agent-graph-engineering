@@ -33,7 +33,7 @@ class SpectacularNoErrorAPIView(SpectacularAPIView):
             schema = response.data
             self._strip_error_schemas(schema)
 
-        return response
+        return response  # type: ignore[no-any-return]
 
     def _strip_error_schemas(self, schema: dict[str, Any]) -> None:
         """

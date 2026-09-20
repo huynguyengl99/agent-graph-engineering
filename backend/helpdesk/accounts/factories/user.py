@@ -1,4 +1,6 @@
 """User model factory."""
+from typing import Any
+
 import factory
 
 from helpdesk.accounts.models import User
@@ -16,12 +18,12 @@ class UserFactory(BaseModelFactory[User]):
     is_superuser = False
 
     @factory.post_generation
-    def password(self, create: bool, extracted: str | None, **kwargs):
+    def password(self, create: bool, extracted: str | None, **kwargs: Any) -> None:
         """Set password after creation."""
         if not create:
             return
 
         if extracted:
-            self.set_password(extracted)
+            self.set_password(extracted)  # type: ignore[attr-defined]
         else:
-            self.set_password("testpass123")  # noqa: S106
+            self.set_password("testpass123")  # type: ignore[attr-defined]  # noqa: S106

@@ -1,9 +1,11 @@
 import logging
+from typing import Any
 
 from chanx.core.decorators import channel, ws_handler
 from chanx.fast_channels.websocket import AsyncJsonWebsocketConsumer
 from chanx.messages.incoming import PingMessage
 from chanx.messages.outgoing import PongMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from triage.agents.triage_agents import TicketContext
@@ -110,18 +112,25 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         initial: TriageState = {"context": context}
         await self._drive(context.ticket_id, initial)
 
-    async def _drive(self, ticket_id: str, payload: object) -> None:
+    async def _drive(
+        self, ticket_id: str, payload: TriageState | Command[Any]
+    ) -> None:
         """Stream one graph run, whether it is a fresh start or a resume.
 
         The thread id is the ticket, so a resume arriving on a different socket
         still finds the paused run.
         """
-        config = {"configurable": {"thread_id": ticket_id}}
+        config: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 
         # `stream_mode="updates"` yields one {node_name: update} dict per step,
         # not a (name, update) pair.
+        # StateT is invariant in the astream signature, so a declared
+        # `TriageState | Command` argument cannot satisfy it even though that is
+        # exactly what the graph accepts.
         async for step in triage_graph.astream(
-            payload, config=config, stream_mode="updates"
+            payload,  # type: ignore[arg-type]
+            config=config,
+            stream_mode="updates",
         ):
             for node_name, update in step.items():
                 if node_name == "__interrupt__":
@@ -164,8 +173,12 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                     payload=DecidedPayload(
                         ticket_id=ticket_id,
                         decision=type(decision).__name__,
-                        reasoning=getattr(decision, "reasoning", None)
-                        or getattr(decision, "reason", ""),
+                        # The decision union spells its justification either
+                        # `reasoning` or `reason` depending on the member.
+                        reasoning=str(
+                            getattr(decision, "reasoning", None)
+                            or getattr(decision, "reason", "")
+                        ),
                     )
                 )
             )

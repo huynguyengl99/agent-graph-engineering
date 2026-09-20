@@ -89,4 +89,5 @@ def _resolve(schema: dict[str, Any], schemas: dict[str, Any]) -> dict[str, Any]:
     ref = schema.get("$ref")
     if not ref:
         return schema
-    return schemas.get(ref.rsplit("/", 1)[-1], {})
+    resolved: dict[str, Any] = schemas.get(ref.rsplit("/", 1)[-1], {})
+    return resolved

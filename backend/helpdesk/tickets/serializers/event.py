@@ -81,7 +81,7 @@ class AIResponseEventSerializer(TicketEventBaseSerializer):
         ]
 
 
-class TicketEventPolymorphicSerializer(PolymorphicSerializer):
+class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[misc]
     """
     Polymorphic serializer for ticket events.
 
@@ -129,7 +129,7 @@ class CommentEventCreateSerializer(serializers.ModelSerializer[CommentEvent]):
         model = CommentEvent
         fields = ["content"]
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> CommentEvent:
         """Create comment event with ticket and user from context."""
         validated_data["ticket_id"] = self.context["ticket_id"]
         validated_data["created_by"] = self.context["request"].user

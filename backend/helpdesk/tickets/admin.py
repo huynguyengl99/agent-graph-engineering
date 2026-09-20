@@ -14,7 +14,7 @@ from helpdesk.tickets.models import (
 
 
 @admin.register(Ticket)
-class TicketAdmin(admin.ModelAdmin):
+class TicketAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     """Admin for Ticket model."""
 
     list_display = ["title", "status", "priority", "created_by", "assigned_to", "created_at"]
@@ -57,7 +57,7 @@ class TicketEventParentAdmin(PolymorphicParentModelAdmin):
     """Polymorphic parent admin for all ticket events."""
 
     base_model = TicketEvent
-    child_models = (CommentEvent, StatusChangeEvent, AssignmentEvent, AIResponseEvent)
+    child_models = [CommentEvent, StatusChangeEvent, AssignmentEvent, AIResponseEvent]
     list_display = ["__str__", "ticket", "created_by", "created_at"]
     list_filter = ["polymorphic_ctype", "created_at"]
     search_fields = ["ticket__title"]

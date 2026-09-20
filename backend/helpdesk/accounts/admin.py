@@ -6,7 +6,9 @@ from helpdesk.accounts.models import User
 
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin):
+# django-stubs types BaseUserAdmin as generic, but the runtime class is not
+# subscriptable, so the parameter cannot be written here.
+class UserAdmin(BaseUserAdmin):  # type: ignore[type-arg]
     """Admin for custom User model."""
 
     list_display = ["email", "first_name", "last_name", "is_staff", "date_joined"]

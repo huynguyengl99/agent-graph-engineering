@@ -3,6 +3,7 @@ from typing import Any
 
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.serializers import BaseSerializer
 
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -47,7 +48,7 @@ from helpdesk.tickets.serializers import (
         tags=["Tickets"],
     ),
 )
-class TicketViewSet(viewsets.ModelViewSet):
+class TicketViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
     """ViewSet for ticket CRUD operations."""
 
     queryset = Ticket.objects.select_related("created_by", "assigned_to").all()
@@ -58,7 +59,7 @@ class TicketViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at", "updated_at", "priority"]
     ordering = ["-created_at"]
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> type[BaseSerializer[Any]]:
         """Return appropriate serializer based on action."""
         if self.action == "create":
             return TicketCreateSerializer

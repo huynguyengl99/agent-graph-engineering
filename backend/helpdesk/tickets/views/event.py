@@ -1,8 +1,10 @@
 """Ticket event views."""
 from typing import Any
 
+from django.db.models import QuerySet
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.serializers import BaseSerializer
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
@@ -31,7 +33,7 @@ from helpdesk.tickets.serializers import (
 class TicketEventViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
-    viewsets.GenericViewSet,
+    viewsets.GenericViewSet,  # type: ignore[type-arg]
 ):
     """
     ViewSet for ticket events (read-only list + create comments).
@@ -45,7 +47,7 @@ class TicketEventViewSet(
 
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[TicketEvent]:
         """Return events for the ticket, properly ordered."""
         ticket_id = self.kwargs["ticket_pk"]
         return (
@@ -54,13 +56,13 @@ class TicketEventViewSet(
             .order_by("created_at")
         )
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> type[BaseSerializer[Any]]:
         """Return appropriate serializer based on action."""
         if self.action == "create":
             return CommentEventCreateSerializer
         return TicketEventPolymorphicSerializer
 
-    def get_serializer_context(self):
+    def get_serializer_context(self) -> dict[str, Any]:
         """Add ticket_id to serializer context for event creation."""
         context = super().get_serializer_context()
         context["ticket_id"] = self.kwargs["ticket_pk"]

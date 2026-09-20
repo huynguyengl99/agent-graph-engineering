@@ -1,0 +1,74 @@
+# Triage Agent - Agent Instructions
+
+**IMPORTANT**: When the user corrects you about a convention, pattern, structure, coding style, or gotcha — update this AGENTS.md to capture it so the lesson persists across sessions.
+
+## Project Structure
+
+```
+agent/
+├── triage/
+│   ├── main.py                  # FastAPI app entry point
+│   ├── apps/
+│   │   └── agent/               # Agent implementation
+│   │       ├── consumer.py      # WebSocket consumer (chanx fast-channels)
+│   │       ├── service.py       # Agent business logic
+│   │       └── messages.py      # Message definitions
+│   └── core/
+│       └── config.py            # Settings via environs
+├── pyproject.toml               # Dependencies (uv)
+├── pyrightconfig.json           # Pyright config
+└── ruff.toml                    # Linter config (in pyproject.toml)
+```
+
+## Quick Commands
+
+```bash
+# Install dependencies
+uv sync
+
+# Development server
+just agent
+# Or directly:
+cd agent && uv run uvicorn triage.main:app --port 8001 --reload
+
+# Linting & type checking
+cd agent && uv run ruff check .      # Ruff linter
+cd agent && pyright                   # Pyright type checker
+```
+
+## Code Style
+
+- Follow PEP 8 with 100 char line length (Ruff/Black formatting)
+- Use type hints on all function signatures, models, services, etc.
+- **HARD CONSTRAINT - Imports at top of file**: Always place imports at the top of the file, never inline inside functions. The only exceptions are:
+  - Inside `if TYPE_CHECKING:` blocks (for type-only imports)
+  - When Python/server startup actually fails due to circular imports (very rare)
+- **Async-first**: Use `async/await` for all I/O operations
+- Use Pydantic models for data validation
+- Only run linting/formatting/typechecking at the end of a feature implementation or bug fix, not after every small change. Stay calm and batch it.
+
+## AI Development
+
+### Agent Service
+
+The agent uses **pydantic-ai** for AI agent framework with OpenAI as the LLM provider. It communicates with the Django backend via WebSocket using **chanx fast-channels**.
+
+### WebSocket Communication
+
+- Uses **chanx fast-channels** for WebSocket consumers
+- AsyncAPI schema auto-generated for type-safe message contracts
+- Backend generates a Python WebSocket client from this schema
+
+### Adding New Agent Capabilities
+
+1. Define message types in `triage/apps/agent/messages.py`
+2. Implement logic in `triage/apps/agent/service.py`
+3. Handle WebSocket messages in `triage/apps/agent/consumer.py`
+4. Backend regenerates client: `just gen-agent-client`
+
+## Warnings & Gotchas
+
+1. **Async everywhere**: All I/O must be async - use `async/await`
+2. **Backend sync required**: After API changes, backend runs `just gen-agent-client` to update the client
+3. **PydanticAI**: Uses pydantic-ai for structured AI agent interactions
+4. **No venv activation**: The user already has the virtualenv activated. Never run `source .venv/bin/activate` or similar.

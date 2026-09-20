@@ -4,9 +4,6 @@
   "private": true,
   "type": "module",
   "description": "Companion repo for the Agent Graph Engineering blog series",
-  "workspaces": [
-    "web"
-  ],
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",

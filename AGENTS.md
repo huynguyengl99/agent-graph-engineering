@@ -35,7 +35,6 @@ Inherited from an earlier schema-first reference project whose WebSocket layer h
 
 **Still not done:**
 
-- `useTicketChat` is typed against a hand-written union mirroring the AsyncAPI document, to be replaced by the generated one in the contract track.
 - Never run against a real provider. Verified end to end with `ScriptedModel`; the OpenAI path is covered only by respx mocks.
 - Backend `mypy .` still reports 23 annotation gaps in inherited code.
 - No automated browser test. The UI was exercised via a scripted WebSocket client, not a real browser.
@@ -114,12 +113,23 @@ with the ticket; Pydantic AI's own spans (`instrument=True`) nest underneath.
 - `graph.astream(..., stream_mode="updates")` yields `{node_name: update}` per step, not a `(name, update)` tuple. The graph tests use `ainvoke` and cannot catch a mistake here; `tests/test_consumer_streaming.py` exists for that.
 - `agent/pyproject.toml` sets `addopts = "-p no:django"`. The shared venv makes pytest-django importable, and it activates off `DJANGO_SETTINGS_MODULE` in the root `.env`.
 
-### The AsyncAPI/OpenAPI generators
+### Generated clients
 
-`web/scripts/generate-{schemas,types,ws-types}.ts` are deliberately
-dependency-light and carry no project-specific assumptions, because the plan is
-to extract them into a package (most likely alongside chanx) around Part 8.
-Keep them that way: fetch a document, emit text, no imports from `src/`.
+- **WebSocket**: `@chanx-js/codegen` turns the backend's AsyncAPI document into
+  `web/src/generated/` (message types plus a channel descriptor), and
+  `@chanx-js/client/react` consumes it. `useTicketChat` is a thin wrapper over
+  `useChannel`, so `send()` only accepts declared actions and each handler's
+  payload is narrowed by its action. The hand-rolled `generate-ws-types.ts` is
+  gone; it silently emitted an empty file because it parsed the AsyncAPI 2.x
+  shape while chanx emits 3.0.
+- **REST**: `web/scripts/generate-{schemas,types}.ts` still hand-roll the
+  OpenAPI side. Keep them dependency-light and free of imports from `src/`.
+
+`@chanx-js/codegen` 0.1.2 has two rough edges worth remembering: it needs
+prettier 3 resolvable (v2 makes it crash on `prettier.resolveConfig`, which is
+why prettier is a direct devDependency here), and it emits an unused
+`defineTopic` import when a schema has no topics, which trips `noUnusedLocals`.
+The second one has to be stripped by hand after each regeneration until fixed.
 
 ### Pitfalls already hit (do not re-derive)
 

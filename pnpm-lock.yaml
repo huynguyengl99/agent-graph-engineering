@@ -10,6 +10,9 @@ importers:
 
   web:
     dependencies:
+      '@chanx-js/client':
+        specifier: ^0.1.2
+        version: 0.1.2(react@19.3.0)
       '@tanstack/react-router':
         specifier: ^1.87.0
         version: 1.170.38(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -25,9 +28,6 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.3.0(react@19.3.0)
-      react-use-websocket:
-        specifier: ^4.10.0
-        version: 4.13.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -35,6 +35,9 @@ importers:
         specifier: ^5.0.2
         version: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
     devDependencies:
+      '@chanx-js/codegen':
+        specifier: ^0.1.2
+        version: 0.1.2(prettier@3.9.9)
       '@eslint/js':
         specifier: ^9.39.5
         version: 9.39.5
@@ -68,6 +71,9 @@ importers:
       postcss:
         specifier: ^8.5.28
         version: 8.5.28
+      prettier:
+        specifier: ^3
+        version: 3.9.9
       tailwindcss:
         specifier: ^3.4.19
         version: 3.4.19(tsx@4.23.13)(yaml@2.9.1)
@@ -188,6 +194,34 @@ packages:
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
+
+  '@chanx-js/client@0.1.2':
+    resolution: {integrity: sha512-QjI2dq002AIlF0LTJdDhnWLP1fouMfZDeWUN43ERSMvRLAN32Qy3HujA5rSAm+DfypW9o1srkmYmJn726xq8ug==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      react: '>=18'
+      solid-js: '>=1.8'
+      svelte: '>=4'
+      vue: '>=3.4'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      solid-js:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+
+  '@chanx-js/codegen@0.1.2':
+    resolution: {integrity: sha512-fEOFpj8WytIMH9hJNPVNpxs+8Htzu+NIfJlWhLhniuI8Fq620l4U+At6jXnpoRv2V+UFWlj+7VvSyU/JCLp9oQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+    peerDependencies:
+      prettier: '>=3'
+    peerDependenciesMeta:
+      prettier:
+        optional: true
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -751,6 +785,9 @@ packages:
   '@tanstack/store@0.11.1':
     resolution: {integrity: sha512-mzTOBhypOuDJAy/D8n2MfUZ1HFkXnmSETviRyhqEC8LUE7/IZQExOTxMANj3KjTofYTkFNpBY67qaVrT41YccA==}
 
+  '@ts-morph/common@0.29.0':
+    resolution: {integrity: sha512-35oUmphHbJvQ/+UTwFNme/t2p3FoKiGJ5auTjjpNTop2dyREspirjMy82PLSC1pnDJ8ah1GU98hwpVt64YXQsg==}
+
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
 
@@ -973,6 +1010,9 @@ packages:
   chokidar@3.6.0:
     resolution: {integrity: sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==}
     engines: {node: '>= 8.10.0'}
+
+  code-block-writer@13.0.3:
+    resolution: {integrity: sha512-Oofo0pq3IKnsFtuHqSF7TqBfr71aeyZDVJ0HpmqB7FBM2qEigL0iPONSCZSO9pE9dZTAxANe5XHG9Uy0YMv8cg==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -1470,6 +1510,9 @@ packages:
       xstate:
         optional: true
 
+  path-browserify@1.0.1:
+    resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
+
   path-exists@4.0.0:
     resolution: {integrity: sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==}
     engines: {node: '>=8'}
@@ -1552,6 +1595,11 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
+  prettier@3.9.9:
+    resolution: {integrity: sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==}
+    engines: {node: '>=14'}
+    hasBin: true
+
   proxy-from-env@2.1.0:
     resolution: {integrity: sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==}
     engines: {node: '>=10'}
@@ -1571,9 +1619,6 @@ packages:
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
-
-  react-use-websocket@4.13.0:
-    resolution: {integrity: sha512-anMuVoV//g2N76Wxqvqjjo1X48r9Np3y1/gMl7arX84tAPXdy5R7sB5lO5hvCzQRYjqXwV8XMAiEBOUbyrZFrw==}
 
   react@19.3.0:
     resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
@@ -1697,6 +1742,9 @@ packages:
 
   ts-interface-checker@0.1.13:
     resolution: {integrity: sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA==}
+
+  ts-morph@28.0.0:
+    resolution: {integrity: sha512-Wp3tnZ2bzwxyTZMtgWVzXDfm7lB1Drz+y9DmmYH/L702PQhPyVrp3pkou3yIz4qjS14GY9kcpmLiOOMvl8oG1g==}
 
   ts-pattern@5.9.0:
     resolution: {integrity: sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg==}
@@ -1997,6 +2045,18 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
+
+  '@chanx-js/client@0.1.2(react@19.3.0)':
+    optionalDependencies:
+      react: 19.3.0
+
+  '@chanx-js/codegen@0.1.2(prettier@3.9.9)':
+    dependencies:
+      cac: 6.7.14
+      ts-morph: 28.0.0
+      yaml: 2.9.1
+    optionalDependencies:
+      prettier: 3.9.9
 
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
@@ -2361,6 +2421,12 @@ snapshots:
 
   '@tanstack/store@0.11.1': {}
 
+  '@ts-morph/common@0.29.0':
+    dependencies:
+      minimatch: 10.2.6
+      path-browserify: 1.0.1
+      tinyglobby: 0.2.17
+
   '@types/babel__core@7.20.5':
     dependencies:
       '@babel/parser': 7.29.9
@@ -2636,6 +2702,8 @@ snapshots:
       readdirp: 3.6.0
     optionalDependencies:
       fsevents: 2.3.3
+
+  code-block-writer@13.0.3: {}
 
   color-convert@2.0.1:
     dependencies:
@@ -3166,6 +3234,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  path-browserify@1.0.1: {}
+
   path-exists@4.0.0: {}
 
   path-key@3.1.1: {}
@@ -3223,6 +3293,8 @@ snapshots:
 
   prettier@2.8.8: {}
 
+  prettier@3.9.9: {}
+
   proxy-from-env@2.1.0: {}
 
   punycode@2.3.1: {}
@@ -3235,8 +3307,6 @@ snapshots:
       scheduler: 0.28.0
 
   react-refresh@0.17.0: {}
-
-  react-use-websocket@4.13.0: {}
 
   react@19.3.0: {}
 
@@ -3390,6 +3460,11 @@ snapshots:
       typescript: 5.9.3
 
   ts-interface-checker@0.1.13: {}
+
+  ts-morph@28.0.0:
+    dependencies:
+      '@ts-morph/common': 0.29.0
+      code-block-writer: 13.0.3
 
   ts-pattern@5.9.0: {}
 

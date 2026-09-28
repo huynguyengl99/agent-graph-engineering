@@ -10,21 +10,22 @@
     "lint": "eslint src --ext ts,tsx",
     "gen:schema": "tsx scripts/generate-schemas.ts",
     "gen:type": "tsx scripts/generate-types.ts",
-    "gen:ws": "tsx scripts/generate-ws-types.ts",
+    "gen:ws": "chanx-codegen http://localhost:8000/api/asyncapi/schema/ -o src/generated",
     "gen:all": "pnpm gen:schema && pnpm gen:type && pnpm gen:ws",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@chanx-js/client": "^0.1.2",
     "@tanstack/react-router": "^1.87.0",
     "@zodios/core": "^10.9.6",
     "axios": "^1.7.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-use-websocket": "^4.10.0",
     "zod": "^3.24.1",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@chanx-js/codegen": "^0.1.2",
     "@eslint/js": "^9.39.5",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
@@ -36,6 +37,7 @@
     "handlebars": "^4.7.8",
     "openapi-zod-client": "^1.18.2",
     "postcss": "^8.5.28",
+    "prettier": "^3",
     "tailwindcss": "^3.4.19",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

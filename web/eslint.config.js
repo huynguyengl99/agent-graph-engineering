@@ -5,7 +5,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 export default tseslint.config(
   {
     // Regenerated on every `pnpm gen:all`; lint the generators, not their output.
-    ignores: ["dist", "src/schemas/backend", "src/types/backend", "src/types/websocket"],
+    ignores: ["dist", "src/schemas/backend", "src/types/backend", "src/generated"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -68,6 +68,10 @@ frontend:
 test:
     @echo "🧪 Running backend tests..."
     cd backend && uv run pytest
+    @echo "🧪 Running agent tests..."
+    cd agent && uv run pytest
+    @echo "🧪 Running web tests..."
+    cd web && pnpm test
 
 # Run backend tests with coverage
 test-cov:
@@ -122,7 +126,8 @@ format:
 check:
     @echo "✅ Running all checks..."
     cd backend && uv run mypy . && uv run ruff check . && uv run python manage.py check
-    pnpm typecheck
+    cd agent && uv run mypy triage && uv run ruff check .
+    cd web && pnpm typecheck && pnpm lint
 
 # Clean generated files and caches
 clean:

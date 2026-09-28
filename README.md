@@ -26,7 +26,7 @@ The domain was chosen so that the graph earns its place (real routing, not a two
 | ---------- | ------------------------------------------------- | ---- |
 | `backend/` | Django 5.2, DRF, Channels, chanx, PostgreSQL      | 8000 |
 | `agent/`   | FastAPI, LangGraph, Pydantic AI, chanx            | 8001 |
-| `web/`     | React 19, Vite, TanStack Router, Zodios, Tailwind | 5173 |
+| `web/`     | React 19, Vite, Zodios, chanx-js, Tailwind        | 5173 |
 
 The backend owns users, tickets, and history. The agent service owns the graphs, the tools, and the checkpoints, and talks to nobody's database but its own.
 
@@ -41,7 +41,7 @@ graph LR
     B -->|script| D[TypeScript types]
 
     E[Backend consumers] -->|chanx| F[AsyncAPI]
-    F -->|script| G[WebSocket types]
+    F -->|chanx-js codegen| G[Typed WS client]
 
     H[Agent consumers] -->|chanx generate-client| I[Python WS client]
 ```
@@ -122,12 +122,12 @@ just gen-agent-client  # agent AsyncAPI to Python client (needs agent running)
 ## Testing
 
 ```bash
-just test    # backend tests
-just check   # mypy + ruff + django check + frontend typecheck
+just test    # backend, agent, and web suites
+just check   # mypy + ruff + django check + frontend typecheck and lint
 just lint    # lint all workspaces
 ```
 
-Agent tests mock the LLM at the HTTP layer rather than stubbing Pydantic AI, so the real pipeline runs: SSE parsing, tool call assembly, streaming, and validation. Evals against real models live separately and never run in CI, because they cost money.
+Agent tests mock the LLM at the HTTP layer rather than stubbing Pydantic AI, so the real pipeline runs: SSE parsing, tool call assembly, streaming, and validation. Web tests swap only the socket, through chanx-js's `socketFactory`, so the client's framing and routing run for real. Evals against real models live separately and never run in CI, because they cost money.
 
 ## Status
 

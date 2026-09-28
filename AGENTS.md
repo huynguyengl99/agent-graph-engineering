@@ -37,7 +37,9 @@ Inherited from an earlier schema-first reference project whose WebSocket layer h
 
 - Never run against a real provider. Verified end to end with `ScriptedModel`; the OpenAI path is covered only by respx mocks.
 - Backend `mypy .` still reports 23 annotation gaps in inherited code.
-- No automated browser test. The UI was exercised via a scripted WebSocket client, not a real browser.
+- No automated browser test. The hook is covered by unit tests against a fake
+  socket, and the full stack by a scripted WebSocket client, but nothing drives
+  a real browser.
 - Checkpointing is `InMemorySaver`, so a run parked at approval is lost if the agent restarts. Swapping in a Postgres saver is the only change needed.
 - No evals yet.
 
@@ -105,6 +107,18 @@ with the ticket; Pydantic AI's own spans (`instrument=True`) nest underneath.
 - `setup_tracing()` is called from `triage/agents/triage_agents.py` at import,
   before any `Agent` is constructed. Later and the first model call has no
   provider to report to.
+
+### Frontend tests
+
+`web/src/test/fake-socket.ts` is injected through chanx-js's `socketFactory`
+option, so the real client code (framing, routing, reconnect) runs unchanged and
+nothing global is monkey-patched. `useTicketChat.test.tsx` covers the address
+the generated descriptor produces, the frames the hook sends, and handler
+routing per action.
+
+These were mutation-checked when written: breaking the send action, unwiring the
+approval handler, and corrupting the ticket_id param each failed exactly one
+test. Keep that property when adding more.
 
 ### Things that will bite
 

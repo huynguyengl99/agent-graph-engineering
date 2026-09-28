@@ -14,7 +14,8 @@
     "format:fix": "pnpm -r format:fix",
     "typecheck": "pnpm -r typecheck",
     "check": "pnpm -r check",
-    "fix": "pnpm -r fix"
+    "fix": "pnpm -r fix",
+    "test": "pnpm -r test"
   },
   "packageManager": "pnpm@9.1.0",
   "engines": {

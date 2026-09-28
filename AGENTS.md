@@ -138,6 +138,11 @@ test. Keep that property when adding more.
   shape while chanx emits 3.0.
 - **REST**: `web/scripts/generate-{schemas,types}.ts` still hand-roll the
   OpenAPI side. Keep them dependency-light and free of imports from `src/`.
+- The socket carries a **typed** `TicketEvent` union (`tickets/messages/events.py`),
+  not `dict[str, Any]`. That is what puts a discriminated union in the AsyncAPI
+  document, so the generated client narrows on `eventType` exactly as the REST
+  client does. `lib/types.ts` re-exports that union as the app's single event
+  type for both transports.
 
 `@chanx-js/codegen` 0.1.2 has two rough edges worth remembering: it needs
 prettier 3 resolvable (v2 makes it crash on `prettier.resolveConfig`, which is
@@ -149,6 +154,12 @@ The second one has to be stripped by hand after each regeneration until fixed.
 
 - `asgi.py` must read settings via `django.conf.settings`, not by importing `settings.base` directly, or test overrides are silently ignored.
 - chanx accepts the socket *before* `post_authentication`, so rejecting there is a close, not a refused handshake.
+- `CHANX["CAMELIZE"]` only affects **AsyncAPI schema generation**, not the
+  runtime wire. Left alone, the document promises `eventType` while the socket
+  sends `event_type`, and a generated client finds none of its fields.
+  `helpdesk/core/ws_camel.py` camelizes in `encode_json` (and decamelizes in
+  `decode_json`) so the wire matches the contract for every message. Mix it in
+  *before* the chanx base class or the overrides lose.
 - `broadcast_message` fan-out arrives *after* the handler's `complete` frame. In tests use `receive_all_messages(stop_action="group_complete")`, and note each broadcast ends with its *own* `group_complete`, so drain one fan-out per read.
 - Because accept precedes `post_authentication`, `connect()` can return before `group_add` runs, and a broadcast in that window hits an empty group. Use `WebsocketTestCase.connect_ready()`, which pings to prove the consumer is live. This was an intermittent test failure, not a flake.
 - `BaseClient.__init__` takes `base_url` positionally only.

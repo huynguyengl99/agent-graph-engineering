@@ -7,7 +7,6 @@ posted the comment.
 """
 
 import logging
-from typing import Any
 
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
@@ -41,6 +40,7 @@ from helpdesk.tickets.messages import (
 from helpdesk.tickets.messages import (
     ApprovalRequiredPayload as FEApprovalRequiredPayload,
 )
+from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import AIResponseEvent
 from helpdesk.tickets.serializers.event import serialize_event
 
@@ -167,7 +167,7 @@ class TicketTriageClient(TriageClient):
                 pass
 
     @database_sync_to_async
-    def _persist_answer(self, content: str) -> dict[str, Any]:
+    def _persist_answer(self, content: str) -> WireTicketEvent:
         event = AIResponseEvent.objects.create(
             ticket_id=self.ticket_id,
             content=content,

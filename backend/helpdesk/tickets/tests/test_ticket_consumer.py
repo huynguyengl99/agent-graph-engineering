@@ -47,8 +47,8 @@ class TestTicketConsumer(WebsocketTestCase):
         assert new_event.action == "new_event"
         # chanx underscoreizes frames on parse, so the decoded payload is
         # snake_case here while the wire is camelCase (asserted below).
-        assert new_event.payload.event["event_type"] == "comment"
-        assert new_event.payload.event["content"] == "Still broken."
+        assert new_event.payload.event.event_type == "comment"
+        assert new_event.payload.event.content == "Still broken."
 
         assert await self._comment_count() == 1
 

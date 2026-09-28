@@ -1,3 +1,11 @@
+from .events import (
+    AIResponseEvent,
+    AssignmentEvent,
+    CommentEvent,
+    EventUser,
+    StatusChangeEvent,
+    TicketEvent,
+)
 from .incoming import (
     ApprovalDecisionMessage,
     ApprovalDecisionPayload,
@@ -18,18 +26,24 @@ from .outgoing import (
 )
 
 __all__ = [
+    "AIResponseEvent",
     "AgentProgressMessage",
     "AgentProgressPayload",
     "ApprovalDecisionMessage",
     "ApprovalDecisionPayload",
     "ApprovalRequiredMessage",
     "ApprovalRequiredPayload",
+    "AssignmentEvent",
+    "CommentEvent",
+    "EventUser",
     "CompleteStreamingMessage",
     "CompleteStreamingPayload",
     "NewEventMessage",
     "NewEventPayload",
     "SendMessageMessage",
     "SendMessagePayload",
+    "StatusChangeEvent",
     "StreamingMessage",
     "StreamingPayload",
+    "TicketEvent",
 ]

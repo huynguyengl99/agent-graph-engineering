@@ -10,10 +10,11 @@ from typing import Any
 
 from rest_framework import serializers
 
-from djangorestframework_camel_case.util import camelize
+from pydantic import TypeAdapter
 from rest_polymorphic.serializers import PolymorphicSerializer
 
 from helpdesk.accounts.serializers import UserSerializer
+from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import (
     AIResponseEvent,
     AssignmentEvent,
@@ -21,6 +22,8 @@ from helpdesk.tickets.models import (
     StatusChangeEvent,
     TicketEvent,
 )
+
+WireTicketEventAdapter: TypeAdapter[WireTicketEvent] = TypeAdapter(WireTicketEvent)
 
 
 class TicketEventBaseSerializer(serializers.ModelSerializer[TicketEvent]):
@@ -112,14 +115,16 @@ class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[m
         return str(model_or_instance.get_event_type())
 
 
-def serialize_event(event: TicketEvent) -> dict[str, Any]:
-    """Serialize a ticket event exactly as the REST API would render it.
+def serialize_event(event: TicketEvent) -> WireTicketEvent:
+    """Serialize a ticket event into the typed union the socket carries.
 
-    DRF applies CamelCaseJSONRenderer on the way out, but WebSocket payloads
-    bypass the renderer. Without camelizing here the same object would reach
-    the browser as `event_type` over the socket and `eventType` over REST.
+    Validating into the pydantic union rather than passing the serializer's dict
+    straight through is what puts a discriminated union in the AsyncAPI
+    document, so the generated client narrows on `eventType` the same way the
+    REST client does.
     """
-    return dict(camelize(TicketEventPolymorphicSerializer(event).data))
+    data = TicketEventPolymorphicSerializer(event).data
+    return WireTicketEventAdapter.validate_python(dict(data))
 
 
 class CommentEventCreateSerializer(serializers.ModelSerializer[CommentEvent]):

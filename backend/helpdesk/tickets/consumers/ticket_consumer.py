@@ -9,6 +9,7 @@ from chanx.core.decorators import channel, ws_handler
 from chanx.messages.incoming import PingMessage
 from chanx.messages.outgoing import PongMessage
 
+from helpdesk.core.ws_camel import CamelCaseJSONMixin
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     ApprovalDecisionMessage,
@@ -19,6 +20,7 @@ from helpdesk.tickets.messages import (
     SendMessageMessage,
     StreamingMessage,
 )
+from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import CommentEvent, Ticket
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.triage import run_triage, submit_approval
@@ -29,7 +31,7 @@ from helpdesk.tickets.services.triage import run_triage, submit_approval
     description="Realtime ticket activity: comments and streamed agent answers",
     tags=["tickets", "realtime"],
 )
-class TicketConsumer(AsyncJsonWebsocketConsumer):
+class TicketConsumer(CamelCaseJSONMixin, AsyncJsonWebsocketConsumer):
     """One socket per ticket. Every connected client sees the same event log."""
 
     async def post_authentication(self) -> None:
@@ -124,7 +126,7 @@ class TicketConsumer(AsyncJsonWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def _serialize(self, event: Any) -> dict[str, Any]:
+    def _serialize(self, event: Any) -> WireTicketEvent:
         return serialize_event(event)
 
     @database_sync_to_async

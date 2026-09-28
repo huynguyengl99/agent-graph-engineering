@@ -10,7 +10,15 @@
 
 import type { z } from 'zod';
 import { schemas } from '@/schemas/backend';
+import type { NewEventPayload } from '@/generated';
 
 export type Ticket = z.infer<typeof schemas.Ticket>;
-export type TicketEvent = z.infer<typeof schemas.TicketEventPolymorphic>;
+/**
+ * One canonical event type for both transports.
+ *
+ * REST and the WebSocket now describe the same polymorphic union, so the app
+ * uses the WS-generated interfaces: they are clean discriminated interfaces
+ * rather than Zod `.passthrough()` objects, and they narrow on `eventType`.
+ */
+export type TicketEvent = NewEventPayload['event'];
 export type User = z.infer<typeof schemas.User>;

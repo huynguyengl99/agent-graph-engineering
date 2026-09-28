@@ -30,9 +30,8 @@ export function useTicketChat({
     // Handlers rather than a lastMessage switch: no frame is dropped between
     // renders, and changing a handler does not reconnect the socket.
     on: {
-      new_event: (message) => onNewEvent?.(message.payload.event as TicketEvent),
-      complete_streaming: (message) =>
-        onNewEvent?.(message.payload.event as TicketEvent),
+      new_event: (message) => onNewEvent?.(message.payload.event),
+      complete_streaming: (message) => onNewEvent?.(message.payload.event),
       agent_progress: (message) =>
         onAgentProgress?.(message.payload.stage, message.payload.detail),
       approval_required: (message) => onApprovalRequired?.(message.payload.draft),

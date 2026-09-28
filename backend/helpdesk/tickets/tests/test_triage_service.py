@@ -100,7 +100,7 @@ class TestTriageService(WebsocketTestCase):
             stop_action="group_complete", timeout=3
         )
         assert [m.action for m in messages] == ["new_event"]
-        assert messages[0].payload.event["event_type"] == "ai_response"
+        assert messages[0].payload.event.event_type == "ai_response"
         assert await self._ai_response_count() == 1
 
     async def test_progress_stages_reach_the_group_without_persisting(self) -> None:

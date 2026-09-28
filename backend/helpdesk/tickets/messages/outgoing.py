@@ -1,13 +1,15 @@
-from typing import Any, Literal
+from typing import Literal
 
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
 
+from helpdesk.tickets.messages.events import TicketEvent
+
 
 class NewEventPayload(BaseModel):
-    """A serialized polymorphic `TicketEvent`, discriminated by `eventType`."""
+    """A polymorphic `TicketEvent`, discriminated by `eventType`."""
 
-    event: dict[str, Any]
+    event: TicketEvent
 
 
 class NewEventMessage(BaseMessage):
@@ -27,7 +29,7 @@ class StreamingMessage(BaseMessage):
 
 
 class CompleteStreamingPayload(BaseModel):
-    event: dict[str, Any]
+    event: TicketEvent
 
 
 class CompleteStreamingMessage(BaseMessage):

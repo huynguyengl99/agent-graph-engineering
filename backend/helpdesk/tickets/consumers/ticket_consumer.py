@@ -9,7 +9,6 @@ from chanx.core.decorators import channel, ws_handler
 from chanx.messages.incoming import PingMessage
 from chanx.messages.outgoing import PongMessage
 
-from helpdesk.core.ws_camel import CamelCaseJSONMixin
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     ApprovalDecisionMessage,
@@ -31,7 +30,7 @@ from helpdesk.tickets.services.triage import run_triage, submit_approval
     description="Realtime ticket activity: comments and streamed agent answers",
     tags=["tickets", "realtime"],
 )
-class TicketConsumer(CamelCaseJSONMixin, AsyncJsonWebsocketConsumer):
+class TicketConsumer(AsyncJsonWebsocketConsumer):
     """One socket per ticket. Every connected client sees the same event log."""
 
     async def post_authentication(self) -> None:

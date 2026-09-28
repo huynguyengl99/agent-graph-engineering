@@ -154,12 +154,11 @@ The second one has to be stripped by hand after each regeneration until fixed.
 
 - `asgi.py` must read settings via `django.conf.settings`, not by importing `settings.base` directly, or test overrides are silently ignored.
 - chanx accepts the socket *before* `post_authentication`, so rejecting there is a close, not a refused handshake.
-- `CHANX["CAMELIZE"]` only affects **AsyncAPI schema generation**, not the
-  runtime wire. Left alone, the document promises `eventType` while the socket
-  sends `event_type`, and a generated client finds none of its fields.
-  `helpdesk/core/ws_camel.py` camelizes in `encode_json` (and decamelizes in
-  `decode_json`) so the wire matches the contract for every message. Mix it in
-  *before* the chanx base class or the overrides lose.
+- `CHANX["CAMELIZE"]` camelizes the wire as well as the AsyncAPI document, but
+  only from chanx 2.11.4. Before that, `broadcast_message` skipped it while
+  direct sends applied it, so the same message arrived as `eventType` or
+  `event_type` depending on how it was sent. Hence the `>=2.11.4` floor: on an
+  older chanx the generated client silently finds no fields on broadcasts.
 - `broadcast_message` fan-out arrives *after* the handler's `complete` frame. In tests use `receive_all_messages(stop_action="group_complete")`, and note each broadcast ends with its *own* `group_complete`, so drain one fan-out per read.
 - Because accept precedes `post_authentication`, `connect()` can return before `group_add` runs, and a broadcast in that window hits an empty group. Use `WebsocketTestCase.connect_ready()`, which pings to prove the consumer is live. This was an intermittent test failure, not a flake.
 - `BaseClient.__init__` takes `base_url` positionally only.

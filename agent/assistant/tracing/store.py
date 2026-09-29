@@ -17,6 +17,8 @@ from typing import Any
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+from assistant.tracing.cost import RunCost, cost_of_span
+
 MAX_RUNS = 50
 RUN_ATTRIBUTE = "assistant.run_id"
 
@@ -83,6 +85,14 @@ class TraceStore:
             ]
 
         return build(None)
+
+    def cost(self, run_id: str) -> RunCost:
+        """Tokens and money for a whole run, summed over its model calls."""
+        total = RunCost()
+        for span in self.spans(run_id):
+            if (call := cost_of_span(span.attributes)) is not None:
+                total = total + call
+        return total
 
     def clear(self) -> None:
         with self._lock:

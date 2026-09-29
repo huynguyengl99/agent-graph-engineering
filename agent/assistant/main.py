@@ -80,7 +80,11 @@ async def run_trace(run_id: str) -> dict[str, object]:
     This is the view Part 0 complains that observability platforms do not give
     you: graph transitions and model calls in one nested tree, not a flat list.
     """
-    return {"run_id": run_id, "spans": trace_store.tree(run_id)}
+    return {
+        "run_id": run_id,
+        "usage": trace_store.cost(run_id).as_dict(),
+        "spans": trace_store.tree(run_id),
+    }
 
 
 ws_app = Starlette(

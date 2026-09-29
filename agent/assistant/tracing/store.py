@@ -17,8 +17,8 @@ from typing import Any
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
-MAX_TICKETS = 50
-TICKET_ATTRIBUTE = "assistant.ticket_id"
+MAX_RUNS = 50
+RUN_ATTRIBUTE = "assistant.run_id"
 
 
 @dataclass
@@ -38,20 +38,20 @@ class SpanRecord:
 class TraceStore:
     """A bounded, per-ticket ring of spans."""
 
-    def __init__(self, max_tickets: int = MAX_TICKETS) -> None:
+    def __init__(self, max_runs: int = MAX_RUNS) -> None:
         self._lock = Lock()
         self._by_ticket: OrderedDict[str, list[SpanRecord]] = OrderedDict()
-        self._max_tickets = max_tickets
+        self._max_runs = max_runs
 
     def add(self, ticket_id: str, record: SpanRecord) -> None:
         with self._lock:
             spans = self._by_ticket.setdefault(ticket_id, [])
             spans.append(record)
             self._by_ticket.move_to_end(ticket_id)
-            while len(self._by_ticket) > self._max_tickets:
+            while len(self._by_ticket) > self._max_runs:
                 self._by_ticket.popitem(last=False)
 
-    def tickets(self) -> list[str]:
+    def runs(self) -> list[str]:
         with self._lock:
             return list(self._by_ticket)
 
@@ -103,7 +103,7 @@ class TraceStoreExporter(SpanExporter):
 
     def __init__(self, store: TraceStore = trace_store) -> None:
         self._store = store
-        self._ticket_by_trace: dict[str, str] = {}
+        self._run_by_trace: dict[str, str] = {}
         self._pending: dict[str, list[SpanRecord]] = defaultdict(list)
 
     def export(self, spans: tuple[ReadableSpan, ...]) -> SpanExportResult:  # type: ignore[override]
@@ -121,10 +121,10 @@ class TraceStoreExporter(SpanExporter):
                 attributes=attributes,
             )
 
-            if ticket_id := attributes.get(TICKET_ATTRIBUTE):
-                self._ticket_by_trace[trace_id] = str(ticket_id)
+            if ticket_id := attributes.get(RUN_ATTRIBUTE):
+                self._run_by_trace[trace_id] = str(ticket_id)
 
-            known = self._ticket_by_trace.get(trace_id)
+            known = self._run_by_trace.get(trace_id)
             if known is None:
                 self._pending[trace_id].append(record)
                 continue
@@ -136,5 +136,5 @@ class TraceStoreExporter(SpanExporter):
         return SpanExportResult.SUCCESS
 
     def shutdown(self) -> None:
-        self._ticket_by_trace.clear()
+        self._run_by_trace.clear()
         self._pending.clear()

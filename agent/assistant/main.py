@@ -12,6 +12,7 @@ from assistant.core.layers import setup_layers
 from assistant.core.logging import setup_logging
 from assistant.graphs.triage_graph import triage_graph
 from assistant.tracing import setup_tracing, trace_store
+from assistant.ws.chat_consumer import ChatConsumer
 from assistant.ws.consumer import TriageConsumer
 
 setup_logging()
@@ -68,19 +69,24 @@ async def graph_diagram() -> Response:
 
 
 @app.get("/traces", tags=["Observability"])
-async def list_traced_tickets() -> dict[str, list[str]]:
-    return {"tickets": trace_store.tickets()}
+async def list_traced_runs() -> dict[str, list[str]]:
+    return {"runs": trace_store.runs()}
 
 
-@app.get("/traces/{ticket_id}", tags=["Observability"])
-async def ticket_trace(ticket_id: str) -> dict[str, object]:
+@app.get("/traces/{run_id}", tags=["Observability"])
+async def run_trace(run_id: str) -> dict[str, object]:
     """One user message, end to end, with the route it actually took.
 
     This is the view Part 0 complains that observability platforms do not give
     you: graph transitions and model calls in one nested tree, not a flat list.
     """
-    return {"ticket_id": ticket_id, "spans": trace_store.tree(ticket_id)}
+    return {"run_id": run_id, "spans": trace_store.tree(run_id)}
 
 
-ws_app = Starlette(routes=[WebSocketRoute("/triage", TriageConsumer.as_asgi())])
+ws_app = Starlette(
+    routes=[
+        WebSocketRoute("/triage", TriageConsumer.as_asgi()),
+        WebSocketRoute("/chat", ChatConsumer.as_asgi()),
+    ]
+)
 app.mount("/ws", ws_app)

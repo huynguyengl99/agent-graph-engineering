@@ -14,6 +14,7 @@ from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import build_triage_graph
 from assistant.outputs.triage import TicketAnswer
+from assistant.tracing import run_span
 from assistant.ws.messages import (
     AnswerMessage,
     AnswerPayload,
@@ -154,6 +155,17 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         # `TriageState | Command` argument cannot satisfy it even though that is
         # exactly what the graph accepts.
         findings: list[str] = []
+        with run_span("triage", ticket_id):
+            await self._stream(graph, payload, config, ticket_id, findings)
+
+    async def _stream(
+        self,
+        graph: Any,
+        payload: Any,
+        config: RunnableConfig,
+        ticket_id: str,
+        findings: list[str],
+    ) -> None:
         async for step in graph.astream(
             payload,  # type: ignore[arg-type]
             config=config,

@@ -3,7 +3,7 @@
 import pytest
 from assistant.agents import TicketContext
 from assistant.graphs.triage_graph import build_triage_graph
-from assistant.tracing import trace_store
+from assistant.tracing import run_span, setup_tracing, trace_store
 from langgraph.types import Command
 
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -11,6 +11,9 @@ from tests.helpers.openai_mock import mock_openai, tool_call
 
 @pytest.fixture(autouse=True)
 def clean_store():
+    # Without this the file only passes when some other test has installed a
+    # tracer provider first, and `pytest tests/test_tracing.py` records nothing.
+    setup_tracing()
     trace_store.clear()
     yield
     trace_store.clear()
@@ -104,3 +107,20 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
     assert len(flat) > before
     # The irreversible step is visible in the same ticket's trace.
     assert "node.send_reply" in flat
+
+
+async def test_a_run_is_one_trace_not_one_per_node() -> None:
+    """Without a root span every node opens its own trace, and a backend shows
+    one ticket as a dozen unrelated entries: the flat list of model calls this
+    project exists to complain about."""
+    trace_store.clear()
+    with run_span("triage", "t-root"):
+        await run("t-root")
+
+    tree = trace_store.tree("t-root")
+
+    assert len(tree) == 1, "a run should have exactly one root"
+    assert tree[0]["name"] == "triage run"
+    children = [child["name"] for child in tree[0]["children"]]
+    assert "node.classify" in children
+    assert "node.decide" in children

@@ -10,6 +10,7 @@ from langchain_core.runnables import RunnableConfig
 from assistant.agents.config import AgentConfig
 from assistant.agents.deps import ChatContext, TicketContext
 from assistant.graphs.chat_graph import build_chat_graph
+from assistant.tracing import run_span
 from assistant.ws.chat_messages import (
     ChatCompleteMessage,
     ChatCompletePayload,
@@ -80,13 +81,28 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 payload.models.model_dump() if payload.models else None
             )
         )
-        config: RunnableConfig = {
-            "configurable": {"thread_id": payload.conversation_id}
-        }
 
         answer = ""
         # "custom" carries the token deltas the node writes; "updates" carries
         # the node's return value, which is the text we persist.
+        with run_span("chat", payload.conversation_id):
+            answer = await self._consume(graph, context, payload)
+
+        await self.send_message(
+            ChatCompleteMessage(
+                payload=ChatCompletePayload(
+                    conversation_id=payload.conversation_id, content=answer
+                )
+            )
+        )
+
+    async def _consume(
+        self, graph: Any, context: ChatContext, payload: ChatRequestPayload
+    ) -> str:
+        config: RunnableConfig = {
+            "configurable": {"thread_id": payload.conversation_id}
+        }
+        answer = ""
         stream: Any = graph.astream(
             {"context": context, "question": payload.question},
             config=config,
@@ -105,13 +121,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             else:
                 answer = self._answer_of(chunk) or answer
 
-        await self.send_message(
-            ChatCompleteMessage(
-                payload=ChatCompletePayload(
-                    conversation_id=payload.conversation_id, content=answer
-                )
-            )
-        )
+        return answer
 
     def _answer_of(self, update: Any) -> str:
         if not isinstance(update, dict):

@@ -8,7 +8,7 @@ two live services talked to each other, so it gets its own test.
 from typing import Any
 
 import pytest
-from triage.agents.triage_agents import TicketContext
+from triage.agents import TicketContext
 from triage.ws.consumer import TriageConsumer
 from triage.ws.messages import TriageRequestMessage, TriageRequestPayload
 

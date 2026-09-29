@@ -5,12 +5,10 @@ cloned it: the graph, the routing, the streaming and the UI all behave the same,
 only the reasoning is canned. Set OPENAI_API_KEY to get real answers.
 """
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from typing import Any
 
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, ToolCallPart
-from pydantic_ai.models import Model, ModelRequestParameters, StreamedResponse
+from pydantic_ai.models import Model, ModelRequestParameters
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RequestUsage
 
@@ -41,17 +39,6 @@ class ScriptedModel(Model):
             usage=RequestUsage(input_tokens=1, output_tokens=1),
             model_name=self.model_name,
         )
-
-    @asynccontextmanager
-    async def request_stream(
-        self,
-        messages: list[ModelMessage],
-        model_settings: ModelSettings | None,
-        model_request_parameters: ModelRequestParameters,
-        run_context: Any = None,
-    ) -> AsyncIterator[StreamedResponse]:
-        raise NotImplementedError("ScriptedModel does not stream")
-        yield  # pragma: no cover
 
     def _respond(
         self, messages: list[ModelMessage], params: ModelRequestParameters

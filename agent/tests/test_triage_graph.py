@@ -1,4 +1,4 @@
-from triage.agents.triage_agents import TicketContext
+from triage.agents import TicketContext
 from triage.graphs.triage_graph import triage_graph
 from triage.outputs.triage import Escalate, SearchKnowledgeBase
 

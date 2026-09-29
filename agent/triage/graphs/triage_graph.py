@@ -3,121 +3,27 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from triage.agents.triage_agents import (
-    TicketContext,
-    answer_agent,
-    classifier_agent,
-    decision_agent,
-)
+from triage.agents import answer_agent, classifier_agent, decision_agent
+from triage.agents.deps import TicketContext
 from triage.graphs.state import TriageState
 from triage.outputs.triage import (
-    AnswerDirectly,
-    DraftReply,
     Escalate,
     SearchKnowledgeBase,
     TicketAnswer,
 )
 from triage.tools.knowledge_base import search_knowledge_base
 from triage.tools.reply import send_reply_to_customer
-from triage.tracing import TICKET_ATTRIBUTE, tracer
+from triage.tracing.nodes import Node, traced
 
 
 def _context_of(state: TriageState) -> TicketContext:
-    """Re-validate the context after a checkpoint round-trip.
-
-    Same reason as `_answer_of`: resuming an interrupt reloads state through the
-    serializer, which can hand a dataclass back as a plain dict.
-    """
+    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
     context = state["context"]
     return context if isinstance(context, TicketContext) else TicketContext(**context)
 
 
-def _node_span(name: str, state: TriageState):
-    """One span per node, tagged with the ticket.
-
-    Pydantic AI emits its own spans for each model call, so they nest inside
-    whichever node opened this one. That nesting is the whole point: the trace
-    shows the route taken, not just a flat list of completions.
-    """
-    return tracer().start_as_current_span(
-        f"node.{name}", attributes={TICKET_ATTRIBUTE: _context_of(state).ticket_id}
-    )
-
-
-async def classify(state: TriageState) -> TriageState:
-    with _node_span("classify", state):
-        context = state["context"]
-        result = await classifier_agent.run(context.render(), deps=context)
-        return {"classification": result.output}
-
-
-async def decide(state: TriageState) -> TriageState:
-    with _node_span("decide", state) as span:
-        context = state["context"]
-        result = await decision_agent.run(context.render(), deps=context)
-        span.set_attribute("triage.decision", type(result.output).__name__)
-        return {"decision": result.output}
-
-
-async def search_kb(state: TriageState) -> TriageState:
-    with _node_span("search_kb", state) as span:
-        decision = state["decision"]
-        assert isinstance(decision, SearchKnowledgeBase)
-        span.set_attribute("triage.query", decision.query)
-
-        # Through the wrapper, so a tool failure arrives as a typed ToolOutput
-        # rather than an exception unwinding the graph.
-        output = await search_knowledge_base(decision.query)
-        if not output.ok:
-            span.set_attribute("triage.tool_error", output.error_type or "")
-            return {
-                "kb_snippets": [],
-                "tool_error": output.user_error or output.error or "",
-            }
-
-        span.set_attribute("triage.articles", len(output.result))
-        return {"kb_snippets": [article.render() for article in output.result]}
-
-
-async def escalate(state: TriageState) -> TriageState:
-    with _node_span("escalate", state):
-        decision = state["decision"]
-        assert isinstance(decision, Escalate)
-        return {
-            "escalation_reason": decision.reason,
-            "answer": TicketAnswer(
-                content=(
-                    "Thanks for reaching out. I am handing this to a specialist on "
-                    f"our {decision.suggested_team} team, who will follow up here."
-                ),
-                requires_approval=False,
-            ),
-        }
-
-
-async def respond(state: TriageState) -> TriageState:
-    with _node_span("respond", state) as span:
-        context = state["context"]
-        prompt = context.render()
-
-        snippets = state.get("kb_snippets") or []
-        if snippets:
-            prompt += "\n\nKnowledge base articles:\n" + "\n\n".join(snippets)
-        span.set_attribute("triage.grounded", bool(snippets))
-
-        result = await answer_agent.run(prompt, deps=context)
-        answer = result.output
-        # Anything the customer will read goes through a human first.
-        return {"answer": answer.model_copy(update={"requires_approval": True})}
-
-
 def _answer_of(state: TriageState) -> TicketAnswer:
-    """Re-validate the answer after a checkpoint round-trip.
-
-    Resuming an interrupt reloads state through the serializer, which hands
-    pydantic models back as plain dicts. Everything downstream expects the
-    model, so normalise once here rather than guarding at each use.
-    """
+    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
     answer = state["answer"]
     return (
         answer
@@ -126,13 +32,59 @@ def _answer_of(state: TriageState) -> TicketAnswer:
     )
 
 
-async def await_approval(state: TriageState) -> TriageState:
-    """Pause the run until a human accepts or rejects the draft.
+async def classify(state: TriageState) -> TriageState:
+    context = _context_of(state)
+    result = await classifier_agent.run(context.render(), deps=context)
+    return {"classification": result.output}
 
-    `interrupt()` persists the graph to the checkpointer and raises out of the
-    run. The resume arrives later, possibly on a different socket, and LangGraph
-    replays this node with the decision as the return value.
-    """
+
+async def decide(state: TriageState) -> TriageState:
+    context = _context_of(state)
+    result = await decision_agent.run(context.render(), deps=context)
+    return {"decision": result.output}
+
+
+async def search_kb(state: TriageState) -> TriageState:
+    decision = state["decision"]
+    assert isinstance(decision, SearchKnowledgeBase)
+
+    output = await search_knowledge_base(decision.query)
+    if not output.ok:
+        return {"kb_snippets": [], "tool_error": output.user_error or output.error or ""}
+
+    return {"kb_snippets": [article.render() for article in output.result]}
+
+
+async def escalate(state: TriageState) -> TriageState:
+    decision = state["decision"]
+    assert isinstance(decision, Escalate)
+    return {
+        "escalation_reason": decision.reason,
+        "answer": TicketAnswer(
+            content=(
+                "Thanks for reaching out. I am handing this to a specialist on "
+                f"our {decision.suggested_team} team, who will follow up here."
+            ),
+            requires_approval=False,
+        ),
+    }
+
+
+async def respond(state: TriageState) -> TriageState:
+    context = _context_of(state)
+    prompt = context.render()
+
+    snippets = state.get("kb_snippets") or []
+    if snippets:
+        prompt += "\n\nKnowledge base articles:\n" + "\n\n".join(snippets)
+
+    result = await answer_agent.run(prompt, deps=context)
+    # Anything the customer will read goes through a human first.
+    return {"answer": result.output.model_copy(update={"requires_approval": True})}
+
+
+async def await_approval(state: TriageState) -> TriageState:
+    """Park the run until a human accepts, edits, or rejects the draft."""
     answer = _answer_of(state)
     decision = interrupt({"kind": "reply_approval", "draft": answer.content})
 
@@ -155,15 +107,14 @@ async def await_approval(state: TriageState) -> TriageState:
 
 
 async def send_reply(state: TriageState) -> TriageState:
-    """The irreversible step. Only reachable once approval has been granted."""
-    with _node_span("send_reply", state) as span:
-        answer = _answer_of(state)
-        ticket_id = _context_of(state).ticket_id
-        output = await send_reply_to_customer(ticket_id, answer.content, approved=True)
-        if not output.ok:
-            span.set_attribute("triage.tool_error", output.error_type or "")
-            return {"tool_error": output.user_error or output.error or ""}
-        return {"delivery_receipt": str(output.result)}
+    """The irreversible step, reachable only once approval is granted."""
+    answer = _answer_of(state)
+    output = await send_reply_to_customer(
+        _context_of(state).ticket_id, answer.content, approved=True
+    )
+    if not output.ok:
+        return {"tool_error": output.user_error or output.error or ""}
+    return {"delivery_receipt": str(output.result)}
 
 
 def route_after_approval(state: TriageState) -> str:
@@ -176,22 +127,27 @@ def route_decision(state: TriageState) -> str:
             return "search_kb"
         case Escalate():
             return "escalate"
-        case AnswerDirectly() | DraftReply():
-            return "respond"
         case _:
             return "respond"
+
+
+NODES: dict[str, Node] = {
+    "classify": classify,
+    "decide": decide,
+    "search_kb": search_kb,
+    "escalate": escalate,
+    "respond": respond,
+    "await_approval": await_approval,
+    "send_reply": send_reply,
+}
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(TriageState)
 
-    graph.add_node("classify", classify)
-    graph.add_node("decide", decide)
-    graph.add_node("search_kb", search_kb)
-    graph.add_node("escalate", escalate)
-    graph.add_node("respond", respond)
-    graph.add_node("await_approval", await_approval)
-    graph.add_node("send_reply", send_reply)
+    # Instrumented here, so no node body carries tracing code.
+    for name, node in NODES.items():
+        graph.add_node(name, traced(name, node))
 
     graph.add_edge(START, "classify")
     graph.add_edge("classify", "decide")
@@ -213,9 +169,7 @@ def build_graph() -> StateGraph:
     return graph
 
 
-# Checkpoints carry our own pydantic models, so the modules holding them must be
-# allow-listed for deserialization. Left implicit this only warns today, but
-# LangGraph will start refusing it.
+# Checkpoints carry our own models, so their modules must be allow-listed.
 serde = JsonPlusSerializer(
     allowed_msgpack_modules=[
         ("triage.outputs.triage", name)
@@ -228,10 +182,9 @@ serde = JsonPlusSerializer(
             "TicketAnswer",
         )
     ]
-    + [("triage.agents.triage_agents", "TicketContext")]
+    + [("triage.agents.deps", "TicketContext")]
 )
 
-# In-memory checkpointing is enough to pause and resume within one process.
 # Swapping in a Postgres saver is the only change needed to survive a restart.
 checkpointer = InMemorySaver(serde=serde)
 triage_graph = build_graph().compile(checkpointer=checkpointer)

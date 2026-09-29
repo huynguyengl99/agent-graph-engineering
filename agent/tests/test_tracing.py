@@ -2,7 +2,7 @@
 
 import pytest
 from langgraph.types import Command
-from triage.agents.triage_agents import TicketContext
+from triage.agents import TicketContext
 from triage.graphs.triage_graph import triage_graph
 from triage.tracing import trace_store
 
@@ -70,15 +70,16 @@ async def test_model_calls_nest_under_the_node_that_made_them() -> None:
     assert any("agent run" in child["name"] for child in classify["children"])
 
 
-async def test_node_attributes_explain_the_decision() -> None:
+async def test_model_call_spans_carry_usage() -> None:
+    """Pydantic AI's own attributes survive nesting under the node span."""
     await run("t-attrs")
 
     tree = trace_store.tree("t-attrs")
-    decide = next(n for n in tree if n["name"] == "node.decide")
-    search = next(n for n in tree if n["name"] == "node.search_kb")
+    classify = next(n for n in tree if n["name"] == "node.classify")
+    agent_run = next(c for c in classify["children"] if "agent run" in c["name"])
 
-    assert decide["attributes"]["triage.decision"] == "SearchKnowledgeBase"
-    assert search["attributes"]["triage.query"] == "invoice billing refund"
+    assert agent_run["attributes"]["gen_ai.usage.input_tokens"] >= 0
+    assert "final_result" in agent_run["attributes"]
 
 
 async def test_traces_are_isolated_per_ticket() -> None:

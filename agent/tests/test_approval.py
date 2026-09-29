@@ -1,7 +1,7 @@
 """The human-in-the-loop gate: pause, then approve, reject, or edit."""
 
 from langgraph.types import Command
-from triage.agents.triage_agents import TicketContext
+from triage.agents import TicketContext
 from triage.graphs.triage_graph import triage_graph
 
 from tests.helpers.openai_mock import mock_openai, tool_call

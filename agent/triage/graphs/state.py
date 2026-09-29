@@ -1,6 +1,6 @@
 from typing import Annotated, TypedDict
 
-from triage.agents.triage_agents import TicketContext
+from triage.agents import TicketContext
 from triage.outputs.triage import Classification, TicketAnswer, TriageDecision
 
 

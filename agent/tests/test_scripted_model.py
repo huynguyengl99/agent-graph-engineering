@@ -2,8 +2,8 @@
 
 import pytest
 from pydantic_ai import Agent
+from triage.agents import TicketContext
 from triage.agents.scripted import ScriptedModel
-from triage.agents.triage_agents import TicketContext
 from triage.graphs.state import TriageState
 from triage.outputs.triage import (
     Classification,

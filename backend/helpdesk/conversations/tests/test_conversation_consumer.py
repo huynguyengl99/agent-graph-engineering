@@ -48,7 +48,9 @@ class TestConversationTopic(WebsocketTestCase):
         """
         sent: list[tuple[str, str]] = []
 
-        async def fake_ask(conversation_id: str, question: str, **_: Any) -> None:
+        async def fake_ask(
+            conversation_id: str, question: str, *_args: Any, **_kwargs: Any
+        ) -> None:
             sent.append((conversation_id, question))
 
         await self.subscribe_ready(self.topic)

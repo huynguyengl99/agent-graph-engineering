@@ -42,6 +42,23 @@ class AgentConfig(BaseModel):
         return self.models[purpose]
 
     @classmethod
+    def from_slugs(cls, slugs: dict[str, str | None] | None) -> "AgentConfig":
+        """Build from `{purpose: "provider:name"}`, ignoring unset purposes.
+
+        An unknown purpose is dropped rather than raising: the wire is shared
+        with older clients, and a stray key should not fail a ticket.
+        """
+        overrides: dict[ModelPurpose, ModelConfig] = {}
+        for name, slug in (slugs or {}).items():
+            if not slug or name not in ModelPurpose.__members__.values():
+                continue
+            provider, _, model = slug.partition(":")
+            overrides[ModelPurpose(name)] = ModelConfig(
+                provider=provider, name=model or provider
+            )
+        return cls.resolve(overrides)
+
+    @classmethod
     def resolve(
         cls, overrides: dict[ModelPurpose, ModelConfig] | None = None
     ) -> "AgentConfig":

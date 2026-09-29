@@ -44,7 +44,12 @@ class ConversationTopic(Topic[ChatFeedEvent]):
     async def handle_ask(self, message: AskMessage) -> None:
         from helpdesk.conversations.services.chat import start_turn
 
-        await start_turn(self.params["conversation_id"], message.payload.content)
+        user = self.scope.get("user")
+        await start_turn(
+            self.params["conversation_id"],
+            message.payload.content,
+            user.pk if user is not None and user.is_authenticated else None,
+        )
 
     @ws_handler(
         summary="Send a drafted reply to a ticket",
@@ -59,7 +64,13 @@ class ConversationTopic(Topic[ChatFeedEvent]):
         from helpdesk.tickets.services.triage import start_approval
 
         payload = message.payload
-        await start_approval(payload.ticket_id, approved=True, content=payload.content)
+        user = self.scope.get("user")
+        await start_approval(
+            payload.ticket_id,
+            approved=True,
+            content=payload.content,
+            user_id=user.pk if user is not None and user.is_authenticated else None,
+        )
 
     @event_handler
     async def handle_chat_message(

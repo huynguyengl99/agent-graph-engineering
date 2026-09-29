@@ -16,6 +16,8 @@ from django.conf import settings
 import structlog
 from chanx.messages.base import BaseMessage
 
+from helpdesk.accounts.services.preferences import model_overrides
+from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.agent_client.triage.client import TriageClient
 from helpdesk.agent_client.triage.messages import (
     AnswerMessage,
@@ -184,7 +186,11 @@ class TicketTriageClient(TriageClient):
 
 
 async def run_triage(
-    ticket_id: str, title: str, description: str, history: list[str]
+    ticket_id: str,
+    title: str,
+    description: str,
+    history: list[str],
+    models: dict[str, str] | None = None,
 ) -> None:
     """Best-effort triage. A failure must never take down the chat socket.
 
@@ -200,6 +206,7 @@ async def run_triage(
                 title=title,
                 description=description,
                 history=history,
+                models=ModelOverrides(**(models or {})),
             ),
         )
         await client.handle()
@@ -216,7 +223,10 @@ async def run_triage(
 
 
 async def submit_approval(
-    ticket_id: str, approved: bool, content: str | None = None
+    ticket_id: str,
+    approved: bool,
+    content: str | None = None,
+    models: dict[str, str] | None = None,
 ) -> None:
     """Resume a run parked at the approval gate.
 
@@ -227,7 +237,10 @@ async def submit_approval(
         client = TicketTriageClient(
             ticket_id,
             ApprovalDecisionPayload(
-                ticket_id=ticket_id, approved=approved, content=content
+                ticket_id=ticket_id,
+                approved=approved,
+                content=content,
+                models=ModelOverrides(**(models or {})),
             ),
         )
         client.pending_reply = content
@@ -261,7 +274,7 @@ def _ticket_context(ticket_id: str) -> dict[str, Any]:
     }
 
 
-async def start_triage(ticket_id: str) -> None:
+async def start_triage(ticket_id: str, user_id: Any = None) -> None:
     """Kick off triage without holding the socket.
 
     Detached because the agent may take tens of seconds; results reach the
@@ -274,12 +287,24 @@ async def start_triage(ticket_id: str) -> None:
             title=context["title"],
             description=context["description"],
             history=context["history"],
+            models=await model_overrides(user_id),
         )
     )
 
 
 async def start_approval(
-    ticket_id: str, *, approved: bool, content: str | None = None
+    ticket_id: str,
+    *,
+    approved: bool,
+    content: str | None = None,
+    user_id: Any = None,
 ) -> None:
     """Resume a parked run. Detached for the same reason."""
-    spawn(submit_approval(ticket_id=ticket_id, approved=approved, content=content))
+    spawn(
+        submit_approval(
+            ticket_id=ticket_id,
+            approved=approved,
+            content=content,
+            models=await model_overrides(user_id),
+        )
+    )

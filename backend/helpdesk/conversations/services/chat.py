@@ -16,6 +16,7 @@ from django.conf import settings
 import structlog
 from chanx.messages.base import BaseMessage
 
+from helpdesk.accounts.services.preferences import model_overrides
 from helpdesk.agent_client.chat.client import ChatClient
 from helpdesk.agent_client.chat.messages import (
     ChatCompleteMessage,
@@ -27,6 +28,7 @@ from helpdesk.agent_client.chat.messages import (
     ChatTurn,
     IncomingMessage,
 )
+from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.conversations.messages import (
     AssistantDoneMessage,
     AssistantDonePayload,
@@ -126,7 +128,9 @@ class ConversationChatClient(ChatClient):
 
 
 @database_sync_to_async
-def conversation_request(conversation_id: str, question: str) -> ChatRequestPayload:
+def conversation_request(
+    conversation_id: str, question: str, models: dict[str, str] | None = None
+) -> ChatRequestPayload:
     """Build the agent request from what is already persisted."""
     conversation = Conversation.objects.select_related("ticket").get(
         id=conversation_id
@@ -152,10 +156,11 @@ def conversation_request(conversation_id: str, question: str) -> ChatRequestPayl
         question=question,
         history=history,
         ticket=chat_ticket,
+        models=ModelOverrides(**(models or {})),
     )
 
 
-async def ask(conversation_id: str, question: str) -> None:
+async def ask(conversation_id: str, question: str, user_id: Any = None) -> None:
     """Persist the rep's turn, then stream the assistant's answer back."""
     try:
         message = await _create_user_message(conversation_id, question)
@@ -171,7 +176,9 @@ async def ask(conversation_id: str, question: str) -> None:
             ),
         )
 
-        request = await conversation_request(conversation_id, question)
+        request = await conversation_request(
+            conversation_id, question, await model_overrides(user_id)
+        )
         await ConversationChatClient(conversation_id, request).handle()
     except Exception:
         logger.exception("chat.turn_failed", conversation_id=conversation_id)
@@ -190,6 +197,8 @@ def _create_user_message(conversation_id: str, content: str) -> Message:
     )
 
 
-async def start_turn(conversation_id: str, question: str) -> None:
+async def start_turn(
+    conversation_id: str, question: str, user_id: Any = None
+) -> None:
     """Run one turn detached: the answer streams over the topic, not the socket."""
-    spawn(ask(conversation_id, question))
+    spawn(ask(conversation_id, question, user_id))

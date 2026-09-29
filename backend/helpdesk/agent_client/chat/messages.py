@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from ..shared.messages import PingMessage, PongMessage
+from ..shared.messages import ModelOverrides, PingMessage, PongMessage
 
 
 class ChatCompletePayload(BaseModel):
@@ -69,6 +69,7 @@ class ChatRequestPayload(BaseModel):
     question: str
     history: list[ChatTurn] = []
     ticket: ChatTicket | None = None
+    models: ModelOverrides | None = None
 
 
 class ChatRequestMessage(BaseModel):

@@ -67,3 +67,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip() or self.email
+
+
+from helpdesk.accounts.models_preference import (  # noqa: E402
+    ModelPreference,
+    ModelPurpose,
+)
+
+__all__ = ["ModelPreference", "ModelPurpose", "User", "UserManager"]

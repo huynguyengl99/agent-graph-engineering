@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from ..shared.messages import PingMessage, PongMessage
+from ..shared.messages import ModelOverrides, PingMessage, PongMessage
 
 
 class AnswerPayload(BaseModel):
@@ -18,21 +18,6 @@ class AnswerMessage(BaseModel):
 
     action: Literal["answer"] = "answer"
     payload: AnswerPayload
-
-
-class ApprovalDecisionPayload(BaseModel):
-    """ApprovalDecisionPayload"""
-
-    ticket_id: str
-    approved: bool
-    content: str | None = None
-
-
-class ApprovalDecisionMessage(BaseModel):
-    """Resume a paused run. `content` overrides the draft when edited."""
-
-    action: Literal["approval_decision"] = "approval_decision"
-    payload: ApprovalDecisionPayload
 
 
 class ApprovalRequiredPayload(BaseModel):
@@ -79,6 +64,22 @@ class DecidedMessage(BaseModel):
 
     action: Literal["decided"] = "decided"
     payload: DecidedPayload
+
+
+class ApprovalDecisionPayload(BaseModel):
+    """ApprovalDecisionPayload"""
+
+    ticket_id: str
+    approved: bool
+    content: str | None = None
+    models: ModelOverrides | None = None
+
+
+class ApprovalDecisionMessage(BaseModel):
+    """Resume a paused run. `content` overrides the draft when edited."""
+
+    action: Literal["approval_decision"] = "approval_decision"
+    payload: ApprovalDecisionPayload
 
 
 class ReplyBlockedPayload(BaseModel):
@@ -131,6 +132,7 @@ class TriageRequestPayload(BaseModel):
     title: str
     description: str
     history: list[str] = []
+    models: ModelOverrides | None = None
 
 
 class TriageRequestMessage(BaseModel):

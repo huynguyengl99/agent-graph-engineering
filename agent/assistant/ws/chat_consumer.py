@@ -75,7 +75,11 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             ),
         )
 
-        graph = build_chat_graph(AgentConfig.resolve())
+        graph = build_chat_graph(
+            AgentConfig.from_slugs(
+                payload.models.model_dump() if payload.models else None
+            )
+        )
         config: RunnableConfig = {
             "configurable": {"thread_id": payload.conversation_id}
         }

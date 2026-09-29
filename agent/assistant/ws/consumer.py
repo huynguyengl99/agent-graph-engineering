@@ -36,6 +36,11 @@ from assistant.ws.messages import (
 logger = structlog.get_logger(__name__)
 
 
+def _slugs(overrides: Any) -> dict[str, str | None] | None:
+    """A user's model choices as `{purpose: slug}`, or None when unset."""
+    return overrides.model_dump() if overrides is not None else None
+
+
 @channel(
     name="triage",
     description="Runs the ticket triage graph and streams its decisions back",
@@ -76,7 +81,9 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         )
 
         try:
-            await self._run_graph(context)
+            await self._run_graph(
+                context, AgentConfig.from_slugs(_slugs(payload.models))
+            )
         except Exception:
             logger.exception("assistant.run_failed", ticket_id=payload.ticket_id)
             await self._fail(payload.ticket_id)
@@ -97,6 +104,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                         "content": payload.content,
                     }
                 ),
+                AgentConfig.from_slugs(_slugs(payload.models)),
             )
         except Exception:
             logger.exception("assistant.resume_failed", ticket_id=payload.ticket_id)
@@ -112,9 +120,11 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
             )
         )
 
-    async def _run_graph(self, context: TicketContext) -> None:
+    async def _run_graph(
+        self, context: TicketContext, agent_config: AgentConfig | None = None
+    ) -> None:
         initial: TriageState = {"context": context}
-        await self._drive(context.ticket_id, initial)
+        await self._drive(context.ticket_id, initial, agent_config)
 
     def _findings(self, update: object) -> list[str]:
         if isinstance(update, dict):
@@ -122,7 +132,10 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         return []
 
     async def _drive(
-        self, ticket_id: str, payload: TriageState | Command[Any]
+        self,
+        ticket_id: str,
+        payload: TriageState | Command[Any],
+        agent_config: AgentConfig | None = None,
     ) -> None:
         """Stream one graph run, whether it is a fresh start or a resume.
 
@@ -132,8 +145,8 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         config: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 
         # Built per run: the topology is fixed, but which model fills each
-        # purpose is resolved from the requesting user's config.
-        graph = build_triage_graph(AgentConfig.resolve())
+        # purpose comes from the requesting user.
+        graph = build_triage_graph(agent_config or AgentConfig.resolve())
 
         # `stream_mode="updates"` yields one {node_name: update} dict per step,
         # not a (name, update) pair.

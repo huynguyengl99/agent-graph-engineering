@@ -57,7 +57,10 @@ class TicketTopic(Topic[TicketFeedEvent]):
 
         from helpdesk.tickets.services.triage import start_triage
 
-        await start_triage(ticket_id)
+        user = self.scope.get("user")
+        await start_triage(
+            ticket_id, user.pk if user is not None and user.is_authenticated else None
+        )
 
     @ws_handler(
         summary="Approve, edit, or reject the drafted reply",
@@ -69,10 +72,12 @@ class TicketTopic(Topic[TicketFeedEvent]):
     ) -> None:
         from helpdesk.tickets.services.triage import start_approval
 
+        user = self.scope.get("user")
         await start_approval(
             self.params["ticket_id"],
             approved=message.payload.approved,
             content=message.payload.content,
+            user_id=user.pk if user is not None and user.is_authenticated else None,
         )
 
     # Relays: an event published to this topic goes straight to the client.

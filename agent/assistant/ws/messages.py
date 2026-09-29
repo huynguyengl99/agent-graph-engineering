@@ -6,11 +6,25 @@ from pydantic import BaseModel
 from assistant.outputs.triage import Category, Priority
 
 
+class ModelOverrides(BaseModel):
+    """Which model fills each purpose for this run.
+
+    The caller may set any subset; unset purposes fall through to the
+    deployment default. It cannot change *which* purpose a step runs under,
+    which is what keeps routing off the wrong class of model.
+    """
+
+    decision: str | None = None
+    answer: str | None = None
+    vision: str | None = None
+
+
 class TriageRequestPayload(BaseModel):
     ticket_id: str
     title: str
     description: str
     history: list[str] = []
+    models: ModelOverrides | None = None
 
 
 class TriageRequestMessage(BaseMessage):
@@ -101,6 +115,10 @@ class ApprovalDecisionPayload(BaseModel):
     ticket_id: str
     approved: bool
     content: str | None = None
+    # Carried on the resume too, so a run does not change models halfway
+    # through. Nothing after the gate calls a model today, but that is a
+    # property of the current graph, not something to rely on.
+    models: ModelOverrides | None = None
 
 
 class ApprovalDecisionMessage(BaseMessage):

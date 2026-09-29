@@ -3,6 +3,8 @@ from typing import Literal
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
 
+from assistant.ws.messages import ModelOverrides
+
 
 class ChatTicket(BaseModel):
     """The ticket a conversation was opened about, when there is one."""
@@ -22,6 +24,7 @@ class ChatRequestPayload(BaseModel):
     question: str
     history: list[ChatTurn] = []
     ticket: ChatTicket | None = None
+    models: ModelOverrides | None = None
 
 
 class ChatRequestMessage(BaseMessage):

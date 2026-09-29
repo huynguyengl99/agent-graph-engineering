@@ -1,11 +1,14 @@
 from typing import Any
 
+import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
 from assistant.agents.config import AgentConfig
 from assistant.agents.factory import AgentFactory
 from assistant.tracing.nodes import Node, traced
+
+logger = structlog.get_logger(__name__)
 
 
 class BaseGraph:
@@ -21,6 +24,11 @@ class BaseGraph:
     def __init__(self, config: AgentConfig | None = None) -> None:
         self.config = config or AgentConfig.resolve()
         self.factory = AgentFactory(self.config)
+        logger.debug(
+            "graph.built",
+            graph=type(self).name,
+            models={p.value: m.slug for p, m in self.config.models.items()},
+        )
 
     def build(self) -> StateGraph[Any, Any, Any, Any]:
         raise NotImplementedError

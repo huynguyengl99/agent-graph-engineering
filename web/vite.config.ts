@@ -20,6 +20,13 @@ export default defineConfig({
         target: 'ws://localhost:8000',
         ws: true,
       },
+      // The agent's own docs surface: graph diagrams and traces. Read-only,
+      // and only reachable in development.
+      '/agent': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/agent/, ''),
+      },
     },
   },
 })

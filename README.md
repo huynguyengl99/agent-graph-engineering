@@ -172,6 +172,22 @@ so a paused run does not survive an agent restart).
 
 MIT
 
+## Graphs and subgraphs
+
+Four graphs, two of them composed into a parent as nodes:
+
+| Graph | Kind | Why |
+|---|---|---|
+| `triage` | parent | classify, decide, answer or escalate |
+| `chat` | parent | the rep's own thread with the assistant |
+| `knowledge` | subgraph | it loops: search, refine, search again, capped |
+| `delivery` | subgraph | the only route to a customer, and the only irreversible step |
+
+`GET /graphs/triage.mermaid` renders the graph **from the compiled object**, so
+the picture cannot disagree with the code. `xray=true` (the default) expands
+the subgraphs inline; `xray=false` shows them as single boxes. The UI renders
+these at `/graphs`.
+
 ## Guardrails
 
 Two guards with different jobs, both in `agent/assistant/guardrails/`:

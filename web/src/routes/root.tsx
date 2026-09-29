@@ -8,7 +8,7 @@ import { TicketList } from '@/components/TicketList';
 import { ConversationList } from '@/components/ConversationList';
 import type { Conversation, Ticket } from '@/lib/types';
 
-type Pane = 'tickets' | 'chat';
+type Pane = 'tickets' | 'chat' | 'graphs';
 
 export function RootLayout() {
   const { fetchUser, logout, isAuthenticated, user } = useAuthStore();
@@ -20,7 +20,11 @@ export function RootLayout() {
   // The sidebar follows the route rather than its own state, so a deep link
   // opens on the right pane.
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const pane: Pane = path.startsWith('/chat') ? 'chat' : 'tickets';
+  const pane: Pane = path.startsWith('/chat')
+    ? 'chat'
+    : path.startsWith('/graphs')
+      ? 'graphs'
+      : 'tickets';
 
   useEffect(() => {
     void fetchUser();
@@ -92,6 +96,14 @@ export function RootLayout() {
           >
             Assistant
           </Link>
+          <Link
+            to="/graphs"
+            className={`rounded px-3 py-1 ${
+              pane === 'graphs' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'
+            }`}
+          >
+            Graphs
+          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="text-gray-600">{user?.fullName || user?.email}</span>
@@ -102,6 +114,7 @@ export function RootLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
+        {pane !== 'graphs' && (
         <aside className="w-80 shrink-0 overflow-y-auto border-r bg-white">
           {pane === 'chat' ? (
             <ConversationList
@@ -114,6 +127,7 @@ export function RootLayout() {
             <TicketList tickets={tickets} selectedId={ticketId ?? null} />
           )}
         </aside>
+        )}
 
         <main className="min-w-0 flex-1">
           <Outlet />

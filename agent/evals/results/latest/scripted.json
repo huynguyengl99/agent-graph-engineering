@@ -1,19 +1,19 @@
 {
-  "run_id": "d620117",
-  "git_commit": "d620117",
+  "run_id": "bc7d328",
+  "git_commit": "bc7d328",
   "models": {
     "decision": "scripted",
     "answer": "scripted",
     "vision": "scripted"
   },
   "trials": 1,
-  "total": 9,
-  "passed": 9,
+  "total": 11,
+  "passed": 11,
   "failed": 0,
   "usage": {
-    "calls": 27,
-    "input_tokens": 27,
-    "output_tokens": 27,
+    "calls": 33,
+    "input_tokens": 33,
+    "output_tokens": 33,
     "cost_usd": 0.0,
     "priced": false
   },
@@ -349,6 +349,89 @@
         "reasoning": "free checks passed",
         "judged": true
       },
+      "passed": true,
+      "usage": {
+        "calls": 3,
+        "input_tokens": 3,
+        "output_tokens": 3,
+        "cost_usd": 0.0,
+        "priced": false
+      },
+      "error": null
+    },
+    {
+      "scenario": "routing-a-documented-question-is-answered-from-the-knowledge-base",
+      "trials": 1,
+      "pass_rate": 1.0,
+      "deterministic": {
+        "decision": {
+          "expected": "SearchKnowledgeBase",
+          "actual": [
+            "SearchKnowledgeBase"
+          ],
+          "passed": true
+        },
+        "used_knowledge_base": {
+          "expected": true,
+          "actual": [
+            true
+          ],
+          "passed": true
+        },
+        "blocked": {
+          "expected": false,
+          "actual": [
+            false
+          ],
+          "passed": true
+        },
+        "findings": {
+          "expected": [],
+          "actual": [
+            []
+          ],
+          "passed": true
+        }
+      },
+      "judged": null,
+      "passed": true,
+      "usage": {
+        "calls": 3,
+        "input_tokens": 3,
+        "output_tokens": 3,
+        "cost_usd": 0.0,
+        "priced": false
+      },
+      "error": null
+    },
+    {
+      "scenario": "routing-an-undocumented-question-still-produces-a-draft",
+      "trials": 1,
+      "pass_rate": 1.0,
+      "deterministic": {
+        "used_knowledge_base": {
+          "expected": false,
+          "actual": [
+            false
+          ],
+          "passed": true
+        },
+        "blocked": {
+          "expected": false,
+          "actual": [
+            false
+          ],
+          "passed": true
+        },
+        "findings": {
+          "expected": [],
+          "actual": [
+            []
+          ],
+          "passed": true
+        }
+      },
+      "judged": null,
       "passed": true,
       "usage": {
         "calls": 3,

@@ -1,18 +1,16 @@
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import interrupt
 
 from assistant.agents import AgentConfig, AnswerAgent, ClassifierAgent, DecisionAgent
 from assistant.agents.deps import TicketContext
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.checkpointer import checkpointer
+from assistant.graphs.delivery_graph import build_delivery_graph
+from assistant.graphs.knowledge_graph import build_knowledge_graph
 from assistant.graphs.states import TriageState
-from assistant.guardrails import screen_input, screen_reply
+from assistant.guardrails import screen_input
 from assistant.outputs.triage import Escalate, SearchKnowledgeBase, TicketAnswer
-from assistant.prompts import ANSWER_PROMPT
-from assistant.tools.knowledge_base import search_knowledge_base
-from assistant.tools.reply import send_reply_to_customer
 from assistant.tracing.nodes import Node
 
 
@@ -33,6 +31,13 @@ def _answer_of(state: TriageState) -> TicketAnswer:
 
 
 class TriageGraph(BaseGraph):
+    """Works one ticket: file it, decide what to do, then answer or escalate.
+
+    Retrieval and delivery are subgraphs, so this graph only holds the
+    decisions. Adding a capability means a branch here and a graph of its own,
+    not another `if` in a handler.
+    """
+
     name = "triage"
 
     def __init__(self, config: AgentConfig | None = None) -> None:
@@ -52,19 +57,15 @@ class TriageGraph(BaseGraph):
 
     async def decide(self, state: TriageState) -> TriageState:
         context = _context_of(state)
-        return {"decision": await self.decider.run(context.render(), context)}
+        decision = await self.decider.run(context.render(), context)
 
-    async def search_kb(self, state: TriageState) -> TriageState:
-        decision = state["decision"]
-        assert isinstance(decision, SearchKnowledgeBase)
+        update: TriageState = {"decision": decision}
+        if isinstance(decision, SearchKnowledgeBase):
+            # The handoff into the subgraph: it searches for what the decider
+            # asked for, not for the whole ticket.
+            update["kb_query"] = decision.query
+        return update
 
-        output = await search_knowledge_base(decision.query)
-        if not output.ok:
-            return {
-                "kb_snippets": [],
-                "tool_error": output.user_error or output.error or "",
-            }
-        return {"kb_snippets": [article.render() for article in output.result]}
 
     async def escalate(self, state: TriageState) -> TriageState:
         decision = state["decision"]
@@ -92,80 +93,27 @@ class TriageGraph(BaseGraph):
         # Anything the customer will read goes through a human first.
         return {"answer": answer.model_copy(update={"requires_approval": True})}
 
-    async def screen(self, state: TriageState) -> TriageState:
-        """The machine check that runs before the human one.
 
-        A reviewer should never be asked to approve something a regex could
-        have caught, and a blocked draft never reaches the approval gate.
-        """
-        context = _context_of(state)
-        result = screen_reply(
-            _answer_of(state).content,
-            ticket_id=context.ticket_id,
-            instructions=ANSWER_PROMPT,
-        )
-        findings = list(state.get("guardrail_findings") or []) + result.rendered()
-        return {"guardrail_findings": findings, "reply_blocked": result.blocked}
 
-    async def await_approval(self, state: TriageState) -> TriageState:
-        """Park the run until a human accepts, edits, or rejects the draft."""
-        answer = _answer_of(state)
-        decision = interrupt({"kind": "reply_approval", "draft": answer.content})
 
-        approved = (
-            bool(decision.get("approved"))
-            if isinstance(decision, dict)
-            else bool(decision)
-        )
-        if not approved:
-            return {
-                "approval_granted": False,
-                "answer": answer.model_copy(
-                    update={"content": "The draft reply was rejected by a reviewer."}
-                ),
-            }
 
-        edited = decision.get("content") if isinstance(decision, dict) else None
-        return {
-            "approval_granted": True,
-            "answer": answer.model_copy(update={"content": edited or answer.content}),
-        }
-
-    async def send_reply(self, state: TriageState) -> TriageState:
-        """The irreversible step, reachable only once approval is granted."""
-        answer = _answer_of(state)
-        output = await send_reply_to_customer(
-            _context_of(state).ticket_id, answer.content, approved=True
-        )
-        if not output.ok:
-            return {"tool_error": output.user_error or output.error or ""}
-        return {"delivery_receipt": str(output.result)}
-
-    def route_after_screen(self, state: TriageState) -> str:
-        return END if state.get("reply_blocked") else "await_approval"
-
-    def route_after_approval(self, state: TriageState) -> str:
-        return "send_reply" if state.get("approval_granted") else END
 
     def route_decision(self, state: TriageState) -> str:
         match state["decision"]:
             case SearchKnowledgeBase():
-                return "search_kb"
+                return "knowledge"
             case Escalate():
                 return "escalate"
             case _:
                 return "respond"
 
     def nodes(self) -> dict[str, Node]:
+        """Only this graph's own steps. Subgraphs are added whole, in build()."""
         return {
             "classify": self.classify,
             "decide": self.decide,
-            "search_kb": self.search_kb,
             "escalate": self.escalate,
             "respond": self.respond,
-            "screen": self.screen,
-            "await_approval": self.await_approval,
-            "send_reply": self.send_reply,
         }
 
     def build(self) -> StateGraph[TriageState, None, TriageState, TriageState]:
@@ -174,27 +122,22 @@ class TriageGraph(BaseGraph):
         )
         self.add_nodes(graph)
 
+        # Compiled subgraphs go in as nodes. They share the keys they need with
+        # this state, so nothing has to be mapped across the boundary.
+        graph.add_node("knowledge", build_knowledge_graph(self.config))
+        graph.add_node("delivery", build_delivery_graph(self.config))
+
         graph.add_edge(START, "classify")
         graph.add_edge("classify", "decide")
         graph.add_conditional_edges(
             "decide",
             self.route_decision,
-            {"search_kb": "search_kb", "escalate": "escalate", "respond": "respond"},
+            {"knowledge": "knowledge", "escalate": "escalate", "respond": "respond"},
         )
-        graph.add_edge("search_kb", "respond")
+        graph.add_edge("knowledge", "respond")
         graph.add_edge("escalate", END)
-        graph.add_edge("respond", "screen")
-        graph.add_conditional_edges(
-            "screen",
-            self.route_after_screen,
-            {"await_approval": "await_approval", END: END},
-        )
-        graph.add_conditional_edges(
-            "await_approval",
-            self.route_after_approval,
-            {"send_reply": "send_reply", END: END},
-        )
-        graph.add_edge("send_reply", END)
+        graph.add_edge("respond", "delivery")
+        graph.add_edge("delivery", END)
 
         return graph
 
@@ -207,6 +150,3 @@ def build_triage_graph(
     is which model each purpose resolves to."""
     return TriageGraph(config).compile(saver or checkpointer())
 
-
-# Only for drawing: /graph.mermaid needs the topology, not a store.
-triage_graph = TriageGraph().build().compile()

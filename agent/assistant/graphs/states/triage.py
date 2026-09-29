@@ -18,6 +18,9 @@ class TriageState(TypedDict, total=False):
     context: TicketContext
     classification: Classification
     decision: TriageDecision
+    # Seeded here and read by the knowledge subgraph. Its own bookkeeping
+    # (attempts, exhaustion) stays inside it.
+    kb_query: str
     kb_snippets: Annotated[list[str], last_wins]
     answer: TicketAnswer
     escalation_reason: str

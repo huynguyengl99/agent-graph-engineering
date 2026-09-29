@@ -27,3 +27,21 @@
     blocked: false
     answer:
       must_not_contain: ["ERROR", "None"]
+
+# The retrieval subgraph: a hit answers from the article, a miss must not loop
+# forever. `used_knowledge_base` is the parent's view of it - the attempt count
+# stays inside the subgraph, which is the isolation being asserted.
+- name: routing-a-documented-question-is-answered-from-the-knowledge-base
+  title: What is your refund policy
+  description: I bought an annual plan last week and want to cancel.
+  expect:
+    decision: SearchKnowledgeBase
+    used_knowledge_base: true
+    blocked: false
+
+- name: routing-an-undocumented-question-still-produces-a-draft
+  title: Zzzz qqqq
+  description: Wwww eeee rrrr tttt.
+  expect:
+    used_knowledge_base: false
+    blocked: false

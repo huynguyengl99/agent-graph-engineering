@@ -139,3 +139,43 @@ deploy drops every reply waiting on a reviewer.
 
 Tests install an in-memory saver via `install_checkpointer`, so proving a
 resume needs no database.
+
+## Graphs and subgraphs
+
+`assistant/graphs/registry.py` is the list of every flow this service runs. A
+graph missing from it is invisible to the docs endpoints, which is the intended
+pressure.
+
+| Graph | Kind | Why it is its own graph |
+|---|---|---|
+| `triage` | parent | works one ticket: classify, decide, answer or escalate |
+| `chat` | parent | the rep's own thread; nothing customer-visible |
+| `knowledge` | subgraph | it *loops* - search, refine, search again, capped at `MAX_ATTEMPTS` |
+| `delivery` | subgraph | the only route to a customer, and the only irreversible step |
+
+Subgraphs are compiled and added as nodes (`graph.add_node("knowledge", build_knowledge_graph(...))`).
+They share only the keys they need with the parent state, so nothing has to be
+mapped across the boundary; their private bookkeeping (`kb_attempts`) never
+leaves.
+
+Two things this changed that are easy to trip over:
+
+- **A subgraph's writes reach the parent only when it returns.** The approval
+  gate is inside `delivery`, so while a run is parked the parent cannot see
+  `guardrail_findings` or `reply_blocked`. The reviewer's information travels
+  on the interrupt payload instead, which is where it belongs anyway.
+- **The parent seeds the subgraph.** `decide` writes `kb_query` from the
+  decision, so retrieval searches for what the decider asked for rather than
+  for the whole ticket.
+
+## Diagrams
+
+```
+GET /graphs                        # every graph, and which are subgraphs
+GET /graphs/{name}.mermaid         # xray=true by default, expands subgraphs
+GET /graphs/{name}.mermaid?xray=false
+```
+
+Generated from the compiled graph, so the picture cannot disagree with the
+code. The web UI renders them at `/graphs` (the agent is proxied at `/agent`
+in development).

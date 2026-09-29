@@ -7,8 +7,9 @@ import { RootLayout } from '@/routes/root';
 import { TicketsIndex } from '@/routes/index';
 import { TicketRoute } from '@/routes/ticket';
 import { ChatRoute } from '@/routes/chat';
+import { GraphsRoute } from '@/routes/graphs';
 
-// Code-based routes rather than file-based: four of them, and it keeps the
+// Code-based routes rather than file-based: five of them, and it keeps the
 // build free of a route-tree generator step.
 const rootRoute = createRootRoute({ component: RootLayout });
 
@@ -48,12 +49,19 @@ const chatRoute = createRoute({
   },
 });
 
+const graphsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/graphs',
+  component: GraphsRoute,
+});
+
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     indexRoute,
     ticketRoute,
     chatIndexRoute,
     chatRoute,
+    graphsRoute,
   ]),
 });
 

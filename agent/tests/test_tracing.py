@@ -54,7 +54,8 @@ async def test_trace_records_the_route_that_was_taken() -> None:
 
     assert "node.classify" in flat
     assert "node.decide" in flat
-    assert "node.search_kb" in flat
+    # The retrieval subgraph appears by its own node name.
+    assert "node.search" in flat
     # The branch that was not taken leaves no span.
     assert "node.escalate" not in flat
 

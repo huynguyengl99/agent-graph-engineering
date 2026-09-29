@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from chanx.fast_channels import asyncapi_docs, asyncapi_spec_json, asyncapi_spec_yaml
 from chanx.fast_channels.type_defs import AsyncAPIConfig
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -14,7 +14,7 @@ from assistant.core.config import settings
 from assistant.core.layers import setup_layers
 from assistant.core.logging import setup_logging
 from assistant.graphs.checkpointer import close_checkpointer, setup_checkpointer
-from assistant.graphs.triage_graph import triage_graph
+from assistant.graphs.registry import GRAPHS, describe, mermaid
 from assistant.tracing import setup_tracing, trace_store
 from assistant.ws.chat_consumer import ChatConsumer
 from assistant.ws.consumer import TriageConsumer
@@ -72,11 +72,22 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/graph.mermaid", tags=["Documentation"], response_class=Response)
-async def graph_diagram() -> Response:
-    """The running graph, rendered. This is the picture that cannot go stale."""
+@app.get("/graphs", tags=["Documentation"])
+async def list_graphs() -> dict[str, list[dict[str, object]]]:
+    return {"graphs": describe()}
+
+
+@app.get("/graphs/{name}.mermaid", tags=["Documentation"], response_class=Response)
+async def graph_diagram(name: str, xray: bool = True) -> Response:
+    """The running graph, rendered. This is the picture that cannot go stale.
+
+    `xray=false` shows composed subgraphs as single boxes, which is the view
+    you want when the question is "what are the top-level steps".
+    """
+    if name not in GRAPHS:
+        raise HTTPException(status_code=404, detail=f"no graph named {name!r}")
     return Response(
-        triage_graph.get_graph().draw_mermaid(),
+        mermaid(name, xray=xray),
         media_type="text/plain; charset=utf-8",
     )
 

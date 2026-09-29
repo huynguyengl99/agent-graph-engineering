@@ -6,8 +6,8 @@ prompt, and above all no path to `send_reply`.
 
 from typing import Any
 
-import pytest
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose, TicketContext
+from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.triage_graph import TriageGraph
 
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -42,10 +42,23 @@ async def run_with_reply(reply: str) -> dict[str, Any]:
         return await graph.ainvoke({"context": ticket()})
 
 
+def interrupt_value(state: dict[str, Any]) -> dict[str, Any]:
+    """What the reviewer is being shown.
+
+    A subgraph's writes only merge into the parent when it returns, and the
+    delivery subgraph is parked, so the draft and its findings travel on the
+    interrupt rather than in state.
+    """
+    interrupts = state["__interrupt__"]
+    return dict(interrupts[0].value)
+
+
 async def test_a_clean_draft_reaches_the_approval_gate() -> None:
     state = await run_with_reply("The second charge is proration for your upgrade.")
 
-    assert state.get("reply_blocked") is False
+    parked = interrupt_value(state)
+    assert parked["kind"] == "reply_approval"
+    assert parked["findings"] == [], "a clean draft has nothing to warn about"
     assert state.get("delivery_receipt") is None, "nothing sends without approval"
 
 
@@ -82,13 +95,23 @@ async def test_an_injection_attempt_is_recorded_but_does_not_stop_the_run() -> N
             }
         )
 
+    # Recorded on the way in, and carried to whoever reviews the reply.
     assert any("override_instructions" in f for f in state["guardrail_findings"])
-    # Recorded, not refused: the ticket was still worked.
-    assert state["reply_blocked"] is False
-    assert state["answer"].content
+
+    parked = interrupt_value(state)
+    assert any("override_instructions" in f for f in parked["findings"])
+    # Recorded, not refused: the ticket was still worked and a draft exists.
+    assert parked["draft"]
 
 
-@pytest.mark.parametrize("node", ["screen"])
-def test_the_guard_is_a_node_not_a_call_inside_one(node: str) -> None:
-    """It has to be a node, or it cannot sit on the edge into approval."""
-    assert node in TriageGraph().nodes()
+def test_the_guard_is_a_node_on_the_only_path_to_a_customer() -> None:
+    """It has to be a node, or it cannot sit on the edge into approval.
+
+    It lives in the delivery subgraph now, which is also the only route to
+    `send_reply`: there is no second way to reach a customer.
+    """
+    delivery = DeliveryGraph().nodes()
+
+    assert "screen" in delivery
+    assert "send_reply" in delivery
+    assert "send_reply" not in TriageGraph().nodes()

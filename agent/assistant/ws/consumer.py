@@ -196,7 +196,8 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                         payload=ApprovalRequiredPayload(
                             ticket_id=ticket_id,
                             draft=str(value.get("draft", "")),
-                            findings=findings,
+                            findings=[str(f) for f in value.get("findings") or []]
+                            or findings,
                         )
                     )
                 )

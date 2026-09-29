@@ -31,6 +31,8 @@ class Settings:
         ["http://localhost:5173", "http://127.0.0.1:5173"],
     )
     debug: bool = env.bool("DEBUG", True)
+    # Pacing for the keyless model, so streaming is visible without a provider.
+    scripted_stream_delay: float = env.float("SCRIPTED_STREAM_DELAY", 0.02)
 
     # Any OTLP-speaking backend: Langfuse, Jaeger, Grafana, an OTel collector.
     # Unset means traces stay in memory and are readable at /traces/{ticket_id}.

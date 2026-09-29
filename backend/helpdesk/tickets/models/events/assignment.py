@@ -6,8 +6,6 @@ from .base import TicketEvent
 
 
 class AssignmentEvent(TicketEvent):
-    """Ticket assignment change event."""
-
     old_assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

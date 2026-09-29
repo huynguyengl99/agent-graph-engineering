@@ -6,8 +6,6 @@ from django.db import models
 
 
 class TicketStatus(models.TextChoices):
-    """Ticket status choices."""
-
     OPEN = "open", "Open"
     IN_PROGRESS = "in_progress", "In Progress"
     RESOLVED = "resolved", "Resolved"
@@ -15,8 +13,6 @@ class TicketStatus(models.TextChoices):
 
 
 class TicketPriority(models.TextChoices):
-    """Ticket priority choices."""
-
     LOW = "low", "Low"
     MEDIUM = "medium", "Medium"
     HIGH = "high", "High"
@@ -24,8 +20,6 @@ class TicketPriority(models.TextChoices):
 
 
 class Ticket(models.Model):
-    """Support ticket model."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     description = models.TextField()

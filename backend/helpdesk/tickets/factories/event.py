@@ -15,8 +15,6 @@ from .ticket import TicketFactory
 
 
 class CommentEventFactory(BaseModelFactory[CommentEvent]):
-    """Factory for creating CommentEvent instances."""
-
     ticket = factory.SubFactory(TicketFactory)
     created_by = factory.SubFactory(UserFactory)
     content = factory.Faker("paragraph")

@@ -7,8 +7,6 @@ from .base import TicketEvent
 
 
 class StatusChangeEvent(TicketEvent):
-    """Ticket status change event."""
-
     old_status = models.CharField(max_length=20, choices=TicketStatus.choices)
     new_status = models.CharField(max_length=20, choices=TicketStatus.choices)
 

@@ -11,8 +11,6 @@ from django.db import models
 
 
 class UserManager(BaseUserManager["User"]):
-    """Custom user manager."""
-
     def create_user(
         self, email: str, password: str | None = None, **extra_fields: Any
     ) -> "User":
@@ -41,8 +39,6 @@ class UserManager(BaseUserManager["User"]):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """Custom user model with email as username."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True, max_length=255)
     first_name = models.CharField(max_length=150, blank=True)
@@ -70,5 +66,4 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def full_name(self) -> str:
-        """Return the user's full name."""
         return f"{self.first_name} {self.last_name}".strip() or self.email

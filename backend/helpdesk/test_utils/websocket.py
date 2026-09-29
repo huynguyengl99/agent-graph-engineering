@@ -19,7 +19,6 @@ class WebsocketTestCase(BaseWebsocketTestCase):
     """
 
     def setUp(self) -> None:
-        """Set up test user and WebSocket headers."""
         self.user, self.ws_headers = self.create_user_and_ws_headers()
         super().setUp()
 
@@ -43,11 +42,9 @@ class WebsocketTestCase(BaseWebsocketTestCase):
     async def acreate_user_and_ws_headers(
         self,
     ) -> tuple[User, list[tuple[bytes, bytes]]]:
-        """Async version of create_user_and_ws_headers."""
         return await sync_to_async(self.create_user_and_ws_headers)()
 
     def get_ws_headers(self) -> list[tuple[bytes, bytes]]:
-        """Get the WebSocket headers for this test."""
         return self.ws_headers
 
     async def connect_ready(self, communicator: Any = None) -> Any:

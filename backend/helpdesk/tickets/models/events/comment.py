@@ -5,8 +5,6 @@ from .base import TicketEvent
 
 
 class CommentEvent(TicketEvent):
-    """User comment on a ticket."""
-
     content = models.TextField()
 
     @classmethod

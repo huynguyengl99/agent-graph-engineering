@@ -16,7 +16,6 @@ class AuthAPITestCase(APITestCase):
     """
 
     def setUp(self) -> None:
-        """Set up test user and authenticated client."""
         self.user = UserFactory.create(email="user@test.com")
         self.user.save()
 
@@ -41,5 +40,4 @@ class AuthAPITestCase(APITestCase):
 
     @classmethod
     async def aget_client_for_user(cls, user: User) -> APIClient:
-        """Async version of get_client_for_user."""
         return await sync_to_async(cls.get_client_for_user)(user)

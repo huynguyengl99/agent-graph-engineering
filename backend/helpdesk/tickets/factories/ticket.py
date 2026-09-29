@@ -7,8 +7,6 @@ from helpdesk.tickets.models import Ticket, TicketPriority, TicketStatus
 
 
 class TicketFactory(BaseModelFactory[Ticket]):
-    """Factory for creating Ticket instances."""
-
     title = factory.Faker("sentence", nb_words=6)
     description = factory.Faker("paragraph", nb_sentences=3)
     status = TicketStatus.OPEN

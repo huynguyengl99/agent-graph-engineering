@@ -15,8 +15,6 @@ from helpdesk.tickets.models import (
 
 @admin.register(Ticket)
 class TicketAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
-    """Admin for Ticket model."""
-
     list_display = ["title", "status", "priority", "created_by", "assigned_to", "created_at"]
     list_filter = ["status", "priority", "created_at"]
     search_fields = ["title", "description"]
@@ -25,29 +23,21 @@ class TicketAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
 
 
 class CommentEventAdmin(PolymorphicChildModelAdmin):
-    """Admin for CommentEvent."""
-
     base_model = CommentEvent
     show_in_index = True
 
 
 class StatusChangeEventAdmin(PolymorphicChildModelAdmin):
-    """Admin for StatusChangeEvent."""
-
     base_model = StatusChangeEvent
     show_in_index = True
 
 
 class AssignmentEventAdmin(PolymorphicChildModelAdmin):
-    """Admin for AssignmentEvent."""
-
     base_model = AssignmentEvent
     show_in_index = True
 
 
 class AIResponseEventAdmin(PolymorphicChildModelAdmin):
-    """Admin for AIResponseEvent."""
-
     base_model = AIResponseEvent
     show_in_index = True
 

@@ -5,8 +5,6 @@ from .base import TicketEvent
 
 
 class AIResponseEvent(TicketEvent):
-    """AI-generated response event."""
-
     content = models.TextField()
     model_name = models.CharField(max_length=100, default="gpt-4")
     tokens_used = models.IntegerField(default=0)

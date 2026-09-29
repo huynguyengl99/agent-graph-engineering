@@ -26,6 +26,12 @@ class Settings:
     vision_model: str = env.str("ASSISTANT_VISION_MODEL", "openai:gpt-4o")
 
     redis_url: str = env.str("REDIS_URL", "")
+    # Where paused runs live. Unset falls back to memory, which loses every
+    # approval waiting on a human when the process restarts.
+    checkpoint_database_url: str = env.str(
+        "CHECKPOINT_DATABASE_URL", env.str("DATABASE_URL", "")
+    )
+    checkpoint_pool_size: int = env.int("CHECKPOINT_POOL_SIZE", 10)
     cors_origins: list[str] = env.list(
         "CORS_ALLOWED_ORIGINS",
         ["http://localhost:5173", "http://127.0.0.1:5173"],

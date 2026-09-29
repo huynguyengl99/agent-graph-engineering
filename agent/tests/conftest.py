@@ -10,3 +10,17 @@ HTTP layer rather than stubbing Pydantic AI.
 import os
 
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-respx")
+
+
+import pytest
+from assistant.graphs.checkpointer import install_checkpointer, memory_checkpointer
+
+
+@pytest.fixture(autouse=True)
+def _checkpointer() -> None:
+    """A fresh in-memory saver per test.
+
+    The service uses Postgres; a unit test should not need a database to prove
+    that a run resumes, and a saver shared between tests leaks threads.
+    """
+    install_checkpointer(memory_checkpointer())

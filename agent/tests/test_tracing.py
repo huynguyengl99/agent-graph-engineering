@@ -2,7 +2,7 @@
 
 import pytest
 from assistant.agents import TicketContext
-from assistant.graphs.triage_graph import triage_graph
+from assistant.graphs.triage_graph import build_triage_graph
 from assistant.tracing import trace_store
 from langgraph.types import Command
 
@@ -41,7 +41,7 @@ async def run(ticket_id: str) -> None:
         ),
         tool_call("final_result", {"content": "Proration.", "requires_approval": False}),
     ):
-        await triage_graph.ainvoke(
+        await build_triage_graph().ainvoke(
             {"context": TicketContext(ticket_id=ticket_id, title="t", description="d")},
             config=config(ticket_id),
         )
@@ -95,7 +95,7 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
     await run("t-resume")
     before = len(names(trace_store.tree("t-resume")))
 
-    await triage_graph.ainvoke(
+    await build_triage_graph().ainvoke(
         Command(resume={"approved": True}), config=config("t-resume")
     )
 

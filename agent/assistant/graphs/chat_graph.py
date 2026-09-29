@@ -1,3 +1,4 @@
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -6,8 +7,8 @@ from assistant.agents import AgentConfig
 from assistant.agents.chat import ChatAgent
 from assistant.agents.deps import ChatContext
 from assistant.graphs.base import BaseGraph
+from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.states import ChatState
-from assistant.graphs.triage_graph import checkpointer
 from assistant.tracing.nodes import Node
 
 
@@ -57,5 +58,6 @@ class ChatGraph(BaseGraph):
 
 def build_chat_graph(
     config: AgentConfig | None = None,
+    saver: BaseCheckpointSaver[str] | None = None,
 ) -> CompiledStateGraph[ChatState, None, ChatState, ChatState]:
-    return ChatGraph(config).compile(checkpointer)
+    return ChatGraph(config).compile(saver or checkpointer())

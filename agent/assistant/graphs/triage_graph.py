@@ -1,5 +1,4 @@
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
@@ -7,6 +6,7 @@ from langgraph.types import interrupt
 from assistant.agents import AgentConfig, AnswerAgent, ClassifierAgent, DecisionAgent
 from assistant.agents.deps import TicketContext
 from assistant.graphs.base import BaseGraph
+from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.states import TriageState
 from assistant.guardrails import screen_input, screen_reply
 from assistant.outputs.triage import Escalate, SearchKnowledgeBase, TicketAnswer
@@ -199,36 +199,14 @@ class TriageGraph(BaseGraph):
         return graph
 
 
-# Checkpoints carry our own models, so their modules must be allow-listed.
-serde = JsonPlusSerializer(
-    allowed_msgpack_modules=[
-        ("assistant.outputs.triage", name)
-        for name in (
-            "Classification",
-            "AnswerDirectly",
-            "SearchKnowledgeBase",
-            "Escalate",
-            "DraftReply",
-            "TicketAnswer",
-        )
-    ]
-    + [("assistant.agents.deps", "TicketContext")]
-)
-
-# Shared across runs: resume finds a parked graph by thread id, not by the
-# instance that started it. Swapping in a Postgres saver is the only change
-# needed to survive a restart.
-checkpointer = InMemorySaver(serde=serde)
-
-
 def build_triage_graph(
     config: AgentConfig | None = None,
+    saver: BaseCheckpointSaver[str] | None = None,
 ) -> CompiledStateGraph[TriageState, None, TriageState, TriageState]:
     """Compile a run's graph. Cheap, and the topology never varies; what varies
     is which model each purpose resolves to."""
-    return TriageGraph(config).compile(checkpointer)
+    return TriageGraph(config).compile(saver or checkpointer())
 
 
-# The deployment's default graph, on system config alone: what /graph.mermaid
-# renders, and what a caller with no user preference gets.
-triage_graph = build_triage_graph()
+# Only for drawing: /graph.mermaid needs the topology, not a store.
+triage_graph = TriageGraph().build().compile()

@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from chanx.fast_channels import asyncapi_docs, asyncapi_spec_json, asyncapi_spec_yaml
 from chanx.fast_channels.type_defs import AsyncAPIConfig
 from fastapi import FastAPI, Response
@@ -10,6 +13,7 @@ from starlette.routing import WebSocketRoute
 from assistant.core.config import settings
 from assistant.core.layers import setup_layers
 from assistant.core.logging import setup_logging
+from assistant.graphs.checkpointer import close_checkpointer, setup_checkpointer
 from assistant.graphs.triage_graph import triage_graph
 from assistant.tracing import setup_tracing, trace_store
 from assistant.ws.chat_consumer import ChatConsumer
@@ -19,10 +23,19 @@ setup_logging()
 setup_layers()
 setup_tracing()
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Opens the pool and creates the checkpoint tables before the first socket.
+    await setup_checkpointer()
+    yield
+    await close_checkpointer()
+
+
 app = FastAPI(
     title="Triage Agent",
     description="LangGraph ticket triage over a typed WebSocket",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

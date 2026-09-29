@@ -8,12 +8,13 @@ dependencies = [
     "uvicorn[standard]>=0.32.1",
     "pydantic>=2.10.0",
     "pydantic-ai>=1.0,<2",
-    "langgraph>=1.0,<2",
+    "langgraph>=1.2,<2",
     "chanx[fast-channels,cli]>=2.11.4,<3",
     "openai>=1.57.0",
     "structlog>=24.4.0",
     "environs>=11.2.2",
     "opentelemetry-sdk>=1.30,<2",
+    "langgraph-checkpoint-postgres>=3.1,<4",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +32,11 @@ dev = [
     "respx>=0.22,<1",
     "httpx>=0.28,<1",
 ]
+
+# `evals/` sits beside `assistant/`, so automatic discovery sees two top-level
+# packages and refuses to build. Only the service is the package.
+[tool.setuptools.packages.find]
+include = ["assistant*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

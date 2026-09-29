@@ -53,3 +53,6 @@ htmlcov/
 
 # Media files (testing)
 media-testing/
+
+# Eval runs pile up; the committed baseline in evals/results/latest/ is enough.
+agent/evals/results/runs/

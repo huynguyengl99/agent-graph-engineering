@@ -1,0 +1,9 @@
+{
+  "models": {
+    "decision": { "provider": "openai", "name": "gpt-4o-mini", "temperature": 0 },
+    "answer":   { "provider": "openai", "name": "gpt-4o",      "temperature": 0 },
+    "vision":   { "provider": "openai", "name": "gpt-4o",      "temperature": 0 }
+  },
+  "judge": { "provider": "openai", "name": "gpt-4o", "temperature": 0 },
+  "trials": 1
+}

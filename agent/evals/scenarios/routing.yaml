@@ -1,0 +1,29 @@
+# Does the graph file the ticket correctly and pick the right branch?
+# These are the decisions everything downstream depends on, so they are
+# asserted deterministically rather than judged.
+
+- name: routing-billing-goes-to-the-knowledge-base
+  title: Charged twice this month
+  description: My card shows two charges for the same plan. Can you explain?
+  expect:
+    category: billing
+    decision: SearchKnowledgeBase
+    used_knowledge_base: true
+    blocked: false
+
+- name: routing-account-access-is-high-priority
+  title: Cannot enable 2FA
+  description: The QR code never appears when I try to turn on two-factor.
+  expect:
+    category: account
+    priority: high
+    used_knowledge_base: true
+
+- name: routing-a-vague-question-still-produces-a-draft
+  title: A question
+  description: I had a thought about your product.
+  expect:
+    category: general
+    blocked: false
+    answer:
+      must_not_contain: ["ERROR", "None"]

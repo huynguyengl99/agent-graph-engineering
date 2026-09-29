@@ -72,3 +72,40 @@ The agent uses **pydantic-ai** for AI agent framework with OpenAI as the LLM pro
 2. **Backend sync required**: After API changes, backend runs `just gen-agent-client` to update the client
 3. **PydanticAI**: Uses pydantic-ai for structured AI agent interactions
 4. **No venv activation**: The user already has the virtualenv activated. Never run `source .venv/bin/activate` or similar.
+
+## Guardrails
+
+`assistant/guardrails/` holds two guards with different jobs:
+
+- **Input** (`input.py`): every customer-written field is fenced by
+  `TicketContext.render()` so the model has a stated data/instruction boundary.
+  Injection shapes are *recorded, never blocked* - a desk that refuses tickets
+  containing "ignore" is broken, and a warning everyone learns to skip is worse
+  than none.
+- **Output** (`output.py`): runs as the `screen` graph node, between the drafted
+  answer and the human approval gate. Leaked credentials, another ticket's id,
+  or the prompt recited back all block the draft before a reviewer sees it.
+
+Findings reach the UI on `approval_required.findings`, or as `reply_blocked`.
+
+## Evals
+
+The golden set lives in `evals/scenarios/*.yaml`, one file per concern.
+
+```
+just evals              # everything
+just evals guardrail    # names matching "guardrail"
+just evals-compare scripted openai_gpt-4o
+```
+
+Runs with no API key: the scripted model keeps the deterministic checks real,
+and prose criteria are reported as *skipped* rather than scored, so a keyless
+run never reads as if a model approved the answers.
+
+Scoring is a majority vote across `trials`. Guardrail findings compare on exact
+kinds, never substrings - see `tests/test_evals.py` for why.
+
+Cost comes from the spans the tracer already collects
+(`assistant/tracing/cost.py`), so it needs no plumbing through the agents. A
+model with no price table reports its tokens with `priced: false` rather than
+a misleading $0.00.

@@ -73,6 +73,15 @@ test:
     @echo "🧪 Running web tests..."
     cd web && pnpm test
 
+# Run the eval golden set against the agent
+evals *args:
+    @echo "🎯 Running evals..."
+    cd agent && uv run python -m evals.run {{args}}
+
+# Diff two eval runs by label, e.g. `just evals-compare scripted openai_gpt-4o`
+evals-compare before after:
+    cd agent && uv run python -m evals.compare {{before}} {{after}}
+
 # Run backend tests with coverage
 test-cov:
     @echo "🧪 Running backend tests with coverage..."

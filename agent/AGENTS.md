@@ -109,3 +109,33 @@ Cost comes from the spans the tracer already collects
 (`assistant/tracing/cost.py`), so it needs no plumbing through the agents. A
 model with no price table reports its tokens with `priced: false` rather than
 a misleading $0.00.
+
+## Model selection
+
+Two axes, kept apart on purpose:
+
+- **Which purpose a step runs under is system config.** A step names a
+  `ModelPurpose` (`decision`, `answer`, `vision`), never a model, so no config
+  can route classification onto the vision model or send the cheap one to
+  write customer prose.
+- **Which model fills a purpose is user config.** A `ModelPreference` row per
+  user per purpose travels the wire as optional overrides and resolves
+  user -> deployment default.
+
+`ModelOverrides` on the wire has exactly one field per purpose, so a client
+cannot reassign a step's purpose even if it wanted to. Overrides ride the
+resume as well as the initial request; nothing after the approval gate calls
+a model today, but that is a fact about the current graph, not a guarantee.
+
+`build_model` goes through pydantic-ai's `infer_model("provider:name")`, so
+adding a provider is config plus an API key, not code.
+
+## Checkpointing
+
+`assistant/graphs/checkpointer.py` opens one saver per process in the FastAPI
+lifespan. Postgres by default; without `CHECKPOINT_DATABASE_URL` it falls back
+to memory and says so loudly, because the failure is silent otherwise - a
+deploy drops every reply waiting on a reviewer.
+
+Tests install an in-memory saver via `install_checkpointer`, so proving a
+resume needs no database.

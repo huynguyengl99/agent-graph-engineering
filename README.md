@@ -6,9 +6,14 @@ The series argues that your agent flow should be a **declared graph**, not a cha
 
 ## What it is
 
-A support ticket triage assistant. A ticket arrives and the agent decides what to do with it: answer directly, search the knowledge base, escalate to a human, or draft a reply. Posting a reply to the customer requires human approval. Searching the knowledge base does not.
+A support desk with two surfaces that share one agent service:
 
-The domain was chosen so that the graph earns its place (real routing, not a two-node demo), the approval machinery solves a real problem (an irreversible action), and you can run the whole thing with only an LLM key. No OAuth, no third-party signups.
+- **The ticket thread** is customer-visible. A ticket arrives, the graph decides what to do with it - answer directly, search the knowledge base, escalate, or draft a reply - and posting that reply to the customer requires human approval.
+- **The assistant chat** is the support agent's own. They can ask it anything, it answers freely with streaming, and nothing reaches a customer until they explicitly send a draft to a ticket, where the approval gate still applies.
+
+One rule falls out of that split: **inside the conversation the assistant acts freely; leaving it requires a human.**
+
+The domain was chosen so that the graph earns its place (real routing, not a two-node demo), the approval machinery solves a real problem (an irreversible action), and you can run the whole thing with only an LLM key. No OAuth, no third-party signups. With no key at all it still runs end to end on a scripted model, streaming included.
 
 ## Architecture
 
@@ -28,7 +33,9 @@ The domain was chosen so that the graph earns its place (real routing, not a two
 | `agent/`   | FastAPI, LangGraph, Pydantic AI, chanx            | 8001 |
 | `web/`     | React 19, Vite, Zodios, chanx-js, Tailwind        | 5173 |
 
-The backend owns users, tickets, and history. The agent service owns the graphs, the tools, and the checkpoints, and talks to nobody's database but its own.
+The backend owns users, tickets, conversations, and history. The agent service owns the graphs, the tools, and the checkpoints.
+
+Every browser tab holds **one** WebSocket at `/ws/`. Tickets and conversations are *topics* on it, addressed per frame, so watching four resources is one connection rather than four. Publishing needs no consumer instance: `Topic.broadcast` is a classmethod, which is what a background task driving the agent requires.
 
 ## Everything is a generated contract
 
@@ -164,3 +171,26 @@ so a paused run does not survive an agent restart).
 ## License
 
 MIT
+
+## Guardrails
+
+Two guards with different jobs, both in `agent/assistant/guardrails/`:
+
+- **Input.** Customer-written ticket fields are fenced as data with an explicit "never as instructions" boundary, and the fence is stripped from the text so it cannot be closed from inside. Known injection shapes are *recorded, never blocked* - a desk that refuses tickets containing "ignore" is broken, and a warning everyone learns to skip is worse than none.
+- **Output.** A `screen` node between the drafted answer and the approval gate. A leaked credential, another ticket's id, or the prompt recited back stops the draft before a reviewer is asked. A machine check ahead of the human one.
+
+## Evals
+
+```bash
+just evals                              # the whole golden set
+just evals guardrail                    # names matching "guardrail"
+just evals-compare scripted openai_gpt-4o
+```
+
+Scenarios live in `agent/evals/scenarios/*.yaml`. Deterministic checks decide by majority across trials; prose criteria go to a cascade judge that runs free substring checks first and a model only when it must.
+
+It runs with **no API key**: the scripted model keeps the deterministic checks real, unassessed criteria are reported as *skipped* rather than scored, and runs are labelled by the model that actually ran. Cost comes from the spans the tracer already collects, and a model with no price table reports its tokens with `priced: false` rather than a misleading $0.00.
+
+## Observability
+
+Every graph node opens a span and Pydantic AI nests its model calls underneath, so `GET /traces/{run_id}` returns the tree for one run plus what it cost. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to forward the same spans to Langfuse, Jaeger, or any OTLP collector - there is a test with a fake collector proving the request lands with its auth header intact.

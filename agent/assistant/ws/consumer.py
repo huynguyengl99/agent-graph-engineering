@@ -11,7 +11,7 @@ from langgraph.types import Command
 from assistant.agents import TicketContext
 from assistant.agents.config import AgentConfig
 from assistant.core.layers import LAYER_ALIAS
-from assistant.graphs.state import TriageState
+from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import build_triage_graph
 from assistant.outputs.triage import TicketAnswer
 from assistant.ws.messages import (

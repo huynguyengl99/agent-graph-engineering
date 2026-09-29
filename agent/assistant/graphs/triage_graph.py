@@ -7,7 +7,7 @@ from langgraph.types import interrupt
 from assistant.agents import AgentConfig, AnswerAgent, ClassifierAgent, DecisionAgent
 from assistant.agents.deps import TicketContext
 from assistant.graphs.base import BaseGraph
-from assistant.graphs.state import TriageState
+from assistant.graphs.states import TriageState
 from assistant.outputs.triage import Escalate, SearchKnowledgeBase, TicketAnswer
 from assistant.tools.knowledge_base import search_knowledge_base
 from assistant.tools.reply import send_reply_to_customer

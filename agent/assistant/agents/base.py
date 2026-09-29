@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from typing import Any, ClassVar
 
 from assistant.agents.config import AgentConfig, ModelPurpose
@@ -29,3 +30,9 @@ class BaseAgent[OutputT]:
     async def run(self, prompt: str, deps: Any) -> OutputT:
         result = await self.agent.run(prompt, deps=deps)
         return result.output  # type: ignore[no-any-return]
+
+    async def stream(self, prompt: str, deps: Any) -> AsyncIterator[str]:
+        """Text deltas as they are produced. Only meaningful for `str` output."""
+        async with self.agent.run_stream(prompt, deps=deps) as result:
+            async for delta in result.stream_text(delta=True):
+                yield delta

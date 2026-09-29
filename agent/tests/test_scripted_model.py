@@ -2,7 +2,7 @@
 
 import pytest
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose, TicketContext
-from assistant.graphs.state import TriageState
+from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import TriageGraph
 from assistant.outputs.triage import SearchKnowledgeBase
 

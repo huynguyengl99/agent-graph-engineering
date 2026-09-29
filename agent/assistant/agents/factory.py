@@ -15,9 +15,14 @@ PROVIDER_KEYS = {
 }
 
 
-def build_model(config: ModelConfig) -> Model:
+def has_provider_key(config: ModelConfig) -> bool:
+    """Whether this slot resolves to a real provider rather than the stand-in."""
     key = PROVIDER_KEYS.get(config.provider)
-    if key is None or not key():
+    return key is not None and bool(key())
+
+
+def build_model(config: ModelConfig) -> Model:
+    if not has_provider_key(config):
         return ScriptedModel()
     # infer_model resolves "provider:name" itself, which is what makes adding a
     # provider a config change rather than a code change.

@@ -25,6 +25,13 @@ from pydantic_ai.usage import RequestUsage
 
 from assistant.core.config import settings
 
+SCRIPTED_TEXT = (
+    "Thanks for getting in touch. Based on our documentation, here is what is "
+    "happening and how to resolve it. (This reply came from the scripted model: "
+    "set OPENAI_API_KEY for a real answer.)"
+)
+SCRIPTED_NOTE = "scripted model output"
+
 BILLING_WORDS = {"charge", "charged", "invoice", "refund", "billing", "payment"}
 ACCOUNT_WORDS = {"password", "login", "2fa", "account", "sign"}
 
@@ -111,15 +118,32 @@ class ScriptedModel(Model):
         if name := pick("final_result_AnswerDirectly"):
             return name, {"reasoning": "Short question, no lookup needed."}
 
-        # Single output type: the answer agent.
-        return "final_result", {
-            "content": (
-                "Thanks for getting in touch. Based on our documentation, here is "
-                "what is happening and how to resolve it. (This reply came from "
-                "the scripted model: set OPENAI_API_KEY for a real answer.)"
-            ),
-            "requires_approval": False,
+        # Any other single output type. Built from the requested schema rather
+        # than a hardcoded shape, so a new agent does not fail output
+        # validation here with a confusing "exceeded maximum retries".
+        return "final_result", self._from_schema(params)
+
+    def _from_schema(self, params: ModelRequestParameters) -> dict[str, Any]:
+        if not params.output_tools:
+            return {}
+        schema = params.output_tools[0].parameters_json_schema or {}
+        properties: dict[str, Any] = schema.get("properties", {})
+        return {name: self._value_for(name, spec) for name, spec in properties.items()}
+
+    def _value_for(self, name: str, spec: dict[str, Any]) -> Any:
+        if enum := spec.get("enum"):
+            return enum[0]
+        blanks: dict[str, Any] = {
+            "boolean": False,
+            "integer": 0,
+            "number": 0.0,
+            "array": [],
+            "object": {},
         }
+        kind = str(spec.get("type", "string"))
+        if kind in blanks:
+            return blanks[kind]
+        return SCRIPTED_TEXT if name in ("content", "answer") else SCRIPTED_NOTE
 
     def _kb_query(self, text: str) -> str:
         """Terms chosen to actually hit the built-in articles."""

@@ -1,7 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { RouterProvider } from '@tanstack/react-router'
 import { setDefaultClient } from '@chanx-js/client/react'
-import App from './App.tsx'
+import { router } from './router'
 import './index.css'
 
 // Same origin, so Vite's dev proxy forwards /ws to the backend and cookies ride
@@ -12,6 +13,6 @@ setDefaultClient({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <RouterProvider router={router} />
   </React.StrictMode>,
 )

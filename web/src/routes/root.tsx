@@ -1,18 +1,18 @@
+import { Outlet, useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth';
 import { LoginForm } from '@/components/LoginForm';
 import { TicketList } from '@/components/TicketList';
-import { TicketDetail } from '@/components/TicketDetail';
 import type { Ticket } from '@/lib/types';
 
-function App() {
+export function RootLayout() {
   const { fetchUser, logout, isAuthenticated, user } = useAuthStore();
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [selected, setSelected] = useState<Ticket | null>(null);
+  const { ticketId } = useParams({ strict: false });
 
   useEffect(() => {
-    fetchUser();
+    void fetchUser();
   }, [fetchUser]);
 
   useEffect(() => {
@@ -48,25 +48,13 @@ function App() {
 
       <div className="flex min-h-0 flex-1">
         <aside className="w-80 shrink-0 overflow-y-auto border-r bg-white">
-          <TicketList
-            tickets={tickets}
-            selectedId={selected ? String(selected.id) : null}
-            onSelect={setSelected}
-          />
+          <TicketList tickets={tickets} selectedId={ticketId ?? null} />
         </aside>
 
         <main className="min-w-0 flex-1">
-          {selected ? (
-            <TicketDetail key={String(selected.id)} ticket={selected} />
-          ) : (
-            <p className="p-8 text-gray-500">
-              Pick a ticket to see its history and talk to the triage agent.
-            </p>
-          )}
+          <Outlet />
         </main>
       </div>
     </div>
   );
 }
-
-export default App;

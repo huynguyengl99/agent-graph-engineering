@@ -31,3 +31,28 @@ async def test_tool_rejects_an_empty_query() -> None:
     output = await search_knowledge_base("   ")
     assert output.error_type == "invalid_input"
     assert output.result is None
+
+
+class TestRanking:
+    """A real run found the rate-limit page top of a billing search."""
+
+    def test_stopwords_do_not_decide_the_ranking(self) -> None:
+        hits = [article.id for article in _search("charged twice for the same plan")]
+
+        assert hits[0] == "kb-002", "the invoice article answers this question"
+
+    def test_a_title_match_outranks_a_body_mention(self) -> None:
+        # "plan" appears in the rate-limit body; "invoice" is a title word.
+        assert [a.id for a in _search("invoice")][0] == "kb-002"
+
+    def test_a_query_of_only_stopwords_finds_nothing(self) -> None:
+        assert _search("what is the for and of") == []
+
+    def test_each_topic_finds_its_own_article(self) -> None:
+        for query, expected in [
+            ("password reset", "kb-001"),
+            ("refund policy annual", "kb-003"),
+            ("api rate limits", "kb-004"),
+            ("two-factor authentication", "kb-005"),
+        ]:
+            assert [a.id for a in _search(query)][0] == expected, query

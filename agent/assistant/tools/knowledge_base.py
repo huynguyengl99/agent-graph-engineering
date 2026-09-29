@@ -53,6 +53,20 @@ class Article:
 
 MIN_TERM_LENGTH = 3
 
+# Without these, "charged twice for the same plan" scores every article that
+# contains "the", and the top hit for a billing question was the rate-limit
+# page. A real retrieval backend does this with IDF; five articles do not
+# justify one.
+STOPWORDS = frozenset(
+    """a an and are as at be but by can for from has have how i in is it my
+    not of on or our that the their them they this to was what when where
+    which who why will with you your""".split()
+)
+
+# A term in the title says more about what an article is about than the same
+# term buried in its body.
+TITLE_WEIGHT = 3
+
 
 @wrap_tool(
     description="Look up a documented answer in the support knowledge base.",
@@ -76,14 +90,22 @@ async def search_knowledge_base(query: str, limit: int = 3) -> list[Article]:
 
 def _search(query: str, limit: int = 3) -> list[Article]:
     """Naive keyword overlap search over the built-in article set."""
-    terms = {t for t in query.lower().split() if len(t) >= MIN_TERM_LENGTH}
+    terms = {
+        term
+        for term in query.lower().split()
+        if len(term) >= MIN_TERM_LENGTH and term not in STOPWORDS
+    }
     if not terms:
         return []
 
     scored: list[tuple[int, Article]] = []
     for article_id, title, body in _ARTICLES:
-        haystack = f"{title} {body}".lower()
-        score = sum(1 for term in terms if term in haystack)
+        lowered_title, lowered_body = title.lower(), body.lower()
+        score = sum(
+            TITLE_WEIGHT if term in lowered_title else 1
+            for term in terms
+            if term in lowered_title or term in lowered_body
+        )
         if score:
             scored.append((score, Article(article_id, title, body)))
 

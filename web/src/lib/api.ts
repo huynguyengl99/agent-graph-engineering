@@ -20,6 +20,9 @@ export const apiClient = axios.create({
  * responses are validated by Zod at runtime, so a backend change the frontend
  * has not regenerated for fails loudly instead of silently.
  */
-export const api = createApiClient('', {
+// Zodios rejects an empty base URL, and the generated paths are already
+// absolute ("/api/tickets/"), so the current origin is the right base: in dev
+// that is Vite, which proxies /api to the backend.
+export const api = createApiClient(window.location.origin, {
   axiosConfig: { withCredentials: true },
 });

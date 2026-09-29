@@ -1,6 +1,6 @@
 """Customer-facing actions. These are the ones that need a human first."""
 
-from triage.tools.core import InvalidInputError, wrap_tool
+from assistant.tools.core import InvalidInputError, wrap_tool
 
 
 @wrap_tool(

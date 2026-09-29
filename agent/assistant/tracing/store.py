@@ -18,7 +18,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 MAX_TICKETS = 50
-TICKET_ATTRIBUTE = "triage.ticket_id"
+TICKET_ATTRIBUTE = "assistant.ticket_id"
 
 
 @dataclass

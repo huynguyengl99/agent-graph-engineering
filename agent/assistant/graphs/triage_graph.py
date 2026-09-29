@@ -3,17 +3,17 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from triage.agents import answer_agent, classifier_agent, decision_agent
-from triage.agents.deps import TicketContext
-from triage.graphs.state import TriageState
-from triage.outputs.triage import (
+from assistant.agents import answer_agent, classifier_agent, decision_agent
+from assistant.agents.deps import TicketContext
+from assistant.graphs.state import TriageState
+from assistant.outputs.triage import (
     Escalate,
     SearchKnowledgeBase,
     TicketAnswer,
 )
-from triage.tools.knowledge_base import search_knowledge_base
-from triage.tools.reply import send_reply_to_customer
-from triage.tracing.nodes import Node, traced
+from assistant.tools.knowledge_base import search_knowledge_base
+from assistant.tools.reply import send_reply_to_customer
+from assistant.tracing.nodes import Node, traced
 
 
 def _context_of(state: TriageState) -> TicketContext:
@@ -172,7 +172,7 @@ def build_graph() -> StateGraph:
 # Checkpoints carry our own models, so their modules must be allow-listed.
 serde = JsonPlusSerializer(
     allowed_msgpack_modules=[
-        ("triage.outputs.triage", name)
+        ("assistant.outputs.triage", name)
         for name in (
             "Classification",
             "AnswerDirectly",
@@ -182,7 +182,7 @@ serde = JsonPlusSerializer(
             "TicketAnswer",
         )
     ]
-    + [("triage.agents.deps", "TicketContext")]
+    + [("assistant.agents.deps", "TicketContext")]
 )
 
 # Swapping in a Postgres saver is the only change needed to survive a restart.

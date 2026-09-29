@@ -1,14 +1,14 @@
 import asyncio
 
 import pytest
-from triage.tools.core import (
+from assistant.tools.core import (
     InvalidInputError,
     UpstreamServiceError,
     metadata_for,
     render_tool_list,
     wrap_tool,
 )
-from triage.tools.core import wrapper as wrapper_module
+from assistant.tools.core import wrapper as wrapper_module
 
 
 @pytest.fixture(autouse=True)

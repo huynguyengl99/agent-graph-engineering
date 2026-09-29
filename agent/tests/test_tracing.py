@@ -1,10 +1,10 @@
 """Tracing has to answer 'what happened to this one ticket', not 'list calls'."""
 
 import pytest
+from assistant.agents import TicketContext
+from assistant.graphs.triage_graph import triage_graph
+from assistant.tracing import trace_store
 from langgraph.types import Command
-from triage.agents import TicketContext
-from triage.graphs.triage_graph import triage_graph
-from triage.tracing import trace_store
 
 from tests.helpers.openai_mock import mock_openai, tool_call
 

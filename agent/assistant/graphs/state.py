@@ -1,7 +1,7 @@
 from typing import Annotated, TypedDict
 
-from triage.agents import TicketContext
-from triage.outputs.triage import Classification, TicketAnswer, TriageDecision
+from assistant.agents import TicketContext
+from assistant.outputs.triage import Classification, TicketAnswer, TriageDecision
 
 
 def last_wins(_current: object, incoming: object) -> object:

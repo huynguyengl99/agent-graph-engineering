@@ -3,7 +3,7 @@ from typing import Any
 
 import structlog
 
-from triage.core.config import settings
+from assistant.core.config import settings
 
 
 def setup_logging() -> None:

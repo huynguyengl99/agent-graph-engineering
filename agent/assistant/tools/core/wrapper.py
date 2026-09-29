@@ -11,8 +11,8 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any, ParamSpec, TypeVar
 
-from triage.tools.core.errors import ApprovalRequiredError, ToolError
-from triage.tools.core.metadata import ToolMetadata, ToolOutput
+from assistant.tools.core.errors import ApprovalRequiredError, ToolError
+from assistant.tools.core.metadata import ToolMetadata, ToolOutput
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")

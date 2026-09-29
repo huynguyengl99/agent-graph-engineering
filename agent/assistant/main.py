@@ -7,12 +7,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 
-from triage.core.config import settings
-from triage.core.layers import setup_layers
-from triage.core.logging import setup_logging
-from triage.graphs.triage_graph import triage_graph
-from triage.tracing import setup_tracing, trace_store
-from triage.ws.consumer import TriageConsumer
+from assistant.core.config import settings
+from assistant.core.layers import setup_layers
+from assistant.core.logging import setup_logging
+from assistant.graphs.triage_graph import triage_graph
+from assistant.tracing import setup_tracing, trace_store
+from assistant.ws.consumer import TriageConsumer
 
 setup_logging()
 setup_layers()

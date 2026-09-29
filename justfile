@@ -57,7 +57,7 @@ backend:
 # Start agent service (Uvicorn)
 agent:
     @echo "🤖 Starting agent..."
-    cd agent && uv run uvicorn triage.main:app --port 8001 --reload
+    cd agent && uv run uvicorn assistant.main:app --port 8001 --reload
 
 # Start frontend dev server (Vite)
 frontend:

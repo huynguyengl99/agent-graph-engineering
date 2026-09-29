@@ -1,7 +1,7 @@
 import httpx
 import pytest
+from assistant.main import app
 from httpx import ASGITransport
-from triage.main import app
 
 
 @pytest.fixture

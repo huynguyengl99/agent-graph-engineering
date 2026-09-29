@@ -2,9 +2,9 @@
 
 from typing import Protocol
 
-from triage.graphs.state import TriageState
-from triage.tracing.setup import tracer
-from triage.tracing.store import TICKET_ATTRIBUTE
+from assistant.graphs.state import TriageState
+from assistant.tracing.setup import tracer
+from assistant.tracing.store import TICKET_ATTRIBUTE
 
 
 class Node(Protocol):

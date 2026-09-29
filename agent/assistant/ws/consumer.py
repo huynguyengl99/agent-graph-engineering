@@ -8,12 +8,12 @@ from chanx.messages.outgoing import PongMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from triage.agents import TicketContext
-from triage.core.layers import LAYER_ALIAS
-from triage.graphs.state import TriageState
-from triage.graphs.triage_graph import triage_graph
-from triage.outputs.triage import TicketAnswer
-from triage.ws.messages import (
+from assistant.agents import TicketContext
+from assistant.core.layers import LAYER_ALIAS
+from assistant.graphs.state import TriageState
+from assistant.graphs.triage_graph import triage_graph
+from assistant.outputs.triage import TicketAnswer
+from assistant.ws.messages import (
     AnswerMessage,
     AnswerPayload,
     ApprovalDecisionMessage,
@@ -74,7 +74,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         try:
             await self._run_graph(context)
         except Exception:
-            logger.exception("triage.run_failed", ticket_id=payload.ticket_id)
+            logger.exception("assistant.run_failed", ticket_id=payload.ticket_id)
             await self._fail(payload.ticket_id)
 
     @ws_handler(
@@ -95,7 +95,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                 ),
             )
         except Exception:
-            logger.exception("triage.resume_failed", ticket_id=payload.ticket_id)
+            logger.exception("assistant.resume_failed", ticket_id=payload.ticket_id)
             await self._fail(payload.ticket_id)
 
     async def _fail(self, ticket_id: str) -> None:

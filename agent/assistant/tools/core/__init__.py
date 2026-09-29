@@ -1,4 +1,4 @@
-from triage.tools.core.errors import (
+from assistant.tools.core.errors import (
     ApprovalRequiredError,
     InvalidInputError,
     NotFoundError,
@@ -6,8 +6,8 @@ from triage.tools.core.errors import (
     ToolError,
     UpstreamServiceError,
 )
-from triage.tools.core.metadata import ToolMetadata, ToolOutput
-from triage.tools.core.wrapper import (
+from assistant.tools.core.metadata import ToolMetadata, ToolOutput
+from assistant.tools.core.wrapper import (
     all_tools,
     get_tool,
     metadata_for,

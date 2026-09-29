@@ -8,9 +8,9 @@ two live services talked to each other, so it gets its own test.
 from typing import Any
 
 import pytest
-from triage.agents import TicketContext
-from triage.ws.consumer import TriageConsumer
-from triage.ws.messages import TriageRequestMessage, TriageRequestPayload
+from assistant.agents import TicketContext
+from assistant.ws.consumer import TriageConsumer
+from assistant.ws.messages import TriageRequestMessage, TriageRequestPayload
 
 from tests.helpers.openai_mock import mock_openai, tool_call
 

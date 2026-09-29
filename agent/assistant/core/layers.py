@@ -5,7 +5,7 @@ from fast_channels.layers import (
     register_channel_layer,
 )
 
-from triage.core.config import settings
+from assistant.core.config import settings
 
 LAYER_ALIAS = "triage"
 

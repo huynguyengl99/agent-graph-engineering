@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from triage.tools.core import InvalidInputError, wrap_tool
+from assistant.tools.core import InvalidInputError, wrap_tool
 
 # A stand-in for a real retrieval backend. Part 9 replaces it with pgvector.
 _ARTICLES: list[tuple[str, str, str]] = [

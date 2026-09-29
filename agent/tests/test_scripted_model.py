@@ -1,22 +1,22 @@
 """The no-key path is how most people will first run this repo."""
 
 import pytest
-from pydantic_ai import Agent
-from triage.agents import TicketContext
-from triage.agents.scripted import ScriptedModel
-from triage.graphs.state import TriageState
-from triage.outputs.triage import (
+from assistant.agents import TicketContext
+from assistant.agents.scripted import ScriptedModel
+from assistant.graphs.state import TriageState
+from assistant.outputs.triage import (
     Classification,
     SearchKnowledgeBase,
     TicketAnswer,
     TriageDecision,
 )
+from pydantic_ai import Agent
 
 
 @pytest.fixture
 def scripted_graph(monkeypatch: pytest.MonkeyPatch):
     """Rebuild the graph against the scripted model rather than OpenAI."""
-    from triage.graphs import triage_graph as module
+    from assistant.graphs import triage_graph as module
 
     for name, output in [
         ("classifier_agent", Classification),

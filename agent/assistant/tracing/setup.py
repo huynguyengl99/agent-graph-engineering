@@ -16,8 +16,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 
-from triage.core.config import settings
-from triage.tracing.store import TraceStoreExporter
+from assistant.core.config import settings
+from assistant.tracing.store import TraceStoreExporter
 
 logger = structlog.get_logger(__name__)
 

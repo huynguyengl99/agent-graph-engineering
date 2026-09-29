@@ -1,6 +1,6 @@
 """Ranking is tested against the pure function; the wrapper is tested via the tool."""
 
-from triage.tools.knowledge_base import _search, search_knowledge_base
+from assistant.tools.knowledge_base import _search, search_knowledge_base
 
 
 def test_ranks_by_term_overlap() -> None:

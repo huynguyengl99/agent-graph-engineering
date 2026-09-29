@@ -3,8 +3,8 @@ from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from triage.agents.scripted import ScriptedModel
-from triage.core.config import settings
+from assistant.agents.scripted import ScriptedModel
+from assistant.core.config import settings
 
 
 def build_model(name: str) -> Model:

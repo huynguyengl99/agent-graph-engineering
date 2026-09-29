@@ -12,10 +12,10 @@ from helpdesk.accounts.models import User
 
 
 class WebsocketTestCase(BaseWebsocketTestCase):
-    """
-    Base test case for WebSocket tests with authentication.
+    """Base test case for authenticated WebSocket tests.
 
-    Automatically creates a test user and WebSocket headers with session cookie.
+    The socket carries the same JWT cookie auth_kit issues at login, so
+    `scope["user"]` is the test user rather than AnonymousUser.
     """
 
     def setUp(self) -> None:
@@ -23,19 +23,18 @@ class WebsocketTestCase(BaseWebsocketTestCase):
         super().setUp()
 
     def create_user_and_ws_headers(self) -> tuple[User, list[tuple[bytes, bytes]]]:
-        """
-        Create a test user and WebSocket headers with authentication.
+        from auth_kit.app_settings import auth_kit_settings
+        from rest_framework_simplejwt.tokens import AccessToken
 
-        Returns:
-            Tuple of (user, websocket_headers)
-        """
         user = UserFactory.create()
 
         origins = settings.WEBSOCKET_ALLOWED_ORIGINS
         origin = origins[0] if origins and origins[0] != "*" else "http://localhost"
+        cookie = f"{auth_kit_settings.AUTH_JWT_COOKIE_NAME}={AccessToken.for_user(user)}"
         ws_headers = [
             (b"origin", origin.encode()),
             (b"x-forwarded-for", b"127.0.0.1"),
+            (b"cookie", cookie.encode()),
         ]
         return user, ws_headers
 

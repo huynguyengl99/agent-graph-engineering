@@ -14,6 +14,7 @@ urlpatterns = [
     # API routes
     path("api/accounts/", include("auth_kit.urls")),
     path("api/tickets/", include("helpdesk.tickets.urls")),
+    path("api/conversations/", include("helpdesk.conversations.urls")),
     # Schema endpoints
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

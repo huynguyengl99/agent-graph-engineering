@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from ..shared.messages import PingMessage, PongMessage
+
 
 class AnswerPayload(BaseModel):
     """AnswerPayload"""
@@ -76,20 +78,6 @@ class DecidedMessage(BaseModel):
 
     action: Literal["decided"] = "decided"
     payload: DecidedPayload
-
-
-class PingMessage(BaseModel):
-    """Simple ping message to check WebSocket connection status."""
-
-    action: Literal["ping"] = "ping"
-    payload: None = None
-
-
-class PongMessage(BaseModel):
-    """Simple pong message response to ping requests."""
-
-    action: Literal["pong"] = "pong"
-    payload: None = None
 
 
 class ReplySentPayload(BaseModel):

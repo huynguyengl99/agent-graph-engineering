@@ -2,7 +2,7 @@
 from .base import *  # noqa: F403
 
 DEBUG = True
-SECRET_KEY = "test-secret-key"  # noqa: S105
+SECRET_KEY = "test-secret-key-long-enough-for-hmac-sha256"  # noqa: S105
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]

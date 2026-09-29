@@ -1,5 +1,3 @@
-import logging
-
 from chanx.fast_channels import asyncapi_docs, asyncapi_spec_json, asyncapi_spec_yaml
 from chanx.fast_channels.type_defs import AsyncAPIConfig
 from fastapi import FastAPI, Response
@@ -11,12 +9,12 @@ from starlette.routing import WebSocketRoute
 
 from triage.core.config import settings
 from triage.core.layers import setup_layers
+from triage.core.logging import setup_logging
 from triage.graphs.triage_graph import triage_graph
 from triage.tracing import setup_tracing, trace_store
 from triage.ws.consumer import TriageConsumer
 
-logging.basicConfig(level=logging.INFO if settings.debug else logging.WARNING)
-
+setup_logging()
 setup_layers()
 setup_tracing()
 

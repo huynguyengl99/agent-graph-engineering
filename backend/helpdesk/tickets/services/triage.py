@@ -6,12 +6,11 @@ group, so any browser tab on that ticket sees the run regardless of which one
 posted the comment.
 """
 
-import logging
-
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from django.conf import settings
 
+import structlog
 from chanx.messages.base import BaseMessage
 
 from helpdesk.agent_client.triage.client import TriageClient
@@ -44,7 +43,7 @@ from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import AIResponseEvent
 from helpdesk.tickets.serializers.event import serialize_event
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 OutgoingPayload = TriageRequestPayload | ApprovalDecisionPayload
 
@@ -197,7 +196,7 @@ async def run_triage(
         )
         await client.handle()
     except Exception:
-        logger.exception("Triage run failed for ticket %s", ticket_id)
+        logger.exception("triage.run_failed", ticket_id=ticket_id)
         await broadcast(
             ticket_group(ticket_id),
             AgentProgressMessage(
@@ -226,7 +225,7 @@ async def submit_approval(
         client.pending_reply = content
         await client.handle()
     except Exception:
-        logger.exception("Approval submit failed for ticket %s", ticket_id)
+        logger.exception("triage.approval_failed", ticket_id=ticket_id)
         await broadcast(
             ticket_group(ticket_id),
             AgentProgressMessage(

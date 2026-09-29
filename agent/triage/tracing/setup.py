@@ -10,8 +10,7 @@ Pydantic AI emits its own spans for every model call, so once a graph node opens
 a span the model calls nest underneath it automatically.
 """
 
-import logging
-
+import structlog
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -20,7 +19,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from triage.core.config import settings
 from triage.tracing.store import TraceStoreExporter
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _state: dict[str, bool] = {"configured": False}
 
@@ -54,8 +53,9 @@ def setup_tracing(force: bool = False) -> None:
             # The OTLP exporter is an extra. Losing it must not take the agent
             # down; the in-memory view still works.
             logger.warning(
-                "OTEL_EXPORTER_OTLP_ENDPOINT is set but the OTLP exporter is "
-                "not installed. Install the 'tracing' extra to forward spans."
+                "otlp.exporter_missing",
+                hint="install the 'tracing' extra to forward spans",
+                endpoint=settings.otlp_endpoint,
             )
 
     trace.set_tracer_provider(provider)

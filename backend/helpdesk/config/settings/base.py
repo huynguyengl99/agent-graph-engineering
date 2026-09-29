@@ -1,6 +1,7 @@
 """Base settings for backend project."""
 from pathlib import Path
 
+import structlog
 from environs import Env
 
 env = Env()
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     "polymorphic",
     "chanx.channels",
     "drf_standardized_errors",
+    "django_structlog",
     # Local
     "helpdesk.accounts",
     "helpdesk.core",
@@ -55,6 +57,8 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last, so every log line inside a request carries its request_id and user_id.
+    "django_structlog.middlewares.RequestMiddleware",
 ]
 
 ROOT_URLCONF = "helpdesk.config.urls"
@@ -215,34 +219,59 @@ AUTH_KIT = {
 }
 
 # Logging
+# structlog renders; the stdlib stays as the transport so Django's own loggers
+# come out in the same shape.
+STRUCTLOG_PROCESSORS: list[structlog.typing.Processor] = [
+    structlog.contextvars.merge_contextvars,
+    structlog.stdlib.add_logger_name,
+    structlog.stdlib.add_log_level,
+    structlog.processors.TimeStamper(fmt="iso"),
+    structlog.processors.StackInfoRenderer(),
+]
+
+structlog.configure(
+    processors=[
+        *STRUCTLOG_PROCESSORS,
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
-            "style": "{",
+        "console": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processors": [
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                structlog.dev.ConsoleRenderer(colors=DEBUG),
+            ],
+            "foreign_pre_chain": STRUCTLOG_PROCESSORS,
+        },
+        "json": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processors": [
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                structlog.processors.format_exc_info,
+                structlog.processors.JSONRenderer(),
+            ],
+            "foreign_pre_chain": STRUCTLOG_PROCESSORS,
         },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": "console" if DEBUG else "json",
         },
     },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
+    "root": {"handlers": ["console"], "level": "INFO"},
     "loggers": {
-        "django": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
         "django.request": {
+            # django_structlog already logs every request with more context.
             "handlers": ["console"],
-            "level": "WARNING",
+            "level": "ERROR",
             "propagate": False,
         },
     },

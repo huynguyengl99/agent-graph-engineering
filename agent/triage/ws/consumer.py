@@ -1,6 +1,6 @@
-import logging
 from typing import Any
 
+import structlog
 from chanx.core.decorators import channel, ws_handler
 from chanx.fast_channels.websocket import AsyncJsonWebsocketConsumer
 from chanx.messages.incoming import PingMessage
@@ -8,7 +8,7 @@ from chanx.messages.outgoing import PongMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from triage.agents.triage_agents import TicketContext
+from triage.agents import TicketContext
 from triage.core.layers import LAYER_ALIAS
 from triage.graphs.state import TriageState
 from triage.graphs.triage_graph import triage_graph
@@ -30,7 +30,7 @@ from triage.ws.messages import (
     TriageRequestMessage,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @channel(
@@ -74,7 +74,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         try:
             await self._run_graph(context)
         except Exception:
-            logger.exception("Triage graph failed for ticket %s", payload.ticket_id)
+            logger.exception("triage.run_failed", ticket_id=payload.ticket_id)
             await self._fail(payload.ticket_id)
 
     @ws_handler(
@@ -95,7 +95,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                 ),
             )
         except Exception:
-            logger.exception("Resume failed for ticket %s", payload.ticket_id)
+            logger.exception("triage.resume_failed", ticket_id=payload.ticket_id)
             await self._fail(payload.ticket_id)
 
     async def _fail(self, ticket_id: str) -> None:

@@ -40,6 +40,7 @@ class ApprovalRequiredPayload(BaseModel):
 
     ticket_id: str
     draft: str
+    findings: list[str] = []
 
 
 class ApprovalRequiredMessage(BaseModel):
@@ -78,6 +79,21 @@ class DecidedMessage(BaseModel):
 
     action: Literal["decided"] = "decided"
     payload: DecidedPayload
+
+
+class ReplyBlockedPayload(BaseModel):
+    """ReplyBlockedPayload"""
+
+    ticket_id: str
+    draft: str
+    findings: list[str]
+
+
+class ReplyBlockedMessage(BaseModel):
+    """The output guard stopped the draft before a human was asked."""
+
+    action: Literal["reply_blocked"] = "reply_blocked"
+    payload: ReplyBlockedPayload
 
 
 class ReplySentPayload(BaseModel):
@@ -132,5 +148,6 @@ IncomingMessage = (
     | ClassifiedMessage
     | DecidedMessage
     | ApprovalRequiredMessage
+    | ReplyBlockedMessage
 )
 OutgoingMessage = ApprovalDecisionMessage | PingMessage | TriageRequestMessage

@@ -6,33 +6,35 @@ from channels.db import database_sync_to_async
 from chanx.messages.incoming import PingMessage
 from chanx.messages.outgoing import PongMessage
 
-from helpdesk.conversations.consumers import ConversationConsumer
 from helpdesk.conversations.factories import ConversationFactory
 from helpdesk.conversations.messages import AskMessage, AskPayload
 from helpdesk.conversations.models import Conversation, Message
+from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 
 
-class TestConversationConsumer(WebsocketTestCase):
-    consumer = ConversationConsumer
+class TestConversationTopic(WebsocketTestCase):
+    consumer = HubConsumer
+    ws_path = "/ws/"
 
     def setUp(self) -> None:
         super().setUp()
         self.conversation = ConversationFactory.create(owner=self.user)
-        self.ws_path = f"/ws/conversations/{self.conversation.id}/"
+        self.topic = f"conversation:{self.conversation.id}"
 
     async def test_connect_and_ping(self) -> None:
-        await self.connect_ready()
+        await self.subscribe_ready(self.topic)
         await self.auth_communicator.send_message(PingMessage())
 
         assert await self.auth_communicator.receive_all_messages() == [PongMessage()]
 
     async def test_someone_elses_conversation_is_refused(self) -> None:
         other = await database_sync_to_async(ConversationFactory.create)()
-        self.ws_path = f"/ws/conversations/{other.id}/"
 
         await self.auth_communicator.connect()
-        assert await self.auth_communicator.receive_nothing() is False
+        reply = await self.auth_communicator.subscribe(f"conversation:{other.id}")
+
+        assert reply["action"] != "subscribed"
 
     async def test_asking_persists_the_reps_turn_before_the_agent_replies(
         self,
@@ -47,12 +49,13 @@ class TestConversationConsumer(WebsocketTestCase):
         async def fake_ask(conversation_id: str, question: str, **_: Any) -> None:
             sent.append((conversation_id, question))
 
-        await self.connect_ready()
+        await self.subscribe_ready(self.topic)
         with patch(
-            "helpdesk.conversations.consumers.conversation_consumer.ask", fake_ask
+            "helpdesk.conversations.services.chat.ask", fake_ask
         ):
             await self.auth_communicator.send_message(
-                AskMessage(payload=AskPayload(content="What do I tell them?"))
+                AskMessage(payload=AskPayload(content="What do I tell them?")),
+                topic=self.topic,
             )
             await self.auth_communicator.receive_all_messages()
 

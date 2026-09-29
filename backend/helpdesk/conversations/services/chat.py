@@ -6,8 +6,11 @@ irreversible when it is handed to a ticket, which goes through the tickets
 channel and its approval gate.
 """
 
+import asyncio
+from collections.abc import Coroutine
+from typing import Any
+
 from channels.db import database_sync_to_async
-from channels.layers import get_channel_layer
 from django.conf import settings
 
 import structlog
@@ -39,31 +42,27 @@ from helpdesk.conversations.messages import (
     ChatErrorPayload as FEChatErrorPayload,
 )
 from helpdesk.conversations.models import Conversation, Message, MessageRole
+from helpdesk.conversations.topics.conversation_topic import ConversationTopic
 
 logger = structlog.get_logger(__name__)
 
-
-def conversation_group(conversation_id: str) -> str:
-    return f"conversation_{conversation_id}"
+_background: set[asyncio.Task[None]] = set()
 
 
-async def broadcast(group: str, message: BaseMessage) -> None:
-    """Send to a group without owning a consumer.
+def spawn(coro: "Coroutine[Any, Any, None]") -> None:
+    """Run detached, keeping a strong reference. See triage.spawn."""
+    task = asyncio.create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
 
-    Mirrors the envelope `AsyncJsonWebsocketConsumer.broadcast_message` uses.
-    `from_channel` is empty because there is no originating socket to exclude.
-    """
-    channel_layer = get_channel_layer()
-    assert channel_layer
-    await channel_layer.group_send(
-        group,
-        {
-            "type": "handle_group_message",
-            "message": message.model_dump(mode="json"),
-            "exclude_current": False,
-            "from_channel": "",
-        },
-    )
+
+def conversation_topic(conversation_id: str) -> str:
+    return f"conversation:{conversation_id}"
+
+
+async def broadcast(topic: str, message: BaseMessage) -> None:
+    """Publish to a conversation's subscribers, with no consumer to borrow."""
+    await ConversationTopic.broadcast(topic, message)
 
 
 class ConversationChatClient(ChatClient):
@@ -73,7 +72,7 @@ class ConversationChatClient(ChatClient):
         super().__init__(settings.AGENT_WS_URL)
         self.conversation_id = conversation_id
         self.request = request
-        self.group = conversation_group(conversation_id)
+        self.group = conversation_topic(conversation_id)
         self.answer = ""
 
     async def send_init_message(self) -> None:
@@ -161,7 +160,7 @@ async def ask(conversation_id: str, question: str) -> None:
     try:
         message = await _create_user_message(conversation_id, question)
         await broadcast(
-            conversation_group(conversation_id),
+            conversation_topic(conversation_id),
             ChatMessageMessage(
                 payload=ChatMessagePayload(
                     id=str(message.id),
@@ -177,7 +176,7 @@ async def ask(conversation_id: str, question: str) -> None:
     except Exception:
         logger.exception("chat.turn_failed", conversation_id=conversation_id)
         await broadcast(
-            conversation_group(conversation_id),
+            conversation_topic(conversation_id),
             FEChatErrorMessage(
                 payload=FEChatErrorPayload(detail="The assistant is unavailable.")
             ),
@@ -189,3 +188,8 @@ def _create_user_message(conversation_id: str, content: str) -> Message:
     return Message.objects.create(
         conversation_id=conversation_id, role=MessageRole.USER, content=content
     )
+
+
+async def start_turn(conversation_id: str, question: str) -> None:
+    """Run one turn detached: the answer streams over the topic, not the socket."""
+    spawn(ask(conversation_id, question))

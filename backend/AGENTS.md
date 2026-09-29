@@ -137,3 +137,26 @@ Use `BaseModelFactory` from `helpdesk/test_utils/model_factory.py` for all test 
 5. **No venv activation**: The user already has the virtualenv activated. Never run `source .venv/bin/activate` or similar.
 6. **CharField with choices naming**: Don't name the field the same as the choice enum. Use descriptive names with context (e.g., `ticket_status`) instead of generic names (e.g., `status`) to avoid naming collisions.
 7. **Type casting request.user**: Use `cast(User, request.user)` instead of `# type: ignore[assignment]` in views.
+
+## Topics, not one consumer per resource
+
+Every browser tab opens a single socket at `/ws/` (`core/consumers/hub.py`).
+Tickets and conversations are *topics* on it, addressed per frame:
+
+- `ticket:{ticket_id}` - customer-visible, so sending a reply is gated
+- `conversation:{conversation_id}` - the rep's own thread, gated only on the
+  way out via `draft_to_ticket`
+
+Two reasons this is not just tidier. `Topic.broadcast` is a **classmethod**, so
+a detached task with no consumer instance can publish directly - the old
+`broadcast()` helper hand-rolled that envelope and existed in two copies. And
+one socket serves however many resources a tab is watching, instead of one
+connection and one auth round-trip each.
+
+`authorize()` on the topic is where access control lives: an unknown ticket or
+someone else's conversation is refused at subscribe, not at connect.
+
+Note for tests: a topic fan-out terminates with `event_complete`, while a
+handler's own reply terminates with `complete`. `receive_topic_messages` in
+`test_utils/websocket.py` reads one fan-out at a time and parses against the
+topic's output union, because the communicator parses against the *consumer's*.

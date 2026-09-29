@@ -41,6 +41,17 @@ export interface ApprovalRequiredMessage {
 
 export interface ApprovalRequiredPayload {
   draft: string;
+  findings?: Array<string>;
+}
+
+/** A rep says something to the assistant. */
+export interface AskMessage {
+  action: "ask";
+  payload: AskPayload;
+}
+
+export interface AskPayload {
+  content: string;
 }
 
 export interface AssignmentEvent {
@@ -52,6 +63,39 @@ export interface AssignmentEvent {
   newAssignee?: EventUser | null;
 }
 
+/** Streaming finished; carries the final persisted text. */
+export interface AssistantDoneMessage {
+  action: "assistant_done";
+  payload: AssistantDonePayload;
+}
+
+export interface AssistantDonePayload {
+  messageId: string;
+  content: string;
+}
+
+export interface ChatErrorMessage {
+  action: "chat_error";
+  payload: ChatErrorPayload;
+}
+
+export interface ChatErrorPayload {
+  detail: string;
+}
+
+/** A persisted turn, echoed to every tab on this conversation. */
+export interface ChatMessageMessage {
+  action: "chat_message";
+  payload: ChatMessagePayload;
+}
+
+export interface ChatMessagePayload {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
 export interface CommentEvent {
   id: number;
   createdBy?: EventUser | null;
@@ -60,14 +104,15 @@ export interface CommentEvent {
   content: string;
 }
 
-/** Streaming finished; carries the persisted `AIResponseEvent`. */
-export interface CompleteStreamingMessage {
-  action: "complete_streaming";
-  payload: CompleteStreamingPayload;
+/** Hand a drafted reply over to a ticket, where approval applies. */
+export interface DraftToTicketMessage {
+  action: "draft_to_ticket";
+  payload: DraftToTicketPayload;
 }
 
-export interface CompleteStreamingPayload {
-  event: CommentEvent | StatusChangeEvent | AssignmentEvent | AIResponseEvent;
+export interface DraftToTicketPayload {
+  ticketId: string;
+  content: string;
 }
 
 export interface EventUser {
@@ -120,12 +165,13 @@ export interface StatusChangeEvent {
   newStatus: string;
 }
 
-/** One delta of an in-progress agent answer. */
-export interface StreamingMessage {
-  action: "streaming";
-  payload: StreamingPayload;
+/** One delta of the assistant's answer, as it is produced. */
+export interface TokenMessage {
+  action: "token";
+  payload: TokenPayload;
 }
 
-export interface StreamingPayload {
-  chunk: string;
+/** No id: there is only ever one answer streaming per conversation, and it has no database row until it finishes. */
+export interface TokenPayload {
+  delta: string;
 }

@@ -20,6 +20,18 @@ export class FakeSocket {
     FakeSocket.instances.push(this);
   }
 
+  /** Drop every socket so the next test's client opens a fresh one.
+   *
+   * The hub is one connection for the whole app, so a client that is still
+   * holding an open socket will reuse it and the next test sees none created.
+   */
+  static closeAll(): void {
+    for (const socket of FakeSocket.instances) {
+      socket.readyState = 3;
+      socket.onclose?.({ code: 1000, reason: 'test teardown' });
+    }
+  }
+
   static reset(): void {
     FakeSocket.instances = [];
   }
@@ -41,6 +53,23 @@ export class FakeSocket {
   }
 
   /** Complete the handshake. */
+  /** Accept, then answer the topic subscribe the client sends on open. */
+  acceptAndSubscribe(): void {
+    this.accept();
+    this.confirmSubscribe();
+  }
+
+  /** Answer the topic subscribe the client sent, as the server would. */
+  confirmSubscribe(): void {
+    const request = this.sent.find((f) => f.action === 'subscribe');
+    if (!request) throw new Error('client sent no subscribe frame');
+    this.receive({
+      action: 'subscribed',
+      topic: request.topic,
+      ref: request.ref,
+    });
+  }
+
   accept(): void {
     this.readyState = 1;
     this.onopen?.({});

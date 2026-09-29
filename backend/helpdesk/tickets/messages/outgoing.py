@@ -53,6 +53,8 @@ class AgentProgressMessage(BaseMessage):
 
 class ApprovalRequiredPayload(BaseModel):
     draft: str
+    # What the output guard noticed, so the reviewer starts informed.
+    findings: list[str] = []
 
 
 class ApprovalRequiredMessage(BaseMessage):

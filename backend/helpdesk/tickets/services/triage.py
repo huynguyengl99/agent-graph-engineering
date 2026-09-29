@@ -6,8 +6,11 @@ group, so any browser tab on that ticket sees the run regardless of which one
 posted the comment.
 """
 
+import asyncio
+from collections.abc import Coroutine
+from typing import Any
+
 from channels.db import database_sync_to_async
-from channels.layers import get_channel_layer
 from django.conf import settings
 
 import structlog
@@ -42,33 +45,38 @@ from helpdesk.tickets.messages import (
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import AIResponseEvent
 from helpdesk.tickets.serializers.event import serialize_event
+from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
 logger = structlog.get_logger(__name__)
+
+_background: set[asyncio.Task[None]] = set()
+
+def spawn(coro: "Coroutine[Any, Any, None]") -> None:
+    """Run detached, keeping a strong reference.
+
+    asyncio holds only a weak reference to a running task, so a detached one
+    can be collected mid-flight. The discard callback stops the set growing.
+    """
+    task = asyncio.create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
 
 OutgoingPayload = TriageRequestPayload | ApprovalDecisionPayload
 
 
-def ticket_group(ticket_id: str) -> str:
-    return f"ticket_{ticket_id}"
+def ticket_topic(ticket_id: str) -> str:
+    return f"ticket:{ticket_id}"
 
 
-async def broadcast(group: str, message: BaseMessage) -> None:
-    """Send a chanx message to a group without owning a consumer.
+async def broadcast(topic: str, message: BaseMessage) -> None:
+    """Publish to a ticket's subscribers.
 
-    Mirrors the envelope `AsyncJsonWebsocketConsumer.broadcast_message` uses.
-    `from_channel` is empty because there is no originating socket to exclude.
+    `Topic.broadcast` is a classmethod, which is the whole point: this runs in
+    a detached task driving a client to the agent, with no consumer instance to
+    borrow.
     """
-    channel_layer = get_channel_layer()
-    assert channel_layer
-    await channel_layer.group_send(
-        group,
-        {
-            "type": "handle_group_message",
-            "message": message.model_dump(mode="json"),
-            "exclude_current": False,
-            "from_channel": "",
-        },
-    )
+    await TicketTopic.broadcast(topic, message)
 
 
 class TicketTriageClient(TriageClient):
@@ -78,7 +86,7 @@ class TicketTriageClient(TriageClient):
         super().__init__(settings.AGENT_WS_URL)
         self.ticket_id = ticket_id
         self.request = request
-        self.group = ticket_group(ticket_id)
+        self.group = ticket_topic(ticket_id)
         self.pending_reply: str | None = None
 
     async def send_init_message(self) -> None:
@@ -126,7 +134,7 @@ class TicketTriageClient(TriageClient):
                 await broadcast(
                     self.group,
                     FEApprovalRequiredMessage(
-                        payload=FEApprovalRequiredPayload(draft=payload.draft)
+                        payload=FEApprovalRequiredPayload(draft=payload.draft, findings=payload.findings)
                     ),
                 )
                 # The run is parked in the agent's checkpointer. Release the
@@ -198,7 +206,7 @@ async def run_triage(
     except Exception:
         logger.exception("triage.run_failed", ticket_id=ticket_id)
         await broadcast(
-            ticket_group(ticket_id),
+            ticket_topic(ticket_id),
             AgentProgressMessage(
                 payload=AgentProgressPayload(
                     stage="failed", detail="The triage agent is unavailable."
@@ -227,10 +235,51 @@ async def submit_approval(
     except Exception:
         logger.exception("triage.approval_failed", ticket_id=ticket_id)
         await broadcast(
-            ticket_group(ticket_id),
+            ticket_topic(ticket_id),
             AgentProgressMessage(
                 payload=AgentProgressPayload(
                     stage="failed", detail="Could not reach the triage agent."
                 )
             ),
         )
+
+
+@database_sync_to_async
+def _ticket_context(ticket_id: str) -> dict[str, Any]:
+    from helpdesk.tickets.models import CommentEvent, Ticket
+
+    ticket = Ticket.objects.get(id=ticket_id)
+    comments = (
+        CommentEvent.objects.filter(ticket_id=ticket_id)
+        .order_by("created_at")
+        .values_list("content", flat=True)
+    )
+    return {
+        "title": ticket.title,
+        "description": ticket.description,
+        "history": list(comments),
+    }
+
+
+async def start_triage(ticket_id: str) -> None:
+    """Kick off triage without holding the socket.
+
+    Detached because the agent may take tens of seconds; results reach the
+    browser through the ticket topic, not this return path.
+    """
+    context = await _ticket_context(ticket_id)
+    spawn(
+        run_triage(
+            ticket_id=ticket_id,
+            title=context["title"],
+            description=context["description"],
+            history=context["history"],
+        )
+    )
+
+
+async def start_approval(
+    ticket_id: str, *, approved: bool, content: str | None = None
+) -> None:
+    """Resume a parked run. Detached for the same reason."""
+    spawn(submit_approval(ticket_id=ticket_id, approved=approved, content=content))

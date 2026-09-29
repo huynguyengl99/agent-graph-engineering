@@ -1,10 +1,12 @@
 """WebSocket test case utilities."""
-from typing import Any
+import asyncio
+from typing import Annotated, Any
 
 from django.conf import settings
 
 from asgiref.sync import sync_to_async
 from chanx.channels.testing import WebsocketTestCase as BaseWebsocketTestCase
+from chanx.constants import COMPLETE_ACTIONS
 from chanx.messages.incoming import PingMessage
 
 from helpdesk.accounts.factories import UserFactory
@@ -45,6 +47,66 @@ class WebsocketTestCase(BaseWebsocketTestCase):
 
     def get_ws_headers(self) -> list[tuple[bytes, bytes]]:
         return self.ws_headers
+
+    async def receive_topic_messages(
+        self,
+        union: Any,
+        *,
+        stop_action: str | None = None,
+        timeout: float = 3,
+    ) -> list[Any]:
+        """Read one fan-out and parse it against a topic's output union.
+
+        `receive_all_messages` validates against the *consumer's* outgoing
+        union, and a hub consumer declares only its own handlers, so a topic's
+        frames do not parse there.
+
+        Reads frame by frame and stops at the first terminator, so two
+        broadcasts in a row are drained one at a time. A topic fan-out ends
+        with `event_complete`, not the `group_complete` a consumer sends.
+        """
+        import humps
+        from pydantic import Field, TypeAdapter
+
+        adapter: TypeAdapter[Any] = TypeAdapter(
+            Annotated[union, Field(discriminator="action")]
+        )
+        messages: list[Any] = []
+        try:
+            async with asyncio.timeout(timeout):
+                while True:
+                    frame = humps.decamelize(
+                        await self.auth_communicator.receive_json_from(timeout)
+                    )
+                    action = frame.get("action")
+                    if action not in COMPLETE_ACTIONS:
+                        # Envelope fields are transport, not part of the model.
+                        messages.append(
+                            adapter.validate_python(
+                                {
+                                    k: v
+                                    for k, v in frame.items()
+                                    if k not in ("topic", "version", "ref")
+                                }
+                            )
+                        )
+                    if action in COMPLETE_ACTIONS and (
+                        stop_action is None or action == stop_action
+                    ):
+                        break
+        except (TimeoutError, asyncio.CancelledError):
+            pass
+        return messages
+
+    async def subscribe_ready(self, topic: str, communicator: Any = None) -> Any:
+        """Connect and join a topic, ready to receive its broadcasts.
+
+        Subscribing is itself a round-trip, so its reply also proves the
+        consumer has finished joining the group.
+        """
+        communicator = communicator or self.auth_communicator
+        await communicator.connect()
+        return await communicator.subscribe(topic)
 
     async def connect_ready(self, communicator: Any = None) -> Any:
         """Connect, and wait until the consumer has finished joining its groups.

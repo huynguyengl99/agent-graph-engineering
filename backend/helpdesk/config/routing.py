@@ -1,16 +1,13 @@
 from channels.routing import URLRouter
 
-from chanx.channels.routing import include, path
+from chanx.channels.routing import path
 
-ws_router = URLRouter(
-    [
-        path("tickets/", include("helpdesk.tickets.routing")),
-        path("conversations/", include("helpdesk.conversations.routing")),
-    ]
-)
+from helpdesk.core.consumers.hub import HubConsumer
 
+# One socket per tab. Tickets and conversations are topics on it, addressed
+# per frame, so watching four resources no longer means four connections.
 router = URLRouter(
     [
-        path("ws/", include(ws_router)),
+        path("ws/", HubConsumer.as_asgi()),
     ]
 )

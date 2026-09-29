@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 interface Props {
   draft: string;
+  findings?: string[];
   onDecide: (approved: boolean, content?: string) => void;
 }
 
@@ -9,7 +10,7 @@ interface Props {
  * The human gate. Until someone acts here the graph stays parked in the
  * agent's checkpointer and nothing reaches the customer.
  */
-export function ApprovalPanel({ draft, onDecide }: Props) {
+export function ApprovalPanel({ draft, findings = [], onDecide }: Props) {
   const [content, setContent] = useState(draft);
   const edited = content.trim() !== draft.trim();
 
@@ -21,6 +22,16 @@ export function ApprovalPanel({ draft, onDecide }: Props) {
           not sent yet
         </span>
       </div>
+
+      {findings.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {findings.map((finding) => (
+            <li key={finding} className="text-xs text-amber-900">
+              ⚠ {finding}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <textarea
         value={content}

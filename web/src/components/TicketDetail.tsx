@@ -15,6 +15,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const [progress, setProgress] = useState<Progress[]>([]);
   const [draft, setDraft] = useState('');
   const [pendingApproval, setPendingApproval] = useState<string | null>(null);
+  const [findings, setFindings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -47,8 +48,9 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     }
   }, []);
 
-  const onApprovalRequired = useCallback((text: string) => {
+  const onApprovalRequired = useCallback((text: string, found: string[]) => {
     setPendingApproval(text);
+    setFindings(found);
   }, []);
 
   const onAgentProgress = useCallback((stage: AgentStage, detail: string) => {
@@ -133,7 +135,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
         )}
 
         {pendingApproval !== null && (
-          <ApprovalPanel draft={pendingApproval} onDecide={decide} />
+          <ApprovalPanel
+            draft={pendingApproval}
+            findings={findings}
+            onDecide={decide}
+          />
         )}
 
         <div ref={bottom} />

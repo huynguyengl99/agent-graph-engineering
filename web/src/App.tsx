@@ -17,10 +17,18 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    api
-      .get('/api/tickets/')
-      .then((page) => setTickets(page.results ?? []))
-      .catch(() => setTickets([]));
+    let ignore = false;
+    void (async () => {
+      try {
+        const page = await api.get('/api/tickets/');
+        if (!ignore) setTickets(page.results ?? []);
+      } catch {
+        if (!ignore) setTickets([]);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
   }, [isAuthenticated]);
 
   if (!isAuthenticated) return <LoginForm />;

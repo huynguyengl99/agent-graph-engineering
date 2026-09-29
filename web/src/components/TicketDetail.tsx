@@ -23,16 +23,16 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   useEffect(() => {
     // `ignore` drops the response if the user switched tickets mid-flight.
     let ignore = false;
-    api
-      .get('/api/tickets/:ticketPk/events/', {
-        params: { ticketPk: ticketId },
-      })
-      .then((page) => {
+    void (async () => {
+      try {
+        const page = await api.get('/api/tickets/:ticketPk/events/', {
+          params: { ticketPk: ticketId },
+        });
         if (!ignore) setEvents(page.results ?? []);
-      })
-      .catch(() => {
+      } catch {
         if (!ignore) setError('Could not load the ticket history.');
-      });
+      }
+    })();
     return () => {
       ignore = true;
     };

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import { router } from '@/router';
 import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import type { Ticket, TicketEvent } from '@/lib/types';
 import { TicketEventItem } from './TicketEventItem';
@@ -82,6 +83,26 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
   }, [events, progress, pendingApproval]);
 
+  const [openingChat, setOpeningChat] = useState(false);
+
+  const askAssistant = async () => {
+    setOpeningChat(true);
+    try {
+      // The conversation carries the ticket, so the assistant starts with its
+      // context instead of the rep pasting it in.
+      const created = await api.post('/api/conversations/', {
+        title: ticket.title,
+        ticket: ticketId,
+      });
+      await router.navigate({
+        to: '/chat/$conversationId',
+        params: { conversationId: String(created.id) },
+      });
+    } finally {
+      setOpeningChat(false);
+    }
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const content = draft.trim();
@@ -97,8 +118,15 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           <h2 className="text-xl font-semibold">{ticket.title}</h2>
           <Badge>{ticket.status}</Badge>
           <Badge>{ticket.priority}</Badge>
+          <button
+            onClick={() => void askAssistant()}
+            disabled={openingChat}
+            className="ml-auto rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+          >
+            {openingChat ? 'Opening…' : 'Ask the assistant'}
+          </button>
           <span
-            className={`ml-auto text-xs ${
+            className={`text-xs ${
               isConnected ? 'text-green-600' : 'text-gray-400'
             }`}
           >

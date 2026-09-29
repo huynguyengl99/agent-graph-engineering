@@ -6,8 +6,9 @@ import {
 import { RootLayout } from '@/routes/root';
 import { TicketsIndex } from '@/routes/index';
 import { TicketRoute } from '@/routes/ticket';
+import { ChatRoute } from '@/routes/chat';
 
-// Code-based routes rather than file-based: three of them, and it keeps the
+// Code-based routes rather than file-based: four of them, and it keeps the
 // build free of a route-tree generator step.
 const rootRoute = createRootRoute({ component: RootLayout });
 
@@ -26,8 +27,34 @@ const ticketRoute = createRoute({
   },
 });
 
+const chatIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chat',
+  component: function ChatIndex() {
+    return (
+      <p className="p-8 text-gray-500">
+        Pick a conversation, or start a new one.
+      </p>
+    );
+  },
+});
+
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chat/$conversationId',
+  component: function Chat() {
+    const { conversationId } = chatRoute.useParams();
+    return <ChatRoute key={conversationId} conversationId={conversationId} />;
+  },
+});
+
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, ticketRoute]),
+  routeTree: rootRoute.addChildren([
+    indexRoute,
+    ticketRoute,
+    chatIndexRoute,
+    chatRoute,
+  ]),
 });
 
 declare module '@tanstack/react-router' {

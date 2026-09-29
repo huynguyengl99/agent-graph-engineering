@@ -10,7 +10,9 @@ from helpdesk.conversations.factories import ConversationFactory
 from helpdesk.conversations.messages import AskMessage, AskPayload
 from helpdesk.conversations.models import Conversation, Message
 from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.test_utils.auth_api_test_case import AuthAPITestCase
 from helpdesk.test_utils.websocket import WebsocketTestCase
+from helpdesk.tickets.factories import TicketFactory
 
 
 class TestConversationTopic(WebsocketTestCase):
@@ -87,3 +89,48 @@ class TestConversationTopic(WebsocketTestCase):
             conversation=self.conversation
         ).acount()
         assert count == 1
+
+
+class TestConversationApi(AuthAPITestCase):
+    """The create response has to match what the schema promises.
+
+    The generated client validates it, so returning only the create fields
+    fails in the browser while every backend test still passes.
+    """
+
+    def test_create_returns_the_full_representation(self) -> None:
+        response = self.auth_client.post(
+            "/api/conversations/", {"title": "About the double charge"}, format="json"
+        )
+
+        assert response.status_code == 201
+        # The rendered body, not response.data: camelization happens at render
+        # time, and the rendered shape is what the generated client validates.
+        assert set(response.json()) >= {
+            "id",
+            "title",
+            "ticket",
+            "createdAt",
+            "updatedAt",
+        }
+
+    def test_a_conversation_can_name_its_ticket(self) -> None:
+        ticket = TicketFactory.create(created_by=self.user)
+
+        response = self.auth_client.post(
+            "/api/conversations/",
+            {"title": ticket.title, "ticket": str(ticket.id)},
+            format="json",
+        )
+
+        assert response.status_code == 201
+        assert response.json()["ticket"] == str(ticket.id)
+
+    def test_only_your_own_conversations_are_listed(self) -> None:
+        ConversationFactory.create(owner=self.user)
+        ConversationFactory.create()
+
+        response = self.auth_client.get("/api/conversations/")
+
+        assert response.status_code == 200
+        assert response.json()["count"] == 1

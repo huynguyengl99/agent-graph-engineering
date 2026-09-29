@@ -4,10 +4,8 @@
  * DO NOT EDIT. Run `pnpm gen:type` to regenerate.
  */
 
-/** Serializer for AI response events. */
 export interface AIResponseEvent {
   id: number;
-  /** Return the event type discriminator. */
   eventType: string;
   createdBy: User;
   createdAt: string;
@@ -26,10 +24,8 @@ export interface AIResponseEventTyped {
   tokensUsed?: number;
 }
 
-/** Serializer for assignment events. */
 export interface AssignmentEvent {
   id: number;
-  /** Return the event type discriminator. */
   eventType: string;
   createdBy: User;
   createdAt: string;
@@ -46,17 +42,14 @@ export interface AssignmentEventTyped {
   newAssignee: User;
 }
 
-/** Serializer for comment events. */
 export interface CommentEvent {
   id: number;
-  /** Return the event type discriminator. */
   eventType: string;
   createdBy: User;
   createdAt: string;
   content: string;
 }
 
-/** Serializer for creating comment events. */
 export interface CommentEventCreateRequest {
   content: string;
 }
@@ -67,6 +60,19 @@ export interface CommentEventTyped {
   createdBy: User;
   createdAt: string;
   content: string;
+}
+
+export interface Conversation {
+  id: string;
+  title?: string;
+  ticket?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationCreateRequest {
+  title?: string;
+  ticket?: string | null;
 }
 
 /** JWT token refresh with cookie and request data support. */
@@ -106,8 +112,26 @@ export interface LoginRequest {
   password: string;
 }
 
-/** * `open` - Open * `in_progress` - In Progress * `resolved` - Resolved * `closed` - Closed */
-export type NewStatusEnum = "open" | "in_progress" | "resolved" | "closed";
+export interface Message {
+  id: string;
+  role: RoleEnum;
+  content: string;
+  createdAt: string;
+}
+
+export interface PaginatedConversationList {
+  count: number;
+  next?: string | null;
+  previous?: string | null;
+  results: Conversation[];
+}
+
+export interface PaginatedMessageList {
+  count: number;
+  next?: string | null;
+  previous?: string | null;
+  results: Message[];
+}
 
 export interface PaginatedTicketEventPolymorphicList {
   count: number;
@@ -161,7 +185,7 @@ export interface PasswordResetRequest {
 export interface PatchedTicketUpdateRequest {
   title?: string;
   description?: string;
-  status?: NewStatusEnum;
+  status?: TicketStatusEnum;
   priority?: PriorityEnum;
   assignedTo?: string | null;
 }
@@ -200,15 +224,16 @@ export interface ResendEmailVerificationRequest {
   email: string;
 }
 
-/** Serializer for status change events. */
+/** * `user` - User * `assistant` - Assistant */
+export type RoleEnum = "user" | "assistant";
+
 export interface StatusChangeEvent {
   id: number;
-  /** Return the event type discriminator. */
   eventType: string;
   createdBy: User;
   createdAt: string;
-  oldStatus: NewStatusEnum;
-  newStatus: NewStatusEnum;
+  oldStatus: TicketStatusEnum;
+  newStatus: TicketStatusEnum;
 }
 
 export interface StatusChangeEventTyped {
@@ -216,8 +241,8 @@ export interface StatusChangeEventTyped {
   eventType: "status_change";
   createdBy: User;
   createdAt: string;
-  oldStatus: NewStatusEnum;
-  newStatus: NewStatusEnum;
+  oldStatus: TicketStatusEnum;
+  newStatus: TicketStatusEnum;
 }
 
 /** Full ticket serializer for read operations. */
@@ -225,7 +250,7 @@ export interface Ticket {
   id: string;
   title: string;
   description: string;
-  status?: NewStatusEnum;
+  status?: TicketStatusEnum;
   priority?: PriorityEnum;
   createdBy: User;
   assignedTo: User;
@@ -254,11 +279,14 @@ export type TicketEventPolymorphic =
   | AssignmentEventTyped
   | AIResponseEventTyped;
 
+/** * `open` - Open * `in_progress` - In Progress * `resolved` - Resolved * `closed` - Closed */
+export type TicketStatusEnum = "open" | "in_progress" | "resolved" | "closed";
+
 /** Ticket update serializer. */
 export interface TicketUpdate {
   title: string;
   description: string;
-  status?: NewStatusEnum;
+  status?: TicketStatusEnum;
   priority?: PriorityEnum;
   assignedTo?: string | null;
 }
@@ -267,7 +295,7 @@ export interface TicketUpdate {
 export interface TicketUpdateRequest {
   title: string;
   description: string;
-  status?: NewStatusEnum;
+  status?: TicketStatusEnum;
   priority?: PriorityEnum;
   assignedTo?: string | null;
 }
@@ -282,7 +310,6 @@ export interface User {
   email: string;
   firstName?: string;
   lastName?: string;
-  /** Return the user's full name. */
   fullName: string;
   dateJoined: string;
 }

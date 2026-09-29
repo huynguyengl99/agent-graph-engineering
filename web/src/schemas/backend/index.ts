@@ -90,14 +90,52 @@ const PatchedUserRequest = z
   })
   .partial()
   .passthrough();
-const NewStatusEnum = z.enum(["open", "in_progress", "resolved", "closed"]);
+const Conversation = z
+  .object({
+    id: z.string().uuid(),
+    title: z.string().max(255).optional(),
+    ticket: z.string().uuid().nullish(),
+    createdAt: z.string().datetime({ offset: true }),
+    updatedAt: z.string().datetime({ offset: true }),
+  })
+  .passthrough();
+const PaginatedConversationList = z
+  .object({
+    count: z.number().int(),
+    next: z.string().url().nullish(),
+    previous: z.string().url().nullish(),
+    results: z.array(Conversation),
+  })
+  .passthrough();
+const ConversationCreateRequest = z
+  .object({ title: z.string().max(255), ticket: z.string().uuid().nullable() })
+  .partial()
+  .passthrough();
+const RoleEnum = z.enum(["user", "assistant"]);
+const Message = z
+  .object({
+    id: z.string().uuid(),
+    role: RoleEnum,
+    content: z.string(),
+    createdAt: z.string().datetime({ offset: true }),
+  })
+  .passthrough();
+const PaginatedMessageList = z
+  .object({
+    count: z.number().int(),
+    next: z.string().url().nullish(),
+    previous: z.string().url().nullish(),
+    results: z.array(Message),
+  })
+  .passthrough();
+const TicketStatusEnum = z.enum(["open", "in_progress", "resolved", "closed"]);
 const PriorityEnum = z.enum(["low", "medium", "high", "urgent"]);
 const Ticket = z
   .object({
     id: z.string().uuid(),
     title: z.string().max(255),
     description: z.string(),
-    status: NewStatusEnum.optional(),
+    status: TicketStatusEnum.optional(),
     priority: PriorityEnum.optional(),
     createdBy: User,
     assignedTo: User.nullable(),
@@ -131,7 +169,7 @@ const TicketUpdateRequest = z
   .object({
     title: z.string().min(1).max(255),
     description: z.string().min(1),
-    status: NewStatusEnum.optional(),
+    status: TicketStatusEnum.optional(),
     priority: PriorityEnum.optional(),
     assignedTo: z.string().uuid().nullish(),
   })
@@ -140,7 +178,7 @@ const TicketUpdate = z
   .object({
     title: z.string().max(255),
     description: z.string(),
-    status: NewStatusEnum.optional(),
+    status: TicketStatusEnum.optional(),
     priority: PriorityEnum.optional(),
     assignedTo: z.string().uuid().nullish(),
   })
@@ -149,7 +187,7 @@ const PatchedTicketUpdateRequest = z
   .object({
     title: z.string().min(1).max(255),
     description: z.string().min(1),
-    status: NewStatusEnum,
+    status: TicketStatusEnum,
     priority: PriorityEnum,
     assignedTo: z.string().uuid().nullable(),
   })
@@ -170,8 +208,8 @@ const StatusChangeEventTyped = z
     eventType: z.literal("status_change"),
     createdBy: User.nullable(),
     createdAt: z.string().datetime({ offset: true }),
-    oldStatus: NewStatusEnum,
-    newStatus: NewStatusEnum,
+    oldStatus: TicketStatusEnum,
+    newStatus: TicketStatusEnum,
   })
   .passthrough();
 const AssignmentEventTyped = z
@@ -236,7 +274,13 @@ export const schemas = {
   TokenVerifyRequest,
   UserRequest,
   PatchedUserRequest,
-  NewStatusEnum,
+  Conversation,
+  PaginatedConversationList,
+  ConversationCreateRequest,
+  RoleEnum,
+  Message,
+  PaginatedMessageList,
+  TicketStatusEnum,
   PriorityEnum,
   Ticket,
   PaginatedTicketList,
@@ -443,17 +487,81 @@ information about a token&#x27;s fitness for a particular use.`,
   },
   {
     method: "get",
-    path: "/api/schema/no-error/",
-    description: `Return OpenAPI schema without error schemas.`,
+    path: "/api/conversations/",
     requestFormat: "json",
     parameters: [
       {
-        name: "format",
+        name: "ordering",
         type: "Query",
-        schema: z.enum(["json", "yaml"]).optional(),
+        schema: z.string().optional(),
+      },
+      {
+        name: "page",
+        type: "Query",
+        schema: z.number().int().optional(),
+      },
+      {
+        name: "search",
+        type: "Query",
+        schema: z.string().optional(),
       },
     ],
-    response: z.void(),
+    response: PaginatedConversationList,
+  },
+  {
+    method: "post",
+    path: "/api/conversations/",
+    description: `Pass a ticket to open one about that ticket.`,
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: ConversationCreateRequest,
+      },
+    ],
+    response: Conversation,
+  },
+  {
+    method: "get",
+    path: "/api/conversations/:conversationPk/messages/",
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "conversationPk",
+        type: "Path",
+        schema: z.string().uuid(),
+      },
+      {
+        name: "ordering",
+        type: "Query",
+        schema: z.string().optional(),
+      },
+      {
+        name: "page",
+        type: "Query",
+        schema: z.number().int().optional(),
+      },
+      {
+        name: "search",
+        type: "Query",
+        schema: z.string().optional(),
+      },
+    ],
+    response: PaginatedMessageList,
+  },
+  {
+    method: "get",
+    path: "/api/conversations/:id/",
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "id",
+        type: "Path",
+        schema: z.string().uuid(),
+      },
+    ],
+    response: Conversation,
   },
   {
     method: "get",
@@ -579,7 +687,7 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "get",
     path: "/api/tickets/:ticketPk/events/",
-    description: `Get all events for a ticket (polymorphic - returns mixed event types)`,
+    description: `Every event on a ticket, as a discriminated union.`,
     requestFormat: "json",
     parameters: [
       {
@@ -600,7 +708,7 @@ information about a token&#x27;s fitness for a particular use.`,
       {
         name: "ticketPk",
         type: "Path",
-        schema: z.string(),
+        schema: z.string().uuid(),
       },
     ],
     response: PaginatedTicketEventPolymorphicList,
@@ -619,7 +727,7 @@ information about a token&#x27;s fitness for a particular use.`,
       {
         name: "ticketPk",
         type: "Path",
-        schema: z.string(),
+        schema: z.string().uuid(),
       },
     ],
     response: TicketEventPolymorphic,

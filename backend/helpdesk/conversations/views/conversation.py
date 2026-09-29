@@ -1,8 +1,10 @@
 from typing import Any
 
 from django.db.models import QuerySet
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
 from drf_spectacular.types import OpenApiTypes
@@ -47,6 +49,20 @@ class ConversationViewSet(
         if self.action == "create":
             return ConversationCreateSerializer
         return ConversationSerializer
+
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Answer with the full representation, not the create fields.
+
+        The schema promises a Conversation, and the generated client validates
+        against it, so returning only {title, ticket} fails in the browser.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        conversation = serializer.save()
+        return Response(
+            ConversationSerializer(conversation).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 CONVERSATION_PK = OpenApiParameter(

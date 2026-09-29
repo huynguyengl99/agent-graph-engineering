@@ -22,3 +22,5 @@ export type Ticket = z.infer<typeof schemas.Ticket>;
  */
 export type TicketEvent = NewEventPayload['event'];
 export type User = z.infer<typeof schemas.User>;
+export type Conversation = z.infer<typeof schemas.Conversation>;
+export type ChatMessage = z.infer<typeof schemas.Message>;

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from environs import Env
 
 env = Env()
@@ -16,9 +18,12 @@ def _api_key(name: str) -> str:
 
 class Settings:
     openai_api_key: str = _api_key("OPENAI_API_KEY")
-    # Routing decisions run on a cheap model; synthesis runs on a strong one.
-    decision_model: str = env.str("TRIAGE_DECISION_MODEL", "gpt-4o-mini")
-    answer_model: str = env.str("TRIAGE_ANSWER_MODEL", "gpt-4o")
+    anthropic_api_key: str = _api_key("ANTHROPIC_API_KEY")
+    # The deployment's default for each purpose, as "provider:name". A user's
+    # own choice overrides these one slot at a time.
+    decision_model: str = env.str("ASSISTANT_DECISION_MODEL", "openai:gpt-4o-mini")
+    answer_model: str = env.str("ASSISTANT_ANSWER_MODEL", "openai:gpt-4o")
+    vision_model: str = env.str("ASSISTANT_VISION_MODEL", "openai:gpt-4o")
 
     redis_url: str = env.str("REDIS_URL", "")
     cors_origins: list[str] = env.list(
@@ -34,3 +39,22 @@ class Settings:
 
 
 settings = Settings()
+
+
+def default_models() -> "dict[ModelPurpose, ModelConfig]":
+    """The system's purpose map. Steps pick a purpose; this picks the model."""
+    from assistant.agents.config import ModelConfig, ModelPurpose
+
+    def parse(slug: str) -> ModelConfig:
+        provider, _, name = slug.partition(":")
+        return ModelConfig(provider=provider, name=name or provider)
+
+    return {
+        ModelPurpose.DECISION: parse(settings.decision_model),
+        ModelPurpose.ANSWER: parse(settings.answer_model),
+        ModelPurpose.VISION: parse(settings.vision_model),
+    }
+
+
+if TYPE_CHECKING:
+    from assistant.agents.config import ModelConfig, ModelPurpose

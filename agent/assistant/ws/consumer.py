@@ -9,9 +9,10 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from assistant.agents import TicketContext
+from assistant.agents.config import AgentConfig
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.state import TriageState
-from assistant.graphs.triage_graph import triage_graph
+from assistant.graphs.triage_graph import build_triage_graph
 from assistant.outputs.triage import TicketAnswer
 from assistant.ws.messages import (
     AnswerMessage,
@@ -122,12 +123,16 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         """
         config: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 
+        # Built per run: the topology is fixed, but which model fills each
+        # purpose is resolved from the requesting user's config.
+        graph = build_triage_graph(AgentConfig.resolve())
+
         # `stream_mode="updates"` yields one {node_name: update} dict per step,
         # not a (name, update) pair.
         # StateT is invariant in the astream signature, so a declared
         # `TriageState | Command` argument cannot satisfy it even though that is
         # exactly what the graph accepts.
-        async for step in triage_graph.astream(
+        async for step in graph.astream(
             payload,  # type: ignore[arg-type]
             config=config,
             stream_mode="updates",

@@ -1,15 +1,10 @@
-from pydantic_ai import Agent
-
-from assistant.agents.deps import TicketContext
-from assistant.agents.factory import build_model
-from assistant.core.config import settings
+from assistant.agents.base import BaseAgent
+from assistant.agents.config import ModelPurpose
 from assistant.outputs.triage import TicketAnswer
 from assistant.prompts import ANSWER_PROMPT
 
-answer_agent = Agent(
-    build_model(settings.answer_model),
-    output_type=TicketAnswer,
-    deps_type=TicketContext,
-    instrument=True,
-    instructions=ANSWER_PROMPT,
-)
+
+class AnswerAgent(BaseAgent[TicketAnswer]):
+    purpose = ModelPurpose.ANSWER
+    output_type = TicketAnswer
+    instructions = ANSWER_PROMPT

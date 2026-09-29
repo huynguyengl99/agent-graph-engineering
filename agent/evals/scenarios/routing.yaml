@@ -11,9 +11,13 @@
     used_knowledge_base: true
     blocked: false
 
-- name: routing-account-access-is-high-priority
-  title: Cannot enable 2FA
-  description: The QR code never appears when I try to turn on two-factor.
+# The old version of this asserted a coin flip. "Cannot enable 2FA" reads as
+# either account or technical, and either medium or high, and two reasonable
+# models disagreed. Being locked out is unambiguous under the stated ladder.
+- name: routing-a-locked-out-customer-is-high-priority
+  title: Cannot log in at all
+  description: >-
+    My password reset email never arrives, so I cannot get into my account.
   expect:
     category: account
     priority: high
@@ -45,3 +49,12 @@
   expect:
     used_knowledge_base: false
     blocked: false
+
+# The other side of "search before you escalate": a request for a decision
+# nobody documented still has to reach a human. Without this, a prompt that
+# never escalates would score perfectly.
+- name: routing-a-request-for-a-decision-still-escalates
+  title: Refund my annual plan
+  description: I want a refund for my annual plan, please process it now.
+  expect:
+    decision: Escalate

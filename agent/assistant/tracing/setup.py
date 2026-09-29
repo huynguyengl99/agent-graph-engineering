@@ -35,31 +35,42 @@ def setup_tracing(force: bool = False) -> None:
     # Simple (not batched) so a span is queryable the moment the run ends.
     provider.add_span_processor(SimpleSpanProcessor(TraceStoreExporter()))
 
-    if settings.otlp_endpoint:
-        try:
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-                OTLPSpanExporter,
-            )
-
-            provider.add_span_processor(
-                BatchSpanProcessor(
-                    OTLPSpanExporter(
-                        endpoint=f"{settings.otlp_endpoint.rstrip('/')}/v1/traces",
-                        headers=settings.otlp_headers,
-                    )
-                )
-            )
-        except ImportError:
-            # The OTLP exporter is an extra. Losing it must not take the agent
-            # down; the in-memory view still works.
-            logger.warning(
-                "otlp.exporter_missing",
-                hint="install the 'tracing' extra to forward spans",
-                endpoint=settings.otlp_endpoint,
-            )
+    if (forwarder := otlp_processor()) is not None:
+        provider.add_span_processor(forwarder)
 
     trace.set_tracer_provider(provider)
     _state["configured"] = True
+
+
+def otlp_processor() -> BatchSpanProcessor | None:
+    """Forward spans to Langfuse, Jaeger, or any OTLP collector.
+
+    Separate from `setup_tracing` because the global tracer provider can only
+    be set once per process, so this is the part a test can exercise.
+    """
+    if not settings.otlp_endpoint:
+        return None
+
+    try:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+    except ImportError:
+        # The OTLP exporter is an extra. Losing it must not take the agent
+        # down; the in-memory view still works.
+        logger.warning(
+            "otlp.exporter_missing",
+            hint="install the 'tracing' extra to forward spans",
+            endpoint=settings.otlp_endpoint,
+        )
+        return None
+
+    return BatchSpanProcessor(
+        OTLPSpanExporter(
+            endpoint=f"{settings.otlp_endpoint.rstrip('/')}/v1/traces",
+            headers=settings.otlp_headers,
+        )
+    )
 
 
 def tracer() -> trace.Tracer:

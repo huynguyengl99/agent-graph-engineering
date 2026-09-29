@@ -93,10 +93,19 @@ Findings reach the UI on `approval_required.findings`, or as `reply_blocked`.
 The golden set lives in `evals/scenarios/*.yaml`, one file per concern.
 
 ```
-just evals              # everything
-just evals guardrail    # names matching "guardrail"
+just evals                        # everything, on evals/configs/openai.json
+just evals guardrail              # names matching "guardrail"
+just evals --config claude        # the same set on a different model set
 just evals-compare scripted openai_gpt-4o
 ```
+
+Model sets live in `evals/configs/*.json`. The judge stays on one model across
+configs on purpose - judging Claude with Claude is not a comparison.
+
+`trials: 1` means one bad sample fails a scenario; three consecutive runs came
+back 12/12 but individual runs have come back 11/12. Raise `trials` when a
+result has to be trustworthy - scoring is a majority vote, and the cost scales
+with it.
 
 Runs with no API key: the scripted model keeps the deterministic checks real,
 and prose criteria are reported as *skipped* rather than scored, so a keyless
@@ -107,8 +116,15 @@ kinds, never substrings - see `tests/test_evals.py` for why.
 
 Cost comes from the spans the tracer already collects
 (`assistant/tracing/cost.py`), so it needs no plumbing through the agents. A
-model with no price table reports its tokens with `priced: false` rather than
-a misleading $0.00.
+model with no price table reports its tokens with `priced: false` and names the
+model, rather than a misleading $0.00.
+
+**`genai-prices` is pinned exactly at 0.0.55.** 0.1.9 knows the newer Claude
+models but silently zeroes pydantic-ai 1.63's token counts - every call still
+reports, with `input=0` and `output=0`, so cost quietly becomes $0.00 instead
+of failing. `tests/test_usage_reporting.py` guards it, and the OpenAI mock
+carries the `*_tokens_details` objects a real response has, because without
+them the parsing takes a different path and the bug does not reproduce.
 
 ## Model selection
 

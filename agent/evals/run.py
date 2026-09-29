@@ -1,7 +1,12 @@
 """Run the golden set.
 
-    uv run python -m evals.run            # every scenario
-    uv run python -m evals.run routing    # only scenarios whose name matches
+    uv run python -m evals.run                      # every scenario
+    uv run python -m evals.run routing              # names matching "routing"
+    uv run python -m evals.run --config claude      # a different model set
+
+Configs are `evals/configs/<name>.json`; the run is labelled by the model that
+actually answered, so two providers land in separate result files and
+`evals.compare` can diff them.
 
 Runs without an API key: the scripted model makes the deterministic checks
 meaningful and the judge falls back to its free checks, so the harness itself
@@ -37,6 +42,9 @@ def _usage(observations: list[Observation]) -> Usage:
             output_tokens=total.output_tokens + o.cost.output_tokens,
             cost_usd=total.cost_usd + float(o.cost.cost_usd),
             priced=total.priced and o.cost.priced,
+            unpriced_models=sorted(
+                set(total.unpriced_models) | o.cost.unpriced_models
+            ),
         )
     return total
 
@@ -73,8 +81,8 @@ async def run_scenario(
     )
 
 
-async def main(pattern: str | None = None) -> int:
-    config = EvalConfig.load()
+async def main(pattern: str | None = None, config_name: str | None = None) -> int:
+    config = EvalConfig.load(config_name)
     scenarios = load_scenarios(SCENARIOS_DIR)
     if pattern:
         scenarios = [s for s in scenarios if pattern in s.name]
@@ -93,6 +101,9 @@ async def main(pattern: str | None = None) -> int:
             output_tokens=total_usage.output_tokens + r.usage.output_tokens,
             cost_usd=total_usage.cost_usd + r.usage.cost_usd,
             priced=total_usage.priced and r.usage.priced,
+            unpriced_models=sorted(
+                set(total_usage.unpriced_models) | set(r.usage.unpriced_models)
+            ),
         )
 
     summary = RunSummary(
@@ -128,7 +139,7 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
     cost = (
         f"${summary.usage.cost_usd:.4f}"
         if summary.usage.priced
-        else "unpriced (scripted model has no price table)"
+        else f"unpriced (no price table for {', '.join(summary.usage.unpriced_models)})"
     )
     print(
         f"\n{summary.passed}/{summary.total} passed  "
@@ -145,5 +156,18 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
     print(f"written to {run_dir}")
 
 
+def _parse(argv: list[str]) -> tuple[str | None, str | None]:
+    pattern: str | None = None
+    config: str | None = None
+    rest = list(argv)
+    if "--config" in rest:
+        index = rest.index("--config")
+        config = rest[index + 1] if index + 1 < len(rest) else None
+        del rest[index : index + 2]
+    if rest:
+        pattern = rest[0]
+    return pattern, config
+
+
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main(sys.argv[1] if len(sys.argv) > 1 else None)))
+    raise SystemExit(asyncio.run(main(*_parse(sys.argv[1:]))))

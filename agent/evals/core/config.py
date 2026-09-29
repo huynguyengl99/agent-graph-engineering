@@ -7,7 +7,8 @@ from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.factory import has_provider_key
 from pydantic import BaseModel
 
-CONFIG_PATH = Path(__file__).parent.parent / "eval_config.json"
+CONFIGS_DIR = Path(__file__).parent.parent / "configs"
+DEFAULT_CONFIG = "openai"
 
 
 class EvalConfig(BaseModel):
@@ -37,5 +38,9 @@ class EvalConfig(BaseModel):
         return self.resolved(ModelPurpose.ANSWER.value).replace(":", "_")
 
     @classmethod
-    def load(cls, path: Path = CONFIG_PATH) -> "EvalConfig":
+    def load(cls, name: str | None = None) -> "EvalConfig":
+        path = CONFIGS_DIR / f"{name or DEFAULT_CONFIG}.json"
+        if not path.exists():
+            available = ", ".join(sorted(p.stem for p in CONFIGS_DIR.glob("*.json")))
+            raise SystemExit(f"no eval config {path.stem!r}; available: {available}")
         return cls(**json.loads(path.read_text()))

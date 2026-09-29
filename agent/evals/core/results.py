@@ -19,6 +19,7 @@ class Usage(BaseModel):
     cost_usd: float = 0.0
     # False when any model in the run has no price table, e.g. the scripted one.
     priced: bool = True
+    unpriced_models: list[str] = []
 
 
 class ScenarioResult(BaseModel):

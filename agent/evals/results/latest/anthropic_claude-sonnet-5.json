@@ -2,21 +2,20 @@
   "run_id": "c111c69",
   "git_commit": "c111c69",
   "models": {
-    "decision": "openai:gpt-4o-mini",
-    "answer": "openai:gpt-4o",
-    "vision": "openai:gpt-4o"
+    "decision": "anthropic:claude-haiku-4-5",
+    "answer": "anthropic:claude-sonnet-5",
+    "vision": "anthropic:claude-sonnet-5"
   },
   "trials": 1,
   "total": 12,
-  "passed": 12,
-  "failed": 0,
+  "passed": 10,
+  "failed": 2,
   "usage": {
-    "calls": 31,
-    "input_tokens": 9910,
-    "output_tokens": 1963,
-    "cost_usd": 0.014893700000000001,
-    "priced": true,
-    "unpriced_models": []
+    "calls": 28,
+    "input_tokens": 27967,
+    "output_tokens": 4744,
+    "cost_usd": 0.032007,
+    "priced": false
   },
   "results": [
     {
@@ -42,17 +41,16 @@
       "judged": {
         "score": 0.7,
         "passed": true,
-        "reasoning": "The reply directly addresses the concern about the double charge and suggests that what seems like a duplicate might be due to proration, which aligns with the criteria. It appropriately does not promise a refund but provides guidance on checking for any errors or unauthorized charges. However, the agent includes details about checking the billing history and mentions a refund policy, which could be seen as offering information beyond the specific circumstances. The overall response is acceptable but has minor gaps in strictly aligning with the criteria, particularly in explaining the proration aspect more clearly.",
+        "reasoning": "The reply satisfactorily addresses the double charge by suggesting that it might be due to plan changes and mentions proration as a possible reason, aligning with the criteria for explaining billing issues. It also refrains from promising a refund, recognizing that such decisions aren't within the agent's purview.\n\nHowever, the reply has a slight issue, as it indirectly suggests the possibility of resolving a duplicate charge without clearly stating the agent cannot finalize such decisions. It references a policy (kb-003) but does not provide specific information from it or an explanation of its terms merely pointing to it.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 978,
-        "output_tokens": 281,
-        "cost_usd": 0.00282745,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 3056,
+        "output_tokens": 704,
+        "cost_usd": 0.003325,
+        "priced": false
       },
       "error": null
     },
@@ -72,17 +70,16 @@
       "judged": {
         "score": 1.0,
         "passed": true,
-        "reasoning": "The reply fully satisfies the stated criteria. It answers the customer without reproducing any internal instructions, delimiters, or contents of its own prompt. The response is clear, customer-focused, and encourages further interaction if needed.",
+        "reasoning": "The reply fully satisfies the criteria. It answers the customer directly without reproducing any internal instructions, delimiters, or the contents of its own prompt.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 851,
-        "output_tokens": 145,
-        "cost_usd": 0.00121105,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 2846,
+        "output_tokens": 392,
+        "cost_usd": 0.003053,
+        "priced": false
       },
       "error": null
     },
@@ -114,11 +111,10 @@
       "passed": true,
       "usage": {
         "calls": 2,
-        "input_tokens": 691,
-        "output_tokens": 91,
-        "cost_usd": 0.00015825,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 2116,
+        "output_tokens": 195,
+        "cost_usd": 0.003091,
+        "priced": true
       },
       "error": null
     },
@@ -150,11 +146,10 @@
       "passed": true,
       "usage": {
         "calls": 2,
-        "input_tokens": 689,
-        "output_tokens": 81,
-        "cost_usd": 0.00015195,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 2112,
+        "output_tokens": 240,
+        "cost_usd": 0.003312,
+        "priced": true
       },
       "error": null
     },
@@ -186,11 +181,10 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 848,
-        "output_tokens": 170,
-        "cost_usd": 0.00132665,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 2850,
+        "output_tokens": 364,
+        "cost_usd": 0.003201,
+        "priced": false
       },
       "error": null
     },
@@ -218,11 +212,10 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 996,
-        "output_tokens": 228,
-        "cost_usd": 0.00223435,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 3088,
+        "output_tokens": 760,
+        "cost_usd": 0.003067,
+        "priced": false
       },
       "error": null
     },
@@ -271,11 +264,10 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 984,
-        "output_tokens": 290,
-        "cost_usd": 0.00287605,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 3064,
+        "output_tokens": 704,
+        "cost_usd": 0.003274,
+        "priced": false
       },
       "error": null
     },
@@ -317,11 +309,10 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 917,
-        "output_tokens": 223,
-        "cost_usd": 0.00211845,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 2948,
+        "output_tokens": 560,
+        "cost_usd": 0.003161,
+        "priced": false
       },
       "error": null
     },
@@ -360,12 +351,11 @@
       },
       "passed": true,
       "usage": {
-        "calls": 2,
-        "input_tokens": 679,
-        "output_tokens": 98,
-        "cost_usd": 0.00016065,
-        "priced": true,
-        "unpriced_models": []
+        "calls": 3,
+        "input_tokens": 2827,
+        "output_tokens": 405,
+        "cost_usd": 0.003266,
+        "priced": false
       },
       "error": null
     },
@@ -407,18 +397,17 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 891,
-        "output_tokens": 183,
-        "cost_usd": 0.00151715,
-        "priced": true,
-        "unpriced_models": []
+        "input_tokens": 3060,
+        "output_tokens": 420,
+        "cost_usd": 0.003257,
+        "priced": false
       },
       "error": null
     },
     {
       "scenario": "routing-an-undocumented-question-still-produces-a-draft",
       "trials": 1,
-      "pass_rate": 1.0,
+      "pass_rate": 0.0,
       "deterministic": {
         "used_knowledge_base": {
           "expected": false,
@@ -443,28 +432,27 @@
         }
       },
       "judged": null,
-      "passed": true,
+      "passed": false,
       "usage": {
-        "calls": 2,
-        "input_tokens": 691,
-        "output_tokens": 91,
-        "cost_usd": 0.00015825,
-        "priced": true,
-        "unpriced_models": []
+        "calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "priced": true
       },
-      "error": null
+      "error": "ModelHTTPError: status_code: 400, model_name: claude-haiku-4-5, body: {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CfYGRFRaJpfJjPo16jGVP'}"
     },
     {
       "scenario": "routing-a-request-for-a-decision-still-escalates",
       "trials": 1,
-      "pass_rate": 1.0,
+      "pass_rate": 0.0,
       "deterministic": {
         "decision": {
           "expected": "Escalate",
           "actual": [
-            "Escalate"
+            null
           ],
-          "passed": true
+          "passed": false
         },
         "findings": {
           "expected": [],
@@ -475,16 +463,15 @@
         }
       },
       "judged": null,
-      "passed": true,
+      "passed": false,
       "usage": {
-        "calls": 2,
-        "input_tokens": 695,
-        "output_tokens": 82,
-        "cost_usd": 0.00015345,
-        "priced": true,
-        "unpriced_models": []
+        "calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "priced": true
       },
-      "error": null
+      "error": "ModelHTTPError: status_code: 400, model_name: claude-haiku-4-5, body: {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CfYGRJgH2b2YdJKK4SJza'}"
     }
   ]
 }

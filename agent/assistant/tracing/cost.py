@@ -45,6 +45,9 @@ class RunCost:
     cost_usd: Decimal = Decimal(0)
     calls: int = 0
     priced: bool = True
+    # Which models had no price table, so a report can name them instead of
+    # guessing why the total is unpriced.
+    unpriced_models: frozenset[str] = frozenset()
 
     @property
     def total_tokens(self) -> int:
@@ -57,6 +60,7 @@ class RunCost:
             cost_usd=self.cost_usd + other.cost_usd,
             calls=self.calls + other.calls,
             priced=self.priced and other.priced,
+            unpriced_models=self.unpriced_models | other.unpriced_models,
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -67,6 +71,7 @@ class RunCost:
             "total_tokens": self.total_tokens,
             "cost_usd": float(self.cost_usd),
             "priced": self.priced,
+            "unpriced_models": sorted(self.unpriced_models),
         }
 
 
@@ -85,6 +90,13 @@ def cost_of_span(attributes: dict[str, Any]) -> RunCost | None:
             _Usage(input_tokens, output_tokens), str(model), provider_id=provider
         )
     except (LookupError, ValueError):
-        return RunCost(input_tokens, output_tokens, Decimal(0), calls=1, priced=False)
+        return RunCost(
+            input_tokens,
+            output_tokens,
+            Decimal(0),
+            calls=1,
+            priced=False,
+            unpriced_models=frozenset({f"{provider}:{model}"}),
+        )
 
     return RunCost(input_tokens, output_tokens, price.total_price, calls=1)

@@ -14,6 +14,11 @@ dependencies = [
     "structlog>=24.4.0",
     "environs>=11.2.2",
     "opentelemetry-sdk>=1.30,<2",
+    # Pinned exactly. genai-prices 0.1.9 silently zeroes pydantic-ai 1.63's
+    # token counts - every call still reports, with input=0 and output=0, so
+    # cost quietly becomes $0.00 rather than failing. Newer price tables are
+    # not worth losing usage; see tests/test_usage_reporting.py.
+    "genai-prices==0.0.55",
     "langgraph-checkpoint-postgres>=3.1,<4",
 ]
 

@@ -47,7 +47,21 @@ def tool_call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "finish_reason": "tool_calls",
             }
         ],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        # The detail objects a real response carries. Without them the usage
+        # parsing takes a different path, and a dependency bump that zeroed
+        # token counts against the live API went unnoticed here.
+        "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
+            "total_tokens": 2,
+            "prompt_tokens_details": {"audio_tokens": 0, "cached_tokens": 0},
+            "completion_tokens_details": {
+                "accepted_prediction_tokens": 0,
+                "audio_tokens": 0,
+                "reasoning_tokens": 0,
+                "rejected_prediction_tokens": 0,
+            },
+        },
     }
 
 

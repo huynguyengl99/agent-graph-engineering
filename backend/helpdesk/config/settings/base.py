@@ -196,7 +196,11 @@ SPECTACULAR_SETTINGS = {
         "drf_spectacular.contrib.djangorestframework_camel_case.camelize_serializer_fields",
         "helpdesk.core.schema_hooks.force_discriminator_required_hook",
     ],
-    "ENUM_NAME_OVERRIDES": {},
+    # `status`, `old_status` and `new_status` all draw on TicketStatus, which
+    # spectacular would otherwise name three different ways.
+    "ENUM_NAME_OVERRIDES": {
+        "TicketStatusEnum": "helpdesk.tickets.models.ticket.TicketStatus.choices",
+    },
     "SCHEMA_PATH_PREFIX": "/api",
 }
 

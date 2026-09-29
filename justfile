@@ -122,8 +122,13 @@ format:
     @echo "🎨 Formatting all..."
     pnpm format
 
-# Run all checks (type check + lint + Django check)
-check:
+# Validate the OpenAPI schema (fails on any warning)
+check-schema:
+    @echo "🔍 Validating OpenAPI schema..."
+    cd backend && uv run python manage.py spectacular --validate --fail-on-warn > /dev/null
+
+# Run all checks (type check + lint + Django check + schema)
+check: check-schema
     @echo "✅ Running all checks..."
     cd backend && uv run mypy . && uv run ruff check . && uv run python manage.py check
     cd agent && uv run mypy triage && uv run ruff check .

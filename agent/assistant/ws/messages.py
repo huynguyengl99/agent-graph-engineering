@@ -73,6 +73,8 @@ class TriageErrorMessage(BaseMessage):
 class ApprovalRequiredPayload(BaseModel):
     ticket_id: str
     draft: str
+    # What the machine guard noticed, so the reviewer starts informed.
+    findings: list[str] = []
 
 
 class ApprovalRequiredMessage(BaseMessage):
@@ -80,6 +82,19 @@ class ApprovalRequiredMessage(BaseMessage):
 
     action: Literal["approval_required"] = "approval_required"
     payload: ApprovalRequiredPayload
+
+
+class ReplyBlockedPayload(BaseModel):
+    ticket_id: str
+    draft: str
+    findings: list[str]
+
+
+class ReplyBlockedMessage(BaseMessage):
+    """The output guard stopped the draft before a human was asked."""
+
+    action: Literal["reply_blocked"] = "reply_blocked"
+    payload: ReplyBlockedPayload
 
 
 class ApprovalDecisionPayload(BaseModel):

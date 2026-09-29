@@ -24,3 +24,5 @@ class TriageState(TypedDict, total=False):
     tool_error: str
     approval_granted: bool
     delivery_receipt: str
+    guardrail_findings: Annotated[list[str], last_wins]
+    reply_blocked: bool

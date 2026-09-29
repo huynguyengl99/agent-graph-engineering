@@ -8,7 +8,9 @@ from assistant.agents import AgentConfig, AnswerAgent, ClassifierAgent, Decision
 from assistant.agents.deps import TicketContext
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import TriageState
+from assistant.guardrails import screen_input, screen_reply
 from assistant.outputs.triage import Escalate, SearchKnowledgeBase, TicketAnswer
+from assistant.prompts import ANSWER_PROMPT
 from assistant.tools.knowledge_base import search_knowledge_base
 from assistant.tools.reply import send_reply_to_customer
 from assistant.tracing.nodes import Node
@@ -41,7 +43,12 @@ class TriageGraph(BaseGraph):
 
     async def classify(self, state: TriageState) -> TriageState:
         context = _context_of(state)
-        return {"classification": await self.classifier.run(context.render(), context)}
+        # Recorded, not refused: see assistant/guardrails/input.py.
+        attempts = screen_input(context.untrusted_text())
+        return {
+            "classification": await self.classifier.run(context.render(), context),
+            "guardrail_findings": attempts.rendered(),
+        }
 
     async def decide(self, state: TriageState) -> TriageState:
         context = _context_of(state)
@@ -85,6 +92,21 @@ class TriageGraph(BaseGraph):
         # Anything the customer will read goes through a human first.
         return {"answer": answer.model_copy(update={"requires_approval": True})}
 
+    async def screen(self, state: TriageState) -> TriageState:
+        """The machine check that runs before the human one.
+
+        A reviewer should never be asked to approve something a regex could
+        have caught, and a blocked draft never reaches the approval gate.
+        """
+        context = _context_of(state)
+        result = screen_reply(
+            _answer_of(state).content,
+            ticket_id=context.ticket_id,
+            instructions=ANSWER_PROMPT,
+        )
+        findings = list(state.get("guardrail_findings") or []) + result.rendered()
+        return {"guardrail_findings": findings, "reply_blocked": result.blocked}
+
     async def await_approval(self, state: TriageState) -> TriageState:
         """Park the run until a human accepts, edits, or rejects the draft."""
         answer = _answer_of(state)
@@ -119,6 +141,9 @@ class TriageGraph(BaseGraph):
             return {"tool_error": output.user_error or output.error or ""}
         return {"delivery_receipt": str(output.result)}
 
+    def route_after_screen(self, state: TriageState) -> str:
+        return END if state.get("reply_blocked") else "await_approval"
+
     def route_after_approval(self, state: TriageState) -> str:
         return "send_reply" if state.get("approval_granted") else END
 
@@ -138,6 +163,7 @@ class TriageGraph(BaseGraph):
             "search_kb": self.search_kb,
             "escalate": self.escalate,
             "respond": self.respond,
+            "screen": self.screen,
             "await_approval": self.await_approval,
             "send_reply": self.send_reply,
         }
@@ -157,7 +183,12 @@ class TriageGraph(BaseGraph):
         )
         graph.add_edge("search_kb", "respond")
         graph.add_edge("escalate", END)
-        graph.add_edge("respond", "await_approval")
+        graph.add_edge("respond", "screen")
+        graph.add_conditional_edges(
+            "screen",
+            self.route_after_screen,
+            {"await_approval": "await_approval", END: END},
+        )
         graph.add_conditional_edges(
             "await_approval",
             self.route_after_approval,

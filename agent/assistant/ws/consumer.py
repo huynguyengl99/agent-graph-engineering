@@ -24,6 +24,8 @@ from assistant.ws.messages import (
     ClassifiedPayload,
     DecidedMessage,
     DecidedPayload,
+    ReplyBlockedMessage,
+    ReplyBlockedPayload,
     ReplySentMessage,
     ReplySentPayload,
     TriageErrorMessage,
@@ -60,6 +62,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
             | AnswerMessage
             | ApprovalRequiredMessage
             | ReplySentMessage
+            | ReplyBlockedMessage
             | TriageErrorMessage
         ),
     )
@@ -113,6 +116,11 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         initial: TriageState = {"context": context}
         await self._drive(context.ticket_id, initial)
 
+    def _findings(self, update: object) -> list[str]:
+        if isinstance(update, dict):
+            return [str(f) for f in update.get("guardrail_findings") or []]
+        return []
+
     async def _drive(
         self, ticket_id: str, payload: TriageState | Command[Any]
     ) -> None:
@@ -132,6 +140,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         # StateT is invariant in the astream signature, so a declared
         # `TriageState | Command` argument cannot satisfy it even though that is
         # exactly what the graph accepts.
+        findings: list[str] = []
         async for step in graph.astream(
             payload,  # type: ignore[arg-type]
             config=config,
@@ -139,11 +148,32 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         ):
             for node_name, update in step.items():
                 if node_name == "__interrupt__":
-                    await self._emit_interrupt(ticket_id, update)
+                    await self._emit_interrupt(ticket_id, update, findings)
                     continue
+                findings = self._findings(update) or findings
+                if node_name == "screen":
+                    await self._emit_screen(ticket_id, update, findings)
                 await self._emit(ticket_id, node_name, update)
 
-    async def _emit_interrupt(self, ticket_id: str, update: object) -> None:
+    async def _emit_screen(
+        self, ticket_id: str, update: object, findings: list[str]
+    ) -> None:
+        """A blocked draft ends the run here, so say so: no interrupt follows."""
+        if not isinstance(update, dict) or not update.get("reply_blocked"):
+            return
+        await self.send_message(
+            ReplyBlockedMessage(
+                payload=ReplyBlockedPayload(
+                    ticket_id=ticket_id,
+                    draft="",
+                    findings=findings,
+                )
+            )
+        )
+
+    async def _emit_interrupt(
+        self, ticket_id: str, update: object, findings: list[str]
+    ) -> None:
         interrupts = update if isinstance(update, (list, tuple)) else [update]
         for item in interrupts:
             value = getattr(item, "value", item)
@@ -151,7 +181,9 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                 await self.send_message(
                     ApprovalRequiredMessage(
                         payload=ApprovalRequiredPayload(
-                            ticket_id=ticket_id, draft=str(value.get("draft", ""))
+                            ticket_id=ticket_id,
+                            draft=str(value.get("draft", "")),
+                            findings=findings,
                         )
                     )
                 )

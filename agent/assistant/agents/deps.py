@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from assistant.guardrails import fence
+
 
 @dataclass
 class TicketContext:
@@ -15,11 +17,16 @@ class TicketContext:
         return self.ticket_id
 
     def render(self) -> str:
-        parts = [f"Title: {self.title}", f"Description: {self.description}"]
+        # Every field here was typed by a customer, so all of it is fenced.
+        body = [f"Title: {self.title}", f"Description: {self.description}"]
         if self.history:
-            parts.append("Conversation so far:")
-            parts.extend(f"- {line}" for line in self.history)
-        return "\n".join(parts)
+            body.append("Conversation so far:")
+            body.extend(f"- {line}" for line in self.history)
+        return fence("TICKET", "\n".join(body))
+
+    def untrusted_text(self) -> str:
+        """Just the customer-written parts, for screening."""
+        return "\n".join([self.title, self.description, *self.history])
 
 
 @dataclass

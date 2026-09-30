@@ -119,6 +119,12 @@ Cost comes from the spans the tracer already collects
 model with no price table reports its tokens with `priced: false` and names the
 model, rather than a misleading $0.00.
 
+Models the pinned release predates are priced from
+`assistant/tracing/prices.py`, a hand-maintained table that goes stale by
+design - check it against Anthropic's pricing page when a model moves.
+genai-prices still wins wherever it knows the model; the local table is only a
+fallback, and anything in neither is honestly `priced: false`.
+
 **`genai-prices` is pinned exactly at 0.0.55.** 0.1.9 knows the newer Claude
 models but silently zeroes pydantic-ai 1.63's token counts - every call still
 reports, with `input=0` and `output=0`, so cost quietly becomes $0.00 instead

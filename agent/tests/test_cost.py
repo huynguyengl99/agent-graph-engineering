@@ -60,3 +60,35 @@ def test_one_unpriced_call_taints_the_run_total() -> None:
 
 def test_an_empty_run_costs_nothing() -> None:
     assert RunCost().as_dict()["total_tokens"] == 0
+
+
+class TestLocalPrices:
+    """The pinned genai-prices predates the Claude 5 family."""
+
+    def test_a_model_the_price_table_misses_falls_back_locally(self) -> None:
+        cost = cost_of_span(span("claude-sonnet-5", "anthropic", 1_000_000, 0))
+
+        assert cost is not None
+        assert cost.priced is True
+        assert cost.cost_usd == Decimal("2.00"), "Sonnet 5 input is $2/MTok"
+
+    def test_output_is_priced_separately(self) -> None:
+        cost = cost_of_span(span("claude-sonnet-5", "anthropic", 0, 1_000_000))
+
+        assert cost is not None
+        assert cost.cost_usd == Decimal("10.00")
+
+    def test_a_model_in_neither_table_is_still_honestly_unpriced(self) -> None:
+        cost = cost_of_span(span("some-future-model", "anthropic", 100, 50))
+
+        assert cost is not None
+        assert cost.priced is False
+        assert "anthropic:some-future-model" in cost.unpriced_models
+
+    def test_genai_prices_still_wins_where_it_knows_the_model(self) -> None:
+        """The local table is a fallback, not an override to drift against."""
+        cost = cost_of_span(span("claude-haiku-4-5", "anthropic", 1_000_000, 0))
+
+        assert cost is not None
+        assert cost.priced is True
+        assert cost.cost_usd == Decimal("1.00")

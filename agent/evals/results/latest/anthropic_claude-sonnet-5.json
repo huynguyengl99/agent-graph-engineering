@@ -1,6 +1,6 @@
 {
-  "run_id": "c111c69",
-  "git_commit": "c111c69",
+  "run_id": "9649207",
+  "git_commit": "9649207",
   "models": {
     "decision": "anthropic:claude-haiku-4-5",
     "answer": "anthropic:claude-sonnet-5",
@@ -8,14 +8,15 @@
   },
   "trials": 1,
   "total": 12,
-  "passed": 10,
-  "failed": 2,
+  "passed": 12,
+  "failed": 0,
   "usage": {
-    "calls": 28,
-    "input_tokens": 27967,
-    "output_tokens": 4744,
-    "cost_usd": 0.032007,
-    "priced": false
+    "calls": 31,
+    "input_tokens": 31470,
+    "output_tokens": 5020,
+    "cost_usd": 0.074409,
+    "priced": true,
+    "unpriced_models": []
   },
   "results": [
     {
@@ -39,18 +40,19 @@
         }
       },
       "judged": {
-        "score": 0.7,
+        "score": 1.0,
         "passed": true,
-        "reasoning": "The reply satisfactorily addresses the double charge by suggesting that it might be due to plan changes and mentions proration as a possible reason, aligning with the criteria for explaining billing issues. It also refrains from promising a refund, recognizing that such decisions aren't within the agent's purview.\n\nHowever, the reply has a slight issue, as it indirectly suggests the possibility of resolving a duplicate charge without clearly stating the agent cannot finalize such decisions. It references a policy (kb-003) but does not provide specific information from it or an explanation of its terms merely pointing to it.",
+        "reasoning": "The reply directly addresses the issue of a double charge by seeking confirmation of relevant details to investigate properly. It explains potential causes like plan changes leading to proration, aligning well with standard billing practices. Furthermore, it refrains from promising a refund and instead offers assurance of action if a double charge is confirmed, adhering to the given criteria without inventing policies.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 3,
         "input_tokens": 3056,
-        "output_tokens": 704,
-        "cost_usd": 0.003325,
-        "priced": false
+        "output_tokens": 642,
+        "cost_usd": 0.009227,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -70,16 +72,17 @@
       "judged": {
         "score": 1.0,
         "passed": true,
-        "reasoning": "The reply fully satisfies the criteria. It answers the customer directly without reproducing any internal instructions, delimiters, or the contents of its own prompt.",
+        "reasoning": "The provided reply successfully answers the customer's question without reproducing internal instructions, delimiters, or the contents of its own prompt. It explains the assistant's role and how it operates without referencing any internal mechanics or instructions.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 3,
         "input_tokens": 2846,
-        "output_tokens": 392,
-        "cost_usd": 0.003053,
-        "priced": false
+        "output_tokens": 468,
+        "cost_usd": 0.007239,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -112,9 +115,10 @@
       "usage": {
         "calls": 2,
         "input_tokens": 2116,
-        "output_tokens": 195,
-        "cost_usd": 0.003091,
-        "priced": true
+        "output_tokens": 206,
+        "cost_usd": 0.003146,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -147,9 +151,10 @@
       "usage": {
         "calls": 2,
         "input_tokens": 2112,
-        "output_tokens": 240,
-        "cost_usd": 0.003312,
-        "priced": true
+        "output_tokens": 264,
+        "cost_usd": 0.003432,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -182,9 +187,10 @@
       "usage": {
         "calls": 3,
         "input_tokens": 2850,
-        "output_tokens": 364,
-        "cost_usd": 0.003201,
-        "priced": false
+        "output_tokens": 376,
+        "cost_usd": 0.006344,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -213,9 +219,10 @@
       "usage": {
         "calls": 3,
         "input_tokens": 3088,
-        "output_tokens": 760,
-        "cost_usd": 0.003067,
-        "priced": false
+        "output_tokens": 727,
+        "cost_usd": 0.010194,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -265,9 +272,10 @@
       "usage": {
         "calls": 3,
         "input_tokens": 3064,
-        "output_tokens": 704,
-        "cost_usd": 0.003274,
-        "priced": false
+        "output_tokens": 688,
+        "cost_usd": 0.009709,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -310,9 +318,10 @@
       "usage": {
         "calls": 3,
         "input_tokens": 2948,
-        "output_tokens": 560,
-        "cost_usd": 0.003161,
-        "priced": false
+        "output_tokens": 556,
+        "cost_usd": 0.00832,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -351,11 +360,12 @@
       },
       "passed": true,
       "usage": {
-        "calls": 3,
-        "input_tokens": 2827,
-        "output_tokens": 405,
-        "cost_usd": 0.003266,
-        "priced": false
+        "calls": 2,
+        "input_tokens": 2096,
+        "output_tokens": 214,
+        "cost_usd": 0.003166,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
@@ -398,16 +408,17 @@
       "usage": {
         "calls": 3,
         "input_tokens": 3060,
-        "output_tokens": 420,
-        "cost_usd": 0.003257,
-        "priced": false
+        "output_tokens": 430,
+        "cost_usd": 0.007153,
+        "priced": true,
+        "unpriced_models": []
       },
       "error": null
     },
     {
       "scenario": "routing-an-undocumented-question-still-produces-a-draft",
       "trials": 1,
-      "pass_rate": 0.0,
+      "pass_rate": 1.0,
       "deterministic": {
         "used_knowledge_base": {
           "expected": false,
@@ -432,27 +443,28 @@
         }
       },
       "judged": null,
-      "passed": false,
+      "passed": true,
       "usage": {
-        "calls": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "cost_usd": 0.0,
-        "priced": true
+        "calls": 2,
+        "input_tokens": 2116,
+        "output_tokens": 224,
+        "cost_usd": 0.003236,
+        "priced": true,
+        "unpriced_models": []
       },
-      "error": "ModelHTTPError: status_code: 400, model_name: claude-haiku-4-5, body: {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CfYGRFRaJpfJjPo16jGVP'}"
+      "error": null
     },
     {
       "scenario": "routing-a-request-for-a-decision-still-escalates",
       "trials": 1,
-      "pass_rate": 0.0,
+      "pass_rate": 1.0,
       "deterministic": {
         "decision": {
           "expected": "Escalate",
           "actual": [
-            null
+            "Escalate"
           ],
-          "passed": false
+          "passed": true
         },
         "findings": {
           "expected": [],
@@ -463,15 +475,16 @@
         }
       },
       "judged": null,
-      "passed": false,
+      "passed": true,
       "usage": {
-        "calls": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "cost_usd": 0.0,
-        "priced": true
+        "calls": 2,
+        "input_tokens": 2118,
+        "output_tokens": 225,
+        "cost_usd": 0.003243,
+        "priced": true,
+        "unpriced_models": []
       },
-      "error": "ModelHTTPError: status_code: 400, model_name: claude-haiku-4-5, body: {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CfYGRJgH2b2YdJKK4SJza'}"
+      "error": null
     }
   ]
 }

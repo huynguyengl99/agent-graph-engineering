@@ -117,7 +117,9 @@ class DeliveryGraph(BaseGraph):
 
         graph.add_edge(START, "screen")
         graph.add_conditional_edges(
-            "screen", self.route_after_screen, {"await_approval": "await_approval", END: END}
+            "screen",
+            self.route_after_screen,
+            {"await_approval": "await_approval", END: END},
         )
         graph.add_conditional_edges(
             "await_approval",

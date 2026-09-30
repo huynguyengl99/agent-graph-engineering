@@ -47,7 +47,9 @@ async def run(ticket_id: str) -> None:
             "final_result_SearchKnowledgeBase",
             {"query": "invoice billing refund", "reasoning": "Documented."},
         ),
-        tool_call("final_result", {"content": "Proration.", "requires_approval": False}),
+        tool_call(
+            "final_result", {"content": "Proration.", "requires_approval": False}
+        ),
     ):
         await build_triage_graph().ainvoke(
             {"context": TicketContext(ticket_id=ticket_id, title="t", description="d")},

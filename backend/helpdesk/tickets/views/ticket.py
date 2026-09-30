@@ -1,4 +1,5 @@
 """Ticket views."""
+
 from typing import Any
 
 from rest_framework import filters, status, viewsets
@@ -56,7 +57,11 @@ class TicketViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
 
     queryset = Ticket.objects.select_related("created_by", "assigned_to").all()
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["status", "priority", "assigned_to"]
     search_fields = ["title", "description"]
     ordering_fields = ["created_at", "updated_at", "priority"]
@@ -79,6 +84,4 @@ class TicketViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ticket = serializer.save(created_by=request.user)
-        return Response(
-            TicketSerializer(ticket).data, status=status.HTTP_201_CREATED
-        )
+        return Response(TicketSerializer(ticket).data, status=status.HTTP_201_CREATED)

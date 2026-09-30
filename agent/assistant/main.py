@@ -23,6 +23,7 @@ setup_logging()
 setup_layers()
 setup_tracing()
 
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Opens the pool and creates the checkpoint tables before the first socket.

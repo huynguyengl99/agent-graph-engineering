@@ -53,6 +53,7 @@ logger = structlog.get_logger(__name__)
 
 _background: set[asyncio.Task[None]] = set()
 
+
 def spawn(coro: "Coroutine[Any, Any, None]") -> None:
     """Run detached, keeping a strong reference.
 
@@ -136,7 +137,9 @@ class TicketTriageClient(TriageClient):
                 await broadcast(
                     self.group,
                     FEApprovalRequiredMessage(
-                        payload=FEApprovalRequiredPayload(draft=payload.draft, findings=payload.findings)
+                        payload=FEApprovalRequiredPayload(
+                            draft=payload.draft, findings=payload.findings
+                        )
                     ),
                 )
                 # The run is parked in the agent's checkpointer. Release the

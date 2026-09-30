@@ -6,7 +6,11 @@ from tests.helpers.openai_mock import mock_openai, tool_call
 
 CLASSIFY = tool_call(
     "final_result",
-    {"category": "billing", "priority": "medium", "reasoning": "Asks about an invoice."},
+    {
+        "category": "billing",
+        "priority": "medium",
+        "reasoning": "Asks about an invoice.",
+    },
 )
 
 
@@ -34,10 +38,15 @@ async def test_knowledge_base_branch_grounds_the_answer() -> None:
         ),
         tool_call(
             "final_result",
-            {"content": "Per [kb-002], the extra line is proration.", "requires_approval": False},
+            {
+                "content": "Per [kb-002], the extra line is proration.",
+                "requires_approval": False,
+            },
         ),
     ) as route:
-        state = await build_triage_graph().ainvoke({"context": ticket()}, config=config(thread))
+        state = await build_triage_graph().ainvoke(
+            {"context": ticket()}, config=config(thread)
+        )
 
     assert route.call_count == 3
     assert isinstance(state["decision"], SearchKnowledgeBase)
@@ -54,10 +63,15 @@ async def test_customer_facing_answers_always_require_approval() -> None:
         tool_call(
             "final_result",
             # The model says no approval needed; the graph overrides it.
-            {"content": "You can reset it from the sign-in page.", "requires_approval": False},
+            {
+                "content": "You can reset it from the sign-in page.",
+                "requires_approval": False,
+            },
         ),
     ):
-        state = await build_triage_graph().ainvoke({"context": ticket()}, config=config(thread))
+        state = await build_triage_graph().ainvoke(
+            {"context": ticket()}, config=config(thread)
+        )
 
     assert state["answer"].requires_approval is True
 
@@ -71,7 +85,9 @@ async def test_escalation_skips_the_answer_agent() -> None:
             {"reason": "Needs a refund decision.", "suggested_team": "billing"},
         ),
     ) as route:
-        state = await build_triage_graph().ainvoke({"context": ticket()}, config=config(thread))
+        state = await build_triage_graph().ainvoke(
+            {"context": ticket()}, config=config(thread)
+        )
 
     # Two calls, not three: escalation terminates before synthesis.
     assert route.call_count == 2
@@ -84,9 +100,13 @@ async def test_classification_is_typed_not_parsed() -> None:
     thread = "classify"
     with mock_openai(
         CLASSIFY,
-        tool_call("final_result_Escalate", {"reason": "x", "suggested_team": "billing"}),
+        tool_call(
+            "final_result_Escalate", {"reason": "x", "suggested_team": "billing"}
+        ),
     ):
-        state = await build_triage_graph().ainvoke({"context": ticket()}, config=config(thread))
+        state = await build_triage_graph().ainvoke(
+            {"context": ticket()}, config=config(thread)
+        )
 
     classification = state["classification"]
     assert classification.category == "billing"

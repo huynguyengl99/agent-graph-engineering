@@ -20,7 +20,9 @@ application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
         "websocket": OriginValidator(
-            CookieMiddleware(JWTCookieAuthMiddleware(include("helpdesk.config.routing"))),
+            CookieMiddleware(
+                JWTCookieAuthMiddleware(include("helpdesk.config.routing"))
+            ),
             settings.WEBSOCKET_ALLOWED_ORIGINS,
         ),
     }

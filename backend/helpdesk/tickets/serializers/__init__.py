@@ -1,4 +1,5 @@
 """Ticket serializers."""
+
 from .event import (
     AIResponseEventSerializer,
     AssignmentEventSerializer,

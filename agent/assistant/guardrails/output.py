@@ -24,7 +24,9 @@ def screen_reply(draft: str, *, ticket_id: str, instructions: str = "") -> Scree
 
     # Any id that is not this ticket's belongs to someone else's.
     foreign = {
-        found for found in UUID_PATTERN.findall(draft) if found.lower() != ticket_id.lower()
+        found
+        for found in UUID_PATTERN.findall(draft)
+        if found.lower() != ticket_id.lower()
     }
     if foreign:
         findings.append(

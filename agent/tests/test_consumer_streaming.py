@@ -75,9 +75,7 @@ async def test_handler_reports_failure_instead_of_raising(
 
     await consumer.handle_triage_request(
         TriageRequestMessage(
-            payload=TriageRequestPayload(
-                ticket_id="t-1", title="x", description="y"
-            )
+            payload=TriageRequestPayload(ticket_id="t-1", title="x", description="y")
         )
     )
 

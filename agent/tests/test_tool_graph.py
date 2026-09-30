@@ -46,11 +46,15 @@ LOOKUP = tool_call(
 
 def openai_config() -> AgentConfig:
     return AgentConfig(
-        models=dict.fromkeys(ModelPurpose, ModelConfig(provider="openai", name="gpt-4o"))
+        models=dict.fromkeys(
+            ModelPurpose, ModelConfig(provider="openai", name="gpt-4o")
+        )
     )
 
 
-async def propose(thread: str, *responses: dict[str, Any]) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+async def propose(
+    thread: str, *responses: dict[str, Any]
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
     """Run as far as the model takes it, and hand back the graph to resume.
 
     The graph is built inside the mock: agents pick up their HTTP client when

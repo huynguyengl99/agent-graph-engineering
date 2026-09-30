@@ -36,7 +36,9 @@ async def test_billing_ticket_routes_through_the_knowledge_base(
     assert state["answer"].requires_approval is True
 
 
-async def test_account_ticket_is_classified_higher(scripted_config: AgentConfig) -> None:
+async def test_account_ticket_is_classified_higher(
+    scripted_config: AgentConfig,
+) -> None:
     state = await run(
         scripted_config, "Cannot enable 2FA", "The QR code never appears."
     )

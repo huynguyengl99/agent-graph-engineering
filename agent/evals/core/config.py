@@ -18,9 +18,7 @@ class EvalConfig(BaseModel):
 
     @property
     def agent_config(self) -> AgentConfig:
-        return AgentConfig(
-            models={ModelPurpose(k): v for k, v in self.models.items()}
-        )
+        return AgentConfig(models={ModelPurpose(k): v for k, v in self.models.items()})
 
     def resolved(self, purpose: str) -> str:
         """What will actually run, which is not always what is configured.

@@ -1,4 +1,5 @@
 """Base ticket event model using django-polymorphic."""
+
 from django.conf import settings
 from django.db import models
 

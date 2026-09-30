@@ -1,4 +1,5 @@
 """WebSocket test case utilities."""
+
 import asyncio
 from typing import Annotated, Any
 
@@ -32,7 +33,9 @@ class WebsocketTestCase(BaseWebsocketTestCase):
 
         origins = settings.WEBSOCKET_ALLOWED_ORIGINS
         origin = origins[0] if origins and origins[0] != "*" else "http://localhost"
-        cookie = f"{auth_kit_settings.AUTH_JWT_COOKIE_NAME}={AccessToken.for_user(user)}"
+        cookie = (
+            f"{auth_kit_settings.AUTH_JWT_COOKIE_NAME}={AccessToken.for_user(user)}"
+        )
         ws_headers = [
             (b"origin", origin.encode()),
             (b"x-forwarded-for", b"127.0.0.1"),

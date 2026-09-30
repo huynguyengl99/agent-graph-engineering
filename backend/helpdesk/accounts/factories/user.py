@@ -1,4 +1,5 @@
 """User model factory."""
+
 from typing import Any
 
 import factory

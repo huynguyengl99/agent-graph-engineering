@@ -18,10 +18,16 @@ def test_defaults_put_routing_on_the_cheap_model() -> None:
 
 def test_a_user_override_moves_only_its_own_purpose() -> None:
     config = AgentConfig.resolve(
-        {ModelPurpose.DECISION: ModelConfig(provider="anthropic", name="claude-haiku-4-5")}
+        {
+            ModelPurpose.DECISION: ModelConfig(
+                provider="anthropic", name="claude-haiku-4-5"
+            )
+        }
     )
 
-    assert config.for_purpose(ModelPurpose.DECISION).slug == "anthropic:claude-haiku-4-5"
+    assert (
+        config.for_purpose(ModelPurpose.DECISION).slug == "anthropic:claude-haiku-4-5"
+    )
     # Untouched slots still fall through to the deployment default.
     assert config.for_purpose(ModelPurpose.ANSWER).slug == "openai:gpt-4o"
 
@@ -29,7 +35,11 @@ def test_a_user_override_moves_only_its_own_purpose() -> None:
 def test_steps_are_bound_to_purposes_not_models() -> None:
     graph = TriageGraph(
         AgentConfig.resolve(
-            {ModelPurpose.DECISION: ModelConfig(provider="anthropic", name="claude-haiku-4-5")}
+            {
+                ModelPurpose.DECISION: ModelConfig(
+                    provider="anthropic", name="claude-haiku-4-5"
+                )
+            }
         )
     )
 
@@ -43,7 +53,11 @@ def test_config_does_not_change_the_topology() -> None:
     cheap = TriageGraph(AgentConfig.resolve())
     swapped = TriageGraph(
         AgentConfig.resolve(
-            {ModelPurpose.ANSWER: ModelConfig(provider="anthropic", name="claude-opus-4-5")}
+            {
+                ModelPurpose.ANSWER: ModelConfig(
+                    provider="anthropic", name="claude-opus-4-5"
+                )
+            }
         )
     )
     assert sorted(cheap.nodes()) == sorted(swapped.nodes())

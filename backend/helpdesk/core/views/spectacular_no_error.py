@@ -3,6 +3,7 @@
 Error responses are handled once in the API client, so their schemas are noise
 in the generated types. This view serves the same schema with them removed.
 """
+
 from http import HTTPStatus
 from typing import Any
 

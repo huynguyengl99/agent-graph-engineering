@@ -1,4 +1,5 @@
 """Base model factory with type hints support."""
+
 from typing import Any, TypeVar, get_args
 
 import factory

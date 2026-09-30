@@ -1,4 +1,5 @@
 """Admin configuration for tickets app."""
+
 from django.contrib import admin
 
 from polymorphic.admin import PolymorphicChildModelAdmin, PolymorphicParentModelAdmin
@@ -15,7 +16,14 @@ from helpdesk.tickets.models import (
 
 @admin.register(Ticket)
 class TicketAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
-    list_display = ["title", "status", "priority", "created_by", "assigned_to", "created_at"]
+    list_display = [
+        "title",
+        "status",
+        "priority",
+        "created_by",
+        "assigned_to",
+        "created_at",
+    ]
     list_filter = ["status", "priority", "created_at"]
     search_fields = ["title", "description"]
     readonly_fields = ["id", "created_at", "updated_at"]

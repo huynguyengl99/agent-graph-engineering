@@ -1,4 +1,5 @@
 """Ticket model factories."""
+
 from .event import (
     AIResponseEventFactory,
     AssignmentEventFactory,

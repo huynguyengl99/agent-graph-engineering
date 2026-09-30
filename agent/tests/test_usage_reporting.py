@@ -31,7 +31,9 @@ async def test_token_counts_survive_the_provider_response() -> None:
     with mock_openai(
         CLASSIFY,
         tool_call("final_result_AnswerDirectly", {"reasoning": "Known."}),
-        tool_call("final_result", {"content": "Proration.", "requires_approval": False}),
+        tool_call(
+            "final_result", {"content": "Proration.", "requires_approval": False}
+        ),
     ):
         graph = build_triage_graph(config, memory_checkpointer())
         await graph.ainvoke(

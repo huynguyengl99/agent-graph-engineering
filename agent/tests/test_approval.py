@@ -31,7 +31,9 @@ async def start(thread: str) -> dict:
         tool_call("final_result_AnswerDirectly", {"reasoning": "Known answer."}),
         tool_call("final_result", {"content": DRAFT, "requires_approval": False}),
     ):
-        return await build_triage_graph().ainvoke({"context": ticket()}, config=config(thread))
+        return await build_triage_graph().ainvoke(
+            {"context": ticket()}, config=config(thread)
+        )
 
 
 async def test_run_pauses_and_surfaces_the_draft() -> None:

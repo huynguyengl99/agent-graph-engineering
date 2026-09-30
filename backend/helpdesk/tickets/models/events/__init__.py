@@ -1,4 +1,5 @@
 """Ticket event models."""
+
 from .ai_response import AIResponseEvent
 from .assignment import AssignmentEvent
 from .base import TicketEvent

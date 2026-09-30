@@ -67,9 +67,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
         description="Resumes the paused run. Nothing reaches the customer until this arrives.",
         output_type=NewEventMessage | AgentProgressMessage,
     )
-    async def handle_approval_decision(
-        self, message: ApprovalDecisionMessage
-    ) -> None:
+    async def handle_approval_decision(self, message: ApprovalDecisionMessage) -> None:
         from helpdesk.tickets.services.triage import start_approval
 
         user = self.scope.get("user")

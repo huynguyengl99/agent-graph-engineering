@@ -1,4 +1,5 @@
 """Base test case for authenticated API tests."""
+
 from rest_framework.test import APIClient, APITestCase
 
 from asgiref.sync import sync_to_async

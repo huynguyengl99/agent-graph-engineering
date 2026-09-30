@@ -1,4 +1,5 @@
 """User model."""
+
 import uuid
 from typing import Any
 

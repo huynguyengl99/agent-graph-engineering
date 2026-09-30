@@ -9,7 +9,11 @@ MAX_SELF_SERVE = 500.0
 # A stand-in for the billing system. Part 9 replaces it with a real client.
 _SUBSCRIPTIONS: dict[str, dict[str, object]] = {
     "demo@example.com": {"plan": "Annual Pro", "monthly": 29.0, "renews": "2027-01-01"},
-    "alice@example.com": {"plan": "Monthly Starter", "monthly": 9.0, "renews": "2026-11-01"},
+    "alice@example.com": {
+        "plan": "Monthly Starter",
+        "monthly": 9.0,
+        "renews": "2026-11-01",
+    },
 }
 
 

@@ -62,7 +62,9 @@ def wrap_tool(
         )
 
         @wraps(func)
-        async def wrapper(*args: Any, approved: bool = False, **kwargs: Any) -> ToolOutput:
+        async def wrapper(
+            *args: Any, approved: bool = False, **kwargs: Any
+        ) -> ToolOutput:
             if metadata.requires_approval and not approved:
                 error = ApprovalRequiredError(
                     f"{tool_id} needs human approval before it can run.",

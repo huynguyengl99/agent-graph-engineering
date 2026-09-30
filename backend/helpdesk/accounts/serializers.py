@@ -1,4 +1,5 @@
 """User serializers."""
+
 from rest_framework import serializers
 
 from helpdesk.accounts.models import User

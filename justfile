@@ -147,12 +147,14 @@ check-schema:
     @echo "🔍 Validating OpenAPI schema..."
     cd backend && uv run python manage.py spectacular --validate --fail-on-warn > /dev/null
 
-# Run all checks (type check + lint + Django check + schema)
-check: check-schema
-    @echo "✅ Running all checks..."
-    cd backend && uv run mypy . && uv run ruff check . && uv run python manage.py check
-    cd agent && uv run mypy assistant && uv run ruff check .
-    cd web && pnpm typecheck && pnpm lint && pnpm format
+# Run every project's checks in parallel, reporting all failures at once
+# (scripts/check.sh --help for picking projects; --fix to write fixes)
+check *ARGS:
+    @bash scripts/check.sh {{ARGS}}
+
+# Apply every formatter and auto-fixable lint, then re-check
+fix:
+    @bash scripts/check.sh --fix
 
 # Clean generated files and caches
 clean:

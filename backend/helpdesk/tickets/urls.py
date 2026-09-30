@@ -1,4 +1,5 @@
 """Ticket URL configuration."""
+
 from rest_framework_nested import routers
 
 from helpdesk.tickets.views import TicketEventViewSet, TicketViewSet

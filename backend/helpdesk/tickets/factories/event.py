@@ -1,4 +1,5 @@
 """Ticket event model factories."""
+
 import factory
 
 from helpdesk.accounts.factories import UserFactory

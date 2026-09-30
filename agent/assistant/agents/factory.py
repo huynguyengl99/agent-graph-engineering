@@ -55,7 +55,8 @@ def build_model(config: ModelConfig) -> Model:
         # to: it is the endpoint the tests mock at the HTTP layer, and the
         # shape the rest of this code was written against.
         return OpenAIChatModel(
-            config.name, provider=OpenAIProvider(http_client=client) if client else "openai"
+            config.name,
+            provider=OpenAIProvider(http_client=client) if client else "openai",
         )
 
     # Everything else resolves from "provider:name", which is what makes adding

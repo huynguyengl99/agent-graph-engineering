@@ -1,4 +1,5 @@
 """Ticket models."""
+
 from .events import (
     AIResponseEvent,
     AssignmentEvent,

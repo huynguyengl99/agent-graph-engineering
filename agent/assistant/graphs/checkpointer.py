@@ -43,6 +43,7 @@ serde = JsonPlusSerializer(
     ]
 )
 
+
 @dataclass
 class _Live:
     """One saver per process, opened at startup and closed at shutdown."""

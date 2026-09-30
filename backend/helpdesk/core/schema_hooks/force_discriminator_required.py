@@ -64,7 +64,9 @@ def _flatten(
 
     # drf-spectacular injects a synthetic `{<snake_name>: string}` member that
     # camelize leaves alone, so the merge can carry both spellings. Keep one.
-    for key in [k for k in properties if k != property_name and _camelize(k) == property_name]:
+    for key in [
+        k for k in properties if k != property_name and _camelize(k) == property_name
+    ]:
         del properties[key]
         if key in required:
             required.remove(key)

@@ -72,9 +72,7 @@ class TestOutputScreening:
         assert "openai_key" in [f.kind for f in result.findings]
 
     def test_another_ticket_id_blocks_the_send(self) -> None:
-        result = screen_reply(
-            f"This is like the issue on {OTHER}.", ticket_id=TICKET
-        )
+        result = screen_reply(f"This is like the issue on {OTHER}.", ticket_id=TICKET)
         assert result.blocked is True
         assert "cross_ticket_reference" in [f.kind for f in result.findings]
 

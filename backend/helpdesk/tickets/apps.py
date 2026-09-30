@@ -1,4 +1,5 @@
 """App configuration for tickets."""
+
 from django.apps import AppConfig
 
 

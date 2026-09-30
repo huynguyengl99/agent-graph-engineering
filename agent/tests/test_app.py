@@ -1,4 +1,3 @@
-
 import httpx
 import pytest
 from assistant.main import app

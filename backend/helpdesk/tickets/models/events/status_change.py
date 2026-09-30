@@ -1,4 +1,5 @@
 """Status change event model."""
+
 from django.db import models
 
 from helpdesk.tickets.models.ticket import TicketStatus

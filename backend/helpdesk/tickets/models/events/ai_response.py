@@ -1,4 +1,5 @@
 """AI response event model."""
+
 from django.db import models
 
 from .base import TicketEvent

@@ -66,7 +66,6 @@ class TriageGraph(BaseGraph):
             update["kb_query"] = decision.query
         return update
 
-
     async def escalate(self, state: TriageState) -> TriageState:
         decision = state["decision"]
         assert isinstance(decision, Escalate)
@@ -92,11 +91,6 @@ class TriageGraph(BaseGraph):
         answer = await self.answerer.run(prompt, context)
         # Anything the customer will read goes through a human first.
         return {"answer": answer.model_copy(update={"requires_approval": True})}
-
-
-
-
-
 
     def route_decision(self, state: TriageState) -> str:
         match state["decision"]:
@@ -149,4 +143,3 @@ def build_triage_graph(
     """Compile a run's graph. Cheap, and the topology never varies; what varies
     is which model each purpose resolves to."""
     return TriageGraph(config).compile(saver or checkpointer())
-

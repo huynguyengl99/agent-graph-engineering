@@ -43,9 +43,7 @@ def _usage(observations: list[Observation]) -> Usage:
             output_tokens=total.output_tokens + o.cost.output_tokens,
             cost_usd=total.cost_usd + float(o.cost.cost_usd),
             priced=total.priced and o.cost.priced,
-            unpriced_models=sorted(
-                set(total.unpriced_models) | o.cost.unpriced_models
-            ),
+            unpriced_models=sorted(set(total.unpriced_models) | o.cost.unpriced_models),
         )
     return total
 
@@ -144,7 +142,9 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
         if not r.passed:
             for name, check in r.deterministic.items():
                 if not check.passed:
-                    print(f"          {name}: expected {check.expected!r}, got {check.actual!r}")
+                    print(
+                        f"          {name}: expected {check.expected!r}, got {check.actual!r}"
+                    )
             if r.judged and not r.judged.passed:
                 print(f"          answer: {r.judged.reasoning}")
             if r.error:
@@ -167,7 +167,9 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
             "trial - treat those as unsettled."
         )
     elif summary.trials == 1:
-        print("trials=1, so a single bad sample fails a scenario. --trials 3 to settle one.")
+        print(
+            "trials=1, so a single bad sample fails a scenario. --trials 3 to settle one."
+        )
 
     skipped = [r.scenario for r in summary.results if r.judged and not r.judged.judged]
     if skipped:

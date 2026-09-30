@@ -59,9 +59,7 @@ class TraceStore:
 
     def spans(self, ticket_id: str) -> list[SpanRecord]:
         with self._lock:
-            return sorted(
-                self._by_ticket.get(ticket_id, []), key=lambda s: s.start_ns
-            )
+            return sorted(self._by_ticket.get(ticket_id, []), key=lambda s: s.start_ns)
 
     def tree(self, ticket_id: str) -> list[dict[str, Any]]:
         """Spans nested by parent, which is the view code cannot give you."""

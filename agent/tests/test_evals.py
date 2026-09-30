@@ -69,8 +69,11 @@ def test_majority_decides_a_flaky_result() -> None:
 def test_a_minority_result_fails() -> None:
     checks = score(
         Expect(category="billing"),
-        [observation(category="billing"), observation(category="general"),
-         observation(category="general")],
+        [
+            observation(category="billing"),
+            observation(category="general"),
+            observation(category="general"),
+        ],
     )
     assert checks["category"].passed is False
 

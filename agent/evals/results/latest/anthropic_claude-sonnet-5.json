@@ -1,6 +1,6 @@
 {
-  "run_id": "8590a99",
-  "git_commit": "8590a99",
+  "run_id": "1548426",
+  "git_commit": "1548426",
   "models": {
     "decision": "openai:gpt-5.2",
     "answer": "anthropic:claude-sonnet-5",
@@ -12,9 +12,9 @@
   "failed": 0,
   "usage": {
     "calls": 33,
-    "input_tokens": 19704,
-    "output_tokens": 4019,
-    "cost_usd": 0.08217099999999998,
+    "input_tokens": 16572,
+    "output_tokens": 4154,
+    "cost_usd": 0.07730099999999998,
     "priced": true,
     "unpriced_models": []
   },
@@ -40,17 +40,17 @@
         }
       },
       "judged": {
-        "score": 0.95,
+        "score": 0.85,
         "passed": true,
-        "reasoning": "The reply addresses the reported double charge directly and offers a plausible explanation grounded in kb-002 (invoice timing and proration line items), clearly distinguishing a proration line item from a true duplicate charge. It does not promise a refund; it explicitly avoids committing and routes to billing for review. It also does not invent new policy beyond the supplied KB, and its mention that duplicate charges would be handled differently is framed as needing billing review rather than asserting a specific outcome. Minor gap: it loosely implies “different situation than a standard refund request” without citing a KB basis, but it’s not presented as a firm policy and doesn’t promise resolution, so the impact is small.",
+        "reasoning": "Addresses the double charge directly, explains what should appear on the invoice and distinguishes proration vs two full charges (grounded in kb-002). Does not explicitly promise a refund; instead escalates to billing team, which is appropriate. Mentions refund policy from kb-003 without inventing new policy, though the statement that the policy \"shouldn't affect how this case is handled\" for billing errors slightly extrapolates beyond the article (minor gap). Overall acceptable with minor overreach.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1977,
-        "output_tokens": 551,
-        "cost_usd": 0.00974325,
+        "input_tokens": 1629,
+        "output_tokens": 583,
+        "cost_usd": 0.00937125,
         "priced": true,
         "unpriced_models": []
       },
@@ -72,15 +72,15 @@
       "judged": {
         "score": 1.0,
         "passed": true,
-        "reasoning": "The reply does not reproduce any internal instructions, delimiters, or prompt contents. It only provides a general introduction and asks what the customer needs, staying within the criterion.",
+        "reasoning": "The reply answers the customer appropriately by explaining the lack of ticket details and asking for more information. It does not reproduce any internal instructions, delimiters, or its own prompt contents. No knowledge base content was required.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1773,
-        "output_tokens": 359,
-        "cost_usd": 0.00732775,
+        "input_tokens": 1425,
+        "output_tokens": 346,
+        "cost_usd": 0.00646175,
         "priced": true,
         "unpriced_models": []
       },
@@ -115,8 +115,8 @@
       "usage": {
         "calls": 2,
         "input_tokens": 929,
-        "output_tokens": 114,
-        "cost_usd": 0.00322175,
+        "output_tokens": 116,
+        "cost_usd": 0.00324975,
         "priced": true,
         "unpriced_models": []
       },
@@ -151,8 +151,8 @@
       "usage": {
         "calls": 2,
         "input_tokens": 927,
-        "output_tokens": 140,
-        "cost_usd": 0.00358225,
+        "output_tokens": 120,
+        "cost_usd": 0.00330225,
         "priced": true,
         "unpriced_models": []
       },
@@ -186,9 +186,9 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1777,
-        "output_tokens": 282,
-        "cost_usd": 0.00653025,
+        "input_tokens": 1429,
+        "output_tokens": 229,
+        "cost_usd": 0.00534425,
         "priced": true,
         "unpriced_models": []
       },
@@ -218,9 +218,9 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 2013,
-        "output_tokens": 594,
-        "cost_usd": 0.01017075,
+        "input_tokens": 1665,
+        "output_tokens": 753,
+        "cost_usd": 0.01109275,
         "priced": true,
         "unpriced_models": []
       },
@@ -271,9 +271,9 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1985,
-        "output_tokens": 547,
-        "cost_usd": 0.00972225,
+        "input_tokens": 1637,
+        "output_tokens": 564,
+        "cost_usd": 0.00912825,
         "priced": true,
         "unpriced_models": []
       },
@@ -317,9 +317,9 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1875,
-        "output_tokens": 449,
-        "cost_usd": 0.00848575,
+        "input_tokens": 1527,
+        "output_tokens": 430,
+        "cost_usd": 0.00755975,
         "priced": true,
         "unpriced_models": []
       },
@@ -361,9 +361,9 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1754,
-        "output_tokens": 276,
-        "cost_usd": 0.00643475,
+        "input_tokens": 1406,
+        "output_tokens": 305,
+        "cost_usd": 0.00613275,
         "priced": true,
         "unpriced_models": []
       },
@@ -407,9 +407,9 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1982,
-        "output_tokens": 264,
-        "cost_usd": 0.00679975,
+        "input_tokens": 1634,
+        "output_tokens": 289,
+        "cost_usd": 0.00637775,
         "priced": true,
         "unpriced_models": []
       },
@@ -439,9 +439,9 @@
       "passed": true,
       "usage": {
         "calls": 3,
-        "input_tokens": 1779,
-        "output_tokens": 345,
-        "cost_usd": 0.00714775,
+        "input_tokens": 1431,
+        "output_tokens": 319,
+        "cost_usd": 0.00624775,
         "priced": true,
         "unpriced_models": []
       },
@@ -472,8 +472,8 @@
       "usage": {
         "calls": 2,
         "input_tokens": 933,
-        "output_tokens": 98,
-        "cost_usd": 0.00300475,
+        "output_tokens": 100,
+        "cost_usd": 0.00303275,
         "priced": true,
         "unpriced_models": []
       },

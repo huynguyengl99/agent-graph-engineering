@@ -119,6 +119,9 @@ class TraceStoreExporter(SpanExporter):
     def export(self, spans: tuple[ReadableSpan, ...]) -> SpanExportResult:  # type: ignore[override]
         for span in spans:
             context = span.get_span_context()
+            if context is None:
+                # A span with no context cannot be filed under a run.
+                continue
             trace_id = format(context.trace_id, "032x")
             attributes = dict(span.attributes or {})
 

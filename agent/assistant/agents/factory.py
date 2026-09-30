@@ -1,7 +1,12 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 from pydantic_ai import Agent
 from pydantic_ai.models import Model, infer_model
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from assistant.agents.config import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.scripted import ScriptedModel
@@ -21,11 +26,39 @@ def has_provider_key(config: ModelConfig) -> bool:
     return key is not None and bool(key())
 
 
+_http_client: ContextVar[Any | None] = ContextVar("_http_client", default=None)
+
+
+@contextmanager
+def use_http_client(client: Any) -> Iterator[None]:
+    """Route provider traffic through a caller-supplied client.
+
+    The seam exists for tests: pydantic-ai runs on httpx2, which respx cannot
+    see, so the mock arrives as a transport on a client instead. Production
+    never sets this and gets the provider's own client.
+    """
+    token = _http_client.set(client)
+    try:
+        yield
+    finally:
+        _http_client.reset(token)
+
+
 def build_model(config: ModelConfig) -> Model:
     if not has_provider_key(config):
         return ScriptedModel()
-    # infer_model resolves "provider:name" itself, which is what makes adding a
-    # provider a config change rather than a code change.
+
+    client = _http_client.get()
+    if config.provider == "openai":
+        # Chat completions, not the Responses API that `openai:` now defaults
+        # to: it is the endpoint the tests mock at the HTTP layer, and the
+        # shape the rest of this code was written against.
+        return OpenAIChatModel(
+            config.name, provider=OpenAIProvider(http_client=client) if client else "openai"
+        )
+
+    # Everything else resolves from "provider:name", which is what makes adding
+    # a provider a config change rather than a code change.
     return infer_model(config.slug)
 
 
@@ -50,6 +83,5 @@ class AgentFactory:
             self.model(purpose),
             output_type=output_type,
             deps_type=deps_type,
-            instrument=True,
             instructions=instructions,
         )

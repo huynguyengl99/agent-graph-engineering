@@ -62,10 +62,10 @@ def test_an_empty_run_costs_nothing() -> None:
     assert RunCost().as_dict()["total_tokens"] == 0
 
 
-class TestLocalPrices:
-    """The pinned genai-prices predates the Claude 5 family."""
+class TestNewerModels:
+    """genai-prices ships the current price tables; nothing is hand-maintained."""
 
-    def test_a_model_the_price_table_misses_falls_back_locally(self) -> None:
+    def test_a_current_model_is_priced(self) -> None:
         cost = cost_of_span(span("claude-sonnet-5", "anthropic", 1_000_000, 0))
 
         assert cost is not None
@@ -85,8 +85,7 @@ class TestLocalPrices:
         assert cost.priced is False
         assert "anthropic:some-future-model" in cost.unpriced_models
 
-    def test_genai_prices_still_wins_where_it_knows_the_model(self) -> None:
-        """The local table is a fallback, not an override to drift against."""
+    def test_an_older_model_is_priced_too(self) -> None:
         cost = cost_of_span(span("claude-haiku-4-5", "anthropic", 1_000_000, 0))
 
         assert cost is not None

@@ -3,15 +3,20 @@
 Stubbing the framework would test the stub. Intercepting the HTTP call means the
 real pipeline runs: request construction, response parsing, tool-call assembly
 and output validation. When those break, these tests break.
+
+The interception is a transport rather than respx, because pydantic-ai runs on
+httpx2 and respx only patches httpx 1. A transport is closer to the wire
+anyway: the provider's own client does the sending.
 """
 
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
-import respx
+import httpx2
+from assistant.agents.factory import use_http_client
 
 CHAT_COMPLETIONS = "https://api.openai.com/v1/chat/completions"
 
@@ -65,11 +70,34 @@ def tool_call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@dataclass
+class Recorder:
+    """What the transport saw, so a test can assert on the calls made."""
+
+    urls: list[str] = field(default_factory=list)
+
+    @property
+    def call_count(self) -> int:
+        return len(self.urls)
+
+
 @contextmanager
-def mock_openai(*responses: dict[str, Any]) -> Iterator[respx.Route]:
+def mock_openai(*responses: dict[str, Any]) -> Iterator[Recorder]:
     """Serve the given completions in order, one per LLM call."""
-    with respx.mock(assert_all_called=False) as mock:
-        route = mock.post(CHAT_COMPLETIONS).mock(
-            side_effect=[httpx.Response(200, json=body) for body in responses]
-        )
-        yield route
+    recorder = Recorder()
+    queue = list(responses)
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        recorder.urls.append(str(request.url))
+        if not queue:
+            # Running dry means the graph made more calls than the test
+            # scripted; say so here rather than as a parse error later.
+            raise AssertionError(
+                f"the graph made {recorder.call_count} model calls but only "
+                f"{len(responses)} responses were provided"
+            )
+        return httpx2.Response(200, json=queue.pop(0))
+
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(handle))
+    with use_http_client(client):
+        yield recorder

@@ -15,8 +15,6 @@ from typing import Any
 
 from genai_prices import calc_price
 
-from assistant.tracing.prices import local_price
-
 INPUT_TOKENS = "gen_ai.usage.input_tokens"
 OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
 REQUEST_MODEL = "gen_ai.request.model"
@@ -92,11 +90,6 @@ def cost_of_span(attributes: dict[str, Any]) -> RunCost | None:
             _Usage(input_tokens, output_tokens), str(model), provider_id=provider
         )
     except (LookupError, ValueError):
-        # genai-prices is pinned to a release that predates some models we
-        # run; fall back to the hand-maintained table before giving up.
-        local = local_price(provider, str(model), input_tokens, output_tokens)
-        if local is not None:
-            return RunCost(input_tokens, output_tokens, local, calls=1)
         return RunCost(
             input_tokens,
             output_tokens,

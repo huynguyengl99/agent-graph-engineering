@@ -19,6 +19,11 @@ def clean_store():
     trace_store.clear()
 
 
+# Pydantic AI 2.x renamed this span from "agent run"; per-call usage now sits
+# on the "chat <model>" span beneath it, and the aggregate on this one.
+AGENT_SPAN = "invoke_agent"
+
+
 def config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
 
@@ -71,7 +76,7 @@ async def test_model_calls_nest_under_the_node_that_made_them() -> None:
     classify = next(n for n in tree if n["name"] == "node.classify")
 
     assert classify["children"], "the model call should be a child of the node"
-    assert any("agent run" in child["name"] for child in classify["children"])
+    assert any(AGENT_SPAN in child["name"] for child in classify["children"])
 
 
 async def test_model_call_spans_carry_usage() -> None:
@@ -80,10 +85,12 @@ async def test_model_call_spans_carry_usage() -> None:
 
     tree = trace_store.tree("t-attrs")
     classify = next(n for n in tree if n["name"] == "node.classify")
-    agent_run = next(c for c in classify["children"] if "agent run" in c["name"])
+    runs = [c for c in classify["children"] if AGENT_SPAN in c["name"]]
 
-    assert agent_run["attributes"]["gen_ai.usage.input_tokens"] >= 0
-    assert "final_result" in agent_run["attributes"]
+    assert runs, f"no {AGENT_SPAN!r} span under the node"
+    attributes = runs[0]["attributes"]
+    assert attributes["gen_ai.aggregated_usage.input_tokens"] > 0
+    assert "final_result" in attributes
 
 
 async def test_traces_are_isolated_per_ticket() -> None:

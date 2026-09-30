@@ -7,22 +7,13 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.1",
     "pydantic>=2.10.0",
-    "pydantic-ai>=1.0,<2",
+    "pydantic-ai>=2.52,<3",
     "langgraph>=1.2,<2",
     "chanx[fast-channels,cli]>=2.11.4,<3",
     "openai>=1.57.0",
     "structlog>=24.4.0",
     "environs>=11.2.2",
     "opentelemetry-sdk>=1.30,<2",
-    # Pinned exactly, and the pin is load-bearing. pydantic-ai 1.63 declares
-    # `genai-prices>=0.0.48` with no upper bound, so 0.1.9 installs happily
-    # and then silently zeroes every token count - input=0, output=0, cost
-    # $0.00, no error. Guarded by tests/test_usage_reporting.py.
-    #
-    # The real fix is pydantic-ai 2.x, which requires genai-prices>=0.1.9 and
-    # drops assistant/tracing/prices.py with it. Blocked: 2.x moved to
-    # httpx 2 and respx (every HTTP-level test mock) patches httpx 1.
-    "genai-prices==0.0.55",
     "langgraph-checkpoint-postgres>=3.1,<4",
 ]
 

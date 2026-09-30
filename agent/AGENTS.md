@@ -119,18 +119,14 @@ Cost comes from the spans the tracer already collects
 model with no price table reports its tokens with `priced: false` and names the
 model, rather than a misleading $0.00.
 
-Models the pinned release predates are priced from
-`assistant/tracing/prices.py`, a hand-maintained table that goes stale by
-design - check it against Anthropic's pricing page when a model moves.
-genai-prices still wins wherever it knows the model; the local table is only a
-fallback, and anything in neither is honestly `priced: false`.
+Pricing comes from genai-prices, unpinned - nothing is hand-maintained, and a
+model it does not know is honestly `priced: false`.
 
-**`genai-prices` is pinned exactly at 0.0.55.** 0.1.9 knows the newer Claude
-models but silently zeroes pydantic-ai 1.63's token counts - every call still
-reports, with `input=0` and `output=0`, so cost quietly becomes $0.00 instead
-of failing. `tests/test_usage_reporting.py` guards it, and the OpenAI mock
-carries the `*_tokens_details` objects a real response has, because without
-them the parsing takes a different path and the bug does not reproduce.
+`tests/test_usage_reporting.py` exists because a version bump once zeroed
+every token count silently: each call still reported, with `input=0` and
+`output=0`, so runs quietly cost $0.00. The OpenAI mock carries the
+`*_tokens_details` objects a real response has, because without them the
+parsing takes a different path and that bug does not reproduce.
 
 ## Model selection
 
@@ -201,3 +197,21 @@ GET /graphs/{name}.mermaid?xray=false
 Generated from the compiled graph, so the picture cannot disagree with the
 code. The web UI renders them at `/graphs` (the agent is proxied at `/agent`
 in development).
+
+## Pydantic AI 2.x notes
+
+Three things moved in the 1.x -> 2.x upgrade, all of them load-bearing here:
+
+- **Instrumentation is process-wide.** `Agent(instrument=True)` is gone;
+  `Agent.instrument_all(True)` is called once in `setup_tracing`, which is
+  where it belonged anyway.
+- **`openai:` defaults to the Responses API.** `build_model` asks for
+  `OpenAIChatModel` explicitly, because chat completions is the endpoint the
+  tests mock and the shape this code was written against.
+- **HTTP moved to httpx2, so respx cannot see it.** Tests inject an
+  `httpx2.MockTransport` through `use_http_client` instead - closer to the
+  wire than respx was, since the provider's own client does the sending.
+
+Span names changed with it: `agent run` is now `invoke_agent agent`, per-call
+usage sits on the `chat <model>` span beneath it, and the aggregate on the
+agent span. `cost_of_span` keys on the per-call span, so nothing double-counts.

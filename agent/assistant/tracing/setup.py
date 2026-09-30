@@ -15,6 +15,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from pydantic_ai import Agent
 
 from assistant.core.config import settings
 from assistant.tracing.store import TraceStoreExporter
@@ -39,6 +40,11 @@ def setup_tracing(force: bool = False) -> None:
         provider.add_span_processor(forwarder)
 
     trace.set_tracer_provider(provider)
+
+    # Set once for the process in pydantic-ai 2.x rather than per agent. This
+    # is what nests model calls under the node span that made them.
+    Agent.instrument_all(True)
+
     _state["configured"] = True
 
 

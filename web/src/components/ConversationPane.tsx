@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useConversation } from '@/hooks/useConversation';
 import { ChatMessageItem } from './ChatMessageItem';
+import { ToolApprovalCard } from './ToolApprovalCard';
 import type { ChatMessage, Conversation } from '@/lib/types';
 
 /**
@@ -26,9 +27,12 @@ export function ConversationPane({
     let ignore = false;
     void (async () => {
       try {
-        const page = await api.get('/api/conversations/:conversationPk/messages/', {
-          params: { conversationPk: conversationId },
-        });
+        const page = await api.get(
+          '/api/conversations/:conversationPk/messages/',
+          {
+            params: { conversationPk: conversationId },
+          },
+        );
         if (!ignore) setMessages(page.results ?? []);
       } catch {
         if (!ignore) setError('Could not load this conversation.');
@@ -41,18 +45,21 @@ export function ConversationPane({
 
   const onMessage = useCallback((message: ChatMessage) => {
     setMessages((current) =>
-      current.some((m) => m.id === message.id) ? current : [...current, message]
+      current.some((m) => m.id === message.id)
+        ? current
+        : [...current, message],
     );
   }, []);
 
-  const { ask, sendToTicket, streaming, isReady } = useConversation({
-    conversationId,
-    onMessage,
-  });
+  const { ask, sendToTicket, decideTool, pendingTool, streaming, isReady } =
+    useConversation({
+      conversationId,
+      onMessage,
+    });
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streaming]);
+  }, [messages, streaming, pendingTool]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +69,9 @@ export function ConversationPane({
     setDraft('');
   };
 
-  const lastAnswer = [...messages].reverse().find((m) => m.role === 'assistant');
+  const lastAnswer = [...messages]
+    .reverse()
+    .find((m) => m.role === 'assistant');
 
   return (
     <section className="flex h-full flex-col">
@@ -110,6 +119,14 @@ export function ConversationPane({
           )}
         </ul>
 
+        {pendingTool && (
+          <ToolApprovalCard
+            proposal={pendingTool}
+            onDecide={decideTool}
+            disabled={!isReady}
+          />
+        )}
+
         {ticketId && lastAnswer && !streaming && (
           <button
             onClick={() => sendToTicket(ticketId, lastAnswer.content)}
@@ -122,7 +139,10 @@ export function ConversationPane({
         <div ref={bottom} />
       </div>
 
-      <form onSubmit={submit} className="flex gap-2 border-t bg-white px-6 py-4">
+      <form
+        onSubmit={submit}
+        className="flex gap-2 border-t bg-white px-6 py-4"
+      >
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

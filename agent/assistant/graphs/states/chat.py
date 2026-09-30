@@ -1,4 +1,4 @@
-from typing import Annotated, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from assistant.agents.deps import ChatContext
 from assistant.outputs.chat import ChatRoute
@@ -24,3 +24,14 @@ class ChatState(TypedDict, total=False):
     # dropped in as a node here as well as in triage.
     kb_query: str
     kb_snippets: Annotated[list[str], last_wins]
+
+    # Shared with the tool subgraph. `request` is what it plans against.
+    request: str
+    tool: str
+    arguments: Annotated[dict[str, Any], last_wins]
+    unknown_arguments: list[str]
+    approved: bool
+    corrected: bool
+    cancelled: bool
+    result: str
+    tool_error: str

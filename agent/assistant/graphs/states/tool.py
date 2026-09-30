@@ -20,7 +20,15 @@ class ToolState(TypedDict, total=False):
     tool: str
     arguments: Annotated[dict[str, Any], last_wins]
 
+    # Argument names the planner made up. Not an error: the gate exists so a
+    # person can fix exactly this, but they have to be told.
+    unknown_arguments: list[str]
+
     approved: bool
+    # A person changed the arguments before approving. The answer has to know:
+    # told only the result, a model reads the smaller amount as a mistake and
+    # advises the rep to refund the difference.
+    corrected: bool
     cancelled: bool
     result: str
     tool_error: str

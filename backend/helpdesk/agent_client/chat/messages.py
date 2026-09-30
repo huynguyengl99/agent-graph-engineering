@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -79,7 +79,44 @@ class ChatRequestMessage(BaseModel):
     payload: ChatRequestPayload
 
 
+class ToolApprovalPayload(BaseModel):
+    """ToolApprovalPayload"""
+
+    conversation_id: str
+    tool: str
+    description: str
+    arguments: dict[str, Any] = {}
+    arguments_schema: dict[str, Any] = {}
+    unknown_arguments: list[str] = []
+
+
+class ToolApprovalMessage(BaseModel):
+    """A tool is waiting on a human. Nothing has run."""
+
+    action: Literal["tool_approval"] = "tool_approval"
+    payload: ToolApprovalPayload
+
+
+class ToolDecisionPayload(BaseModel):
+    """ToolDecisionPayload"""
+
+    conversation_id: str
+    approved: bool
+    arguments: dict[str, Any] = {}
+
+
+class ToolDecisionMessage(BaseModel):
+    """Resume a run parked at the tool gate."""
+
+    action: Literal["tool_decision"] = "tool_decision"
+    payload: ToolDecisionPayload
+
+
 IncomingMessage = (
-    ChatTokenMessage | ChatCompleteMessage | ChatErrorMessage | PongMessage
+    ChatTokenMessage
+    | ChatCompleteMessage
+    | ToolApprovalMessage
+    | ChatErrorMessage
+    | PongMessage
 )
-OutgoingMessage = ChatRequestMessage | PingMessage
+OutgoingMessage = ChatRequestMessage | PingMessage | ToolDecisionMessage

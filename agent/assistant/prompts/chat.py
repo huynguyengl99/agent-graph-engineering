@@ -19,6 +19,10 @@ CHAT_ROUTE_PROMPT = (
     "it, or it is a general question about how to word something.\n"
     "- ConsultKnowledgeBase: it turns on documented policy, limits, billing "
     "rules, or a published procedure. Look it up rather than recalling it.\n"
+    "- RunTool: they are asking for something to be *done* or for data only "
+    "the system holds - refund this, what plan are they on, look up that "
+    "charge. Anything irreversible is proposed to a human first, so route "
+    "here rather than explaining that you cannot.\n"
     "Looking something up costs a second and being wrong about policy costs "
     "more, so prefer the lookup when a question could go either way."
 )

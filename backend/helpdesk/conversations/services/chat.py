@@ -27,6 +27,9 @@ from helpdesk.agent_client.chat.messages import (
     ChatTokenMessage,
     ChatTurn,
     IncomingMessage,
+    ToolApprovalMessage,
+    ToolDecisionMessage,
+    ToolDecisionPayload,
 )
 from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.conversations.messages import (
@@ -42,6 +45,12 @@ from helpdesk.conversations.messages import (
 )
 from helpdesk.conversations.messages import (
     ChatErrorPayload as FEChatErrorPayload,
+)
+from helpdesk.conversations.messages import (
+    ToolApprovalMessage as FEToolApprovalMessage,
+)
+from helpdesk.conversations.messages import (
+    ToolApprovalPayload as FEToolApprovalPayload,
 )
 from helpdesk.conversations.models import Conversation, Message, MessageRole
 from helpdesk.conversations.topics.conversation_topic import ConversationTopic
@@ -67,10 +76,18 @@ async def broadcast(topic: str, message: BaseMessage) -> None:
     await ConversationTopic.broadcast(topic, message)
 
 
-class ConversationChatClient(ChatClient):
-    """One turn, then disconnect."""
+OutgoingPayload = ChatRequestPayload | ToolDecisionPayload
 
-    def __init__(self, conversation_id: str, request: ChatRequestPayload) -> None:
+
+class ConversationChatClient(ChatClient):
+    """One turn, then disconnect.
+
+    A turn may end parked at a tool gate instead of at an answer, in which case
+    the socket closes with the run still checkpointed in the agent. The
+    reviewer's decision opens a fresh one, exactly as triage does.
+    """
+
+    def __init__(self, conversation_id: str, request: OutgoingPayload) -> None:
         super().__init__(settings.AGENT_WS_URL)
         self.conversation_id = conversation_id
         self.request = request
@@ -78,7 +95,10 @@ class ConversationChatClient(ChatClient):
         self.answer = ""
 
     async def send_init_message(self) -> None:
-        await self.send_message(ChatRequestMessage(payload=self.request))
+        if isinstance(self.request, ChatRequestPayload):
+            await self.send_message(ChatRequestMessage(payload=self.request))
+        else:
+            await self.send_message(ToolDecisionMessage(payload=self.request))
 
     async def disconnect(self, code: int = 1000, reason: str = "") -> None:
         if getattr(self, "websocket", None) is None:
@@ -92,6 +112,22 @@ class ConversationChatClient(ChatClient):
                     self.group,
                     TokenMessage(payload=TokenPayload(delta=payload.delta)),
                 )
+            case ToolApprovalMessage(payload=payload):
+                await broadcast(
+                    self.group,
+                    FEToolApprovalMessage(
+                        payload=FEToolApprovalPayload(
+                            tool=payload.tool,
+                            description=payload.description,
+                            arguments=payload.arguments,
+                            arguments_schema=payload.arguments_schema or {},
+                            unknown_arguments=payload.unknown_arguments or [],
+                        )
+                    ),
+                )
+                # Parked on a person. Nothing is persisted: the proposal is not
+                # a turn, and it only becomes one if it runs.
+                await self.disconnect()
             case ChatCompleteMessage(payload=payload):
                 self.answer = payload.content
                 await self._persist_answer(payload.content)
@@ -119,9 +155,7 @@ class ConversationChatClient(ChatClient):
         )
 
     @database_sync_to_async
-    def _create_message(
-        self, conversation_id: str, role: str, content: str
-    ) -> Message:
+    def _create_message(self, conversation_id: str, role: str, content: str) -> Message:
         return Message.objects.create(
             conversation_id=conversation_id, role=role, content=content
         )
@@ -132,12 +166,12 @@ def conversation_request(
     conversation_id: str, question: str, models: dict[str, str] | None = None
 ) -> ChatRequestPayload:
     """Build the agent request from what is already persisted."""
-    conversation = Conversation.objects.select_related("ticket").get(
-        id=conversation_id
-    )
+    conversation = Conversation.objects.select_related("ticket").get(id=conversation_id)
     history = [
-        ChatTurn(role="assistant" if m.role == MessageRole.ASSISTANT else "user",
-                 content=m.content)
+        ChatTurn(
+            role="assistant" if m.role == MessageRole.ASSISTANT else "user",
+            content=m.content,
+        )
         for m in conversation.messages.order_by("created_at")
     ]
 
@@ -197,8 +231,40 @@ def _create_user_message(conversation_id: str, content: str) -> Message:
     )
 
 
-async def start_turn(
-    conversation_id: str, question: str, user_id: Any = None
-) -> None:
+async def start_turn(conversation_id: str, question: str, user_id: Any = None) -> None:
     """Run one turn detached: the answer streams over the topic, not the socket."""
     spawn(ask(conversation_id, question, user_id))
+
+
+async def decide_tool(
+    conversation_id: str, approved: bool, arguments: dict[str, Any]
+) -> None:
+    """Resume a turn parked at the tool gate.
+
+    A fresh connection: the parked graph lives in the agent's checkpointer
+    keyed by conversation, not in the socket that proposed the call.
+    """
+    try:
+        await ConversationChatClient(
+            conversation_id,
+            ToolDecisionPayload(
+                conversation_id=conversation_id,
+                approved=approved,
+                arguments=arguments,
+            ),
+        ).handle()
+    except Exception:
+        logger.exception("chat.tool_decision_failed", conversation_id=conversation_id)
+        await broadcast(
+            conversation_topic(conversation_id),
+            FEChatErrorMessage(
+                payload=FEChatErrorPayload(detail="The assistant is unavailable.")
+            ),
+        )
+
+
+async def start_tool_decision(
+    conversation_id: str, *, approved: bool, arguments: dict[str, Any]
+) -> None:
+    """Detached for the same reason a turn is: the answer streams over the topic."""
+    spawn(decide_tool(conversation_id, approved, arguments))

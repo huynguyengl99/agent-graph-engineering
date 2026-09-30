@@ -14,6 +14,10 @@ from .messages import (
     ChatTurn,
     IncomingMessage,
     OutgoingMessage,
+    ToolApprovalMessage,
+    ToolApprovalPayload,
+    ToolDecisionMessage,
+    ToolDecisionPayload,
 )
 
 __all__ = [
@@ -30,4 +34,8 @@ __all__ = [
     "ChatTurn",
     "IncomingMessage",
     "OutgoingMessage",
+    "ToolApprovalMessage",
+    "ToolApprovalPayload",
+    "ToolDecisionMessage",
+    "ToolDecisionPayload",
 ]

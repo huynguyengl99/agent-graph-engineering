@@ -7,7 +7,13 @@ from assistant.tools.core.errors import (
     UpstreamServiceError,
 )
 from assistant.tools.core.metadata import ToolMetadata, ToolOutput
-from assistant.tools.core.schema import argument_docs, arguments_schema
+from assistant.tools.core.schema import (
+    accepted_arguments,
+    argument_docs,
+    arguments_schema,
+    missing_arguments,
+    split_arguments,
+)
 from assistant.tools.core.wrapper import (
     all_tools,
     get_tool,
@@ -25,8 +31,11 @@ __all__ = [
     "ToolMetadata",
     "ToolOutput",
     "UpstreamServiceError",
+    "accepted_arguments",
     "argument_docs",
     "arguments_schema",
+    "missing_arguments",
+    "split_arguments",
     "all_tools",
     "get_tool",
     "metadata_for",

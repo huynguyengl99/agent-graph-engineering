@@ -54,9 +54,7 @@ class TestConversationTopic(WebsocketTestCase):
             sent.append((conversation_id, question))
 
         await self.subscribe_ready(self.topic)
-        with patch(
-            "helpdesk.conversations.services.chat.ask", fake_ask
-        ):
+        with patch("helpdesk.conversations.services.chat.ask", fake_ask):
             await self.auth_communicator.send_message(
                 AskMessage(payload=AskPayload(content="What do I tell them?")),
                 topic=self.topic,
@@ -87,9 +85,7 @@ class TestConversationTopic(WebsocketTestCase):
         await database_sync_to_async(Message.objects.create)(
             conversation=self.conversation, role="user", content="hello"
         )
-        count = await Message.objects.filter(
-            conversation=self.conversation
-        ).acount()
+        count = await Message.objects.filter(conversation=self.conversation).acount()
         assert count == 1
 
 

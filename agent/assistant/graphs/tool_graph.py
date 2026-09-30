@@ -11,7 +11,14 @@ from assistant.agents.planner import ToolPlannerAgent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import ToolState
 from assistant.outputs.tools import ToolProposal
-from assistant.tools.core import all_tools, get_tool, metadata_for, render_tool_list
+from assistant.tools.core import (
+    all_tools,
+    get_tool,
+    metadata_for,
+    missing_arguments,
+    render_tool_list,
+    split_arguments,
+)
 from assistant.tracing.nodes import Node
 
 
@@ -61,8 +68,11 @@ class ToolGraph(BaseGraph):
                     "decision": decision,
                     "tool_error": f"No such tool: {decision.tool!r}.",
                 }
+            meta = metadata_for(decision.tool)
+            kept, unknown = split_arguments(meta.arguments, dict(decision.arguments))
             update["tool"] = decision.tool
-            update["arguments"] = dict(decision.arguments)
+            update["arguments"] = kept
+            update["unknown_arguments"] = unknown
         return update
 
     async def gate(self, state: ToolState) -> ToolState:
@@ -76,7 +86,12 @@ class ToolGraph(BaseGraph):
                 "description": meta.description,
                 # The reviewer's form is generated from this, so no tool needs
                 # a hand-written one and a new tool is reviewable on arrival.
-                "schema": meta.arguments,
+                # Not "schema": that name shadows a BaseModel attribute, so
+                # every generated client would carry the workaround.
+                "arguments_schema": meta.arguments,
+                # Named so the card can explain an empty required field rather
+                # than leaving the reviewer to guess why.
+                "unknown_arguments": state.get("unknown_arguments") or [],
             }
         )
 
@@ -88,18 +103,40 @@ class ToolGraph(BaseGraph):
         # Corrections replace the proposed arguments wholesale, so what a
         # reviewer saw is exactly what runs.
         corrected = answer.get("arguments")
-        update: ToolState = {"approved": True, "cancelled": False}
+        update: ToolState = {
+            "approved": True,
+            "cancelled": False,
+            "corrected": False,
+        }
         if isinstance(corrected, dict) and corrected:
             update["arguments"] = dict(corrected)
+            update["corrected"] = corrected != state["arguments"]
         return update
 
     async def execute(self, state: ToolState) -> ToolState:
-        tool = get_tool(state["tool"])
+        meta = metadata_for(state["tool"])
         arguments: dict[str, Any] = dict(state.get("arguments") or {})
-        if metadata_for(state["tool"]).requires_approval:
+
+        # Checked here rather than trusted from the gate: a read-only tool
+        # skips the gate entirely, and a reviewer can clear a field.
+        if missing := missing_arguments(meta.arguments, arguments):
+            return {
+                "tool_error": (
+                    f"{state['tool']} needs {', '.join(missing)}, which is missing."
+                )
+            }
+
+        if meta.requires_approval:
             arguments["approved"] = True
 
-        output = await tool(**arguments)
+        tool = get_tool(state["tool"])
+        try:
+            output = await tool(**arguments)
+        except TypeError as error:
+            # A signature mismatch is a bug or a made-up argument name, not
+            # something the caller did. Reported rather than raised so the turn
+            # still answers instead of dying mid-stream.
+            return {"tool_error": f"{state['tool']} could not be called: {error}"}
         if not output.ok:
             return {"tool_error": output.user_error or output.error or ""}
         return {"result": str(output.result)}

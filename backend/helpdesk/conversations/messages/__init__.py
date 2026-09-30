@@ -3,6 +3,8 @@ from .incoming import (
     AskPayload,
     DraftToTicketMessage,
     DraftToTicketPayload,
+    ToolDecisionMessage,
+    ToolDecisionPayload,
 )
 from .outgoing import (
     AssistantDoneMessage,
@@ -13,6 +15,8 @@ from .outgoing import (
     ChatMessagePayload,
     TokenMessage,
     TokenPayload,
+    ToolApprovalMessage,
+    ToolApprovalPayload,
 )
 
 __all__ = [
@@ -28,4 +32,8 @@ __all__ = [
     "DraftToTicketPayload",
     "TokenMessage",
     "TokenPayload",
+    "ToolApprovalMessage",
+    "ToolApprovalPayload",
+    "ToolDecisionMessage",
+    "ToolDecisionPayload",
 ]

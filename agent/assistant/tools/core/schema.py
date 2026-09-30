@@ -64,3 +64,36 @@ def arguments_schema(func: Callable[..., Any]) -> dict[str, Any]:
             schema["properties"][name]["description"] = description
     schema.pop("title", None)
     return schema
+
+
+def accepted_arguments(schema: dict[str, Any]) -> set[str]:
+    """Argument names a tool actually takes."""
+    return set(schema.get("properties", {}))
+
+
+def split_arguments(
+    schema: dict[str, Any], proposed: dict[str, Any]
+) -> tuple[dict[str, Any], list[str]]:
+    """Keep what the tool accepts; report the rest.
+
+    A model that proposes `customer_email` for an `email` argument is not
+    hallucinating a tool, just a name, and a person can fix that at the gate.
+    Passing it through would crash the call with a TypeError instead, and
+    keeping it silently would show the reviewer a form that does not match what
+    would run - the argument is not on the form, so they cannot see it, correct
+    it, or know why the field they can see is empty.
+    """
+    accepted = accepted_arguments(schema)
+    kept = {name: value for name, value in proposed.items() if name in accepted}
+    return kept, sorted(set(proposed) - accepted)
+
+
+def missing_arguments(schema: dict[str, Any], arguments: dict[str, Any]) -> list[str]:
+    """Required arguments with nothing usable in them."""
+    required = schema.get("required", [])
+    names = required if isinstance(required, list) else []
+    return [
+        str(name)
+        for name in names
+        if arguments.get(name) is None or arguments.get(name) == ""
+    ]

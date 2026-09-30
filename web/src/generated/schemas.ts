@@ -5,7 +5,7 @@ export interface AIResponseEvent {
   id: number;
   createdBy?: EventUser | null;
   createdAt: string;
-  eventType: "ai_response";
+  eventType: 'ai_response';
   content: string;
   modelName?: string;
   tokensUsed?: number;
@@ -13,18 +13,18 @@ export interface AIResponseEvent {
 
 /** Intermediate triage progress, so the UI is not silent while it works. */
 export interface AgentProgressMessage {
-  action: "agent_progress";
+  action: 'agent_progress';
   payload: AgentProgressPayload;
 }
 
 export interface AgentProgressPayload {
-  stage: "classified" | "decided" | "failed";
+  stage: 'classified' | 'decided' | 'failed';
   detail: string;
 }
 
 /** A reviewer accepts, edits, or rejects the drafted reply. */
 export interface ApprovalDecisionMessage {
-  action: "approval_decision";
+  action: 'approval_decision';
   payload: ApprovalDecisionPayload;
 }
 
@@ -35,7 +35,7 @@ export interface ApprovalDecisionPayload {
 
 /** The agent has parked on a reply and is waiting for a human. */
 export interface ApprovalRequiredMessage {
-  action: "approval_required";
+  action: 'approval_required';
   payload: ApprovalRequiredPayload;
 }
 
@@ -46,7 +46,7 @@ export interface ApprovalRequiredPayload {
 
 /** A rep says something to the assistant. */
 export interface AskMessage {
-  action: "ask";
+  action: 'ask';
   payload: AskPayload;
 }
 
@@ -58,14 +58,14 @@ export interface AssignmentEvent {
   id: number;
   createdBy?: EventUser | null;
   createdAt: string;
-  eventType: "assignment";
+  eventType: 'assignment';
   oldAssignee?: EventUser | null;
   newAssignee?: EventUser | null;
 }
 
 /** Streaming finished; carries the final persisted text. */
 export interface AssistantDoneMessage {
-  action: "assistant_done";
+  action: 'assistant_done';
   payload: AssistantDonePayload;
 }
 
@@ -75,7 +75,7 @@ export interface AssistantDonePayload {
 }
 
 export interface ChatErrorMessage {
-  action: "chat_error";
+  action: 'chat_error';
   payload: ChatErrorPayload;
 }
 
@@ -85,13 +85,13 @@ export interface ChatErrorPayload {
 
 /** A persisted turn, echoed to every tab on this conversation. */
 export interface ChatMessageMessage {
-  action: "chat_message";
+  action: 'chat_message';
   payload: ChatMessagePayload;
 }
 
 export interface ChatMessagePayload {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   createdAt: string;
 }
@@ -100,13 +100,13 @@ export interface CommentEvent {
   id: number;
   createdBy?: EventUser | null;
   createdAt: string;
-  eventType: "comment";
+  eventType: 'comment';
   content: string;
 }
 
 /** Hand a drafted reply over to a ticket, where approval applies. */
 export interface DraftToTicketMessage {
-  action: "draft_to_ticket";
+  action: 'draft_to_ticket';
   payload: DraftToTicketPayload;
 }
 
@@ -125,7 +125,7 @@ export interface EventUser {
 }
 
 export interface NewEventMessage {
-  action: "new_event";
+  action: 'new_event';
   payload: NewEventPayload;
 }
 
@@ -136,19 +136,19 @@ export interface NewEventPayload {
 
 /** Simple ping message to check WebSocket connection status. */
 export interface PingMessage {
-  action: "ping";
+  action: 'ping';
   payload?: null;
 }
 
 /** Simple pong message response to ping requests. */
 export interface PongMessage {
-  action: "pong";
+  action: 'pong';
   payload?: null;
 }
 
 /** A human posts a comment on the ticket. */
 export interface SendMessageMessage {
-  action: "send_message";
+  action: 'send_message';
   payload: SendMessagePayload;
 }
 
@@ -160,18 +160,45 @@ export interface StatusChangeEvent {
   id: number;
   createdBy?: EventUser | null;
   createdAt: string;
-  eventType: "status_change";
+  eventType: 'status_change';
   oldStatus: string;
   newStatus: string;
 }
 
 /** One delta of the assistant's answer, as it is produced. */
 export interface TokenMessage {
-  action: "token";
+  action: 'token';
   payload: TokenPayload;
 }
 
 /** No id: there is only ever one answer streaming per conversation, and it has no database row until it finishes. */
 export interface TokenPayload {
   delta: string;
+}
+
+/** Relayed from the agent's gate, unchanged apart from the ids. */
+export interface ToolApprovalMessage {
+  action: 'tool_approval';
+  payload: ToolApprovalPayload;
+}
+
+/** A tool is waiting on this rep. Nothing has run yet. */
+export interface ToolApprovalPayload {
+  tool: string;
+  description: string;
+  arguments?: Record<string, unknown>;
+  argumentsSchema?: Record<string, unknown>;
+  unknownArguments?: Array<string>;
+}
+
+/** Approve, correct, or cancel a tool the assistant proposed. */
+export interface ToolDecisionMessage {
+  action: 'tool_decision';
+  payload: ToolDecisionPayload;
+}
+
+/** What the reviewer did with a proposed tool call. `arguments` carries only the fields they changed, merged over the proposal by the caller. Empty means run it as proposed. */
+export interface ToolDecisionPayload {
+  approved: boolean;
+  arguments?: Record<string, unknown>;
 }

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
@@ -56,6 +56,44 @@ class ChatCompleteMessage(BaseMessage):
 
     action: Literal["chat_complete"] = "chat_complete"
     payload: ChatCompletePayload
+
+
+class ToolApprovalPayload(BaseModel):
+    conversation_id: str
+    tool: str
+    description: str
+    arguments: dict[str, Any] = {}
+    # JSON Schema for the arguments. The reviewer's form is generated from
+    # this, so the UI needs to know nothing about any particular tool. Named in
+    # full because a bare `schema` shadows a BaseModel attribute, and the
+    # generated clients inherit the field name.
+    arguments_schema: dict[str, Any] = {}
+    # Names the planner passed that the tool does not take. They have been
+    # dropped, and the reviewer is shown them so an empty required field has an
+    # explanation instead of looking like a bug.
+    unknown_arguments: list[str] = []
+
+
+class ToolApprovalMessage(BaseMessage):
+    """A tool is waiting on a human. Nothing has run."""
+
+    action: Literal["tool_approval"] = "tool_approval"
+    payload: ToolApprovalPayload
+
+
+class ToolDecisionPayload(BaseModel):
+    conversation_id: str
+    approved: bool
+    # Corrected arguments, when the reviewer changed them. Empty means run
+    # what was proposed.
+    arguments: dict[str, Any] = {}
+
+
+class ToolDecisionMessage(BaseMessage):
+    """Resume a run parked at the tool gate."""
+
+    action: Literal["tool_decision"] = "tool_decision"
+    payload: ToolDecisionPayload
 
 
 class ChatErrorPayload(BaseModel):

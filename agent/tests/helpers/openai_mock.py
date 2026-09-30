@@ -119,10 +119,18 @@ class Recorder:
     """What the transport saw, so a test can assert on the calls made."""
 
     urls: list[str] = field(default_factory=list)
+    # Every request body, so a test can assert on what the model was actually
+    # told. Asserting on a mocked reply only proves the mock.
+    bodies: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def call_count(self) -> int:
         return len(self.urls)
+
+    @property
+    def prompts(self) -> str:
+        """Every message of every call, flattened, for substring assertions."""
+        return json.dumps(self.bodies, ensure_ascii=False)
 
 
 @contextmanager
@@ -133,6 +141,7 @@ def mock_openai(*responses: dict[str, Any]) -> Iterator[Recorder]:
 
     def handle(request: httpx2.Request) -> httpx2.Response:
         recorder.urls.append(str(request.url))
+        recorder.bodies.append(json.loads(request.content or b"{}"))
         if not queue:
             # Running dry means the graph made more calls than the test
             # scripted; say so here rather than as a parse error later.

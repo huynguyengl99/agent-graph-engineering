@@ -159,6 +159,94 @@ class TestFailingClosed:
         assert not output.ok
 
 
+class TestMisnamedArguments:
+    """A live run turned up a planner that called `email` `customer_email`.
+
+    Nothing caught it: the argument was not on the generated form, so the
+    reviewer saw an empty Email field with no explanation, approved, and
+    `execute` died on a TypeError halfway through the turn.
+    """
+
+    MISNAMED = tool_call(
+        "final_result_ToolProposal",
+        {
+            "tool": "issue_refund",
+            "arguments": {
+                "customer_email": "demo@example.com",
+                "amount": 29.0,
+                "reason": "Duplicate charge",
+            },
+            "reasoning": "They were charged twice.",
+        },
+    )
+
+    async def test_an_argument_the_tool_does_not_take_is_dropped(self) -> None:
+        _, parked, _ = await propose("t-misnamed", self.MISNAMED)
+        value = parked["__interrupt__"][0].value
+
+        assert "customer_email" not in value["arguments"]
+        # What the reviewer sees is what would run, which is the whole point of
+        # showing them the arguments at all.
+        assert set(value["arguments"]) <= set(value["arguments_schema"]["properties"])
+
+    async def test_the_reviewer_is_told_what_was_dropped(self) -> None:
+        _, parked, _ = await propose("t-misnamed-told", self.MISNAMED)
+        value = parked["__interrupt__"][0].value
+
+        assert value["unknown_arguments"] == ["customer_email"]
+
+    async def test_approving_a_proposal_missing_a_required_argument_runs_nothing(
+        self,
+    ) -> None:
+        """Approval is not a licence to call the tool with a hole in it."""
+        compiled, _, config = await propose("t-missing", self.MISNAMED)
+        done = await compiled.ainvoke(
+            Command(resume={"decision": "approve"}), config=config
+        )
+
+        assert done.get("result") is None
+        assert "email" in done["tool_error"]
+
+    async def test_a_reviewer_can_supply_the_argument_the_planner_mangled(
+        self,
+    ) -> None:
+        compiled, _, config = await propose("t-repaired", self.MISNAMED)
+        done = await compiled.ainvoke(
+            Command(
+                resume={
+                    "decision": "approve",
+                    "arguments": {
+                        "email": "demo@example.com",
+                        "amount": 29.0,
+                        "reason": "Duplicate charge",
+                    },
+                }
+            ),
+            config=config,
+        )
+
+        assert "Refunded £29.00" in done["result"]
+
+    async def test_a_signature_mismatch_is_reported_not_raised(self) -> None:
+        """Belt and braces: filtering happens in `plan`, but a graph wired to
+        call `execute` with anything else must not take the turn down."""
+        graph = ToolGraph(openai_config())
+        done = await graph.execute(
+            {
+                "tool": "issue_refund",
+                "arguments": {
+                    "email": "demo@example.com",
+                    "amount": 29.0,
+                    "reason": "x",
+                    "nonsense": True,
+                },
+            }
+        )
+
+        assert "could not be called" in done["tool_error"]
+        assert done.get("result") is None
+
+
 class TestReviewableWithoutBespokeUi:
     """The reviewer's form is generated from the tool's own schema."""
 
@@ -178,7 +266,7 @@ class TestReviewableWithoutBespokeUi:
         _, parked, _ = await propose("t-schema", REFUND)
         value = parked["__interrupt__"][0].value
 
-        assert value["schema"]["properties"]["amount"]["type"] == "number"
+        assert value["arguments_schema"]["properties"]["amount"]["type"] == "number"
         assert value["description"]
 
     def test_every_registered_tool_is_reviewable(self) -> None:

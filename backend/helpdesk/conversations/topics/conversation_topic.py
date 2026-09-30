@@ -12,11 +12,17 @@ from helpdesk.conversations.messages import (
     ChatMessageMessage,
     DraftToTicketMessage,
     TokenMessage,
+    ToolApprovalMessage,
+    ToolDecisionMessage,
 )
 from helpdesk.conversations.models import Conversation
 
 ChatFeedEvent = (
-    ChatMessageMessage | TokenMessage | AssistantDoneMessage | ChatErrorMessage
+    ChatMessageMessage
+    | TokenMessage
+    | AssistantDoneMessage
+    | ToolApprovalMessage
+    | ChatErrorMessage
 )
 
 
@@ -39,7 +45,12 @@ class ConversationTopic(Topic[ChatFeedEvent]):
     @ws_handler(
         summary="Ask the assistant",
         description="Streams the answer back token by token, then persists it.",
-        output_type=ChatMessageMessage | TokenMessage | AssistantDoneMessage,
+        output_type=(
+            ChatMessageMessage
+            | TokenMessage
+            | AssistantDoneMessage
+            | ToolApprovalMessage
+        ),
     )
     async def handle_ask(self, message: AskMessage) -> None:
         from helpdesk.conversations.services.chat import start_turn
@@ -72,6 +83,31 @@ class ConversationTopic(Topic[ChatFeedEvent]):
             user_id=user.pk if user is not None and user.is_authenticated else None,
         )
 
+    @ws_handler(
+        summary="Approve, correct, or cancel a proposed tool call",
+        description=(
+            "Resumes the turn parked at the agent's tool gate. Corrections "
+            "replace the proposed arguments, so what the reviewer saw is what "
+            "runs."
+        ),
+        output_type=TokenMessage | AssistantDoneMessage | ChatErrorMessage,
+    )
+    async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
+        from helpdesk.conversations.services.chat import start_tool_decision
+
+        payload = message.payload
+        await start_tool_decision(
+            self.params["conversation_id"],
+            approved=payload.approved,
+            arguments=payload.arguments,
+        )
+
+    @event_handler
+    async def handle_tool_approval(
+        self, event: ToolApprovalMessage
+    ) -> ToolApprovalMessage:
+        return event
+
     @event_handler
     async def handle_chat_message(
         self, event: ChatMessageMessage
@@ -92,6 +128,4 @@ class ConversationTopic(Topic[ChatFeedEvent]):
 
     @database_sync_to_async
     def _owns(self, conversation_id: str, user_pk: UUID) -> bool:
-        return Conversation.objects.filter(
-            id=conversation_id, owner=user_pk
-        ).exists()
+        return Conversation.objects.filter(id=conversation_id, owner=user_pk).exists()

@@ -39,11 +39,13 @@ createsuperuser:
 # Generate agent → backend client (Python WebSocket client)
 gen-agent-client:
     @echo "🔧 Generating agent client..."
+    @bash scripts/dev.sh up a
     bash scripts/gen-agent-client.sh
 
 # Generate backend → frontend (Zodios + TypeScript types)
 gen-frontend:
     @echo "🔧 Generating frontend code..."
+    @bash scripts/dev.sh up b
     cd web && pnpm gen:all
 
 # Generate all code (agent + frontend)
@@ -63,6 +65,23 @@ agent:
 frontend:
     @echo "💻 Starting frontend..."
     cd web && pnpm dev
+
+# Start every service in the background, waiting until each one answers
+# (scripts/dev.sh --help; `just up a w` for a subset)
+up *ARGS:
+    @bash scripts/dev.sh up {{ARGS}}
+
+# Stop the services `just up` started
+down *ARGS:
+    @bash scripts/dev.sh down {{ARGS}}
+
+# Which services are up
+status:
+    @bash scripts/dev.sh status
+
+# Follow a background service's log, e.g. `just logs a`
+logs *ARGS:
+    @bash scripts/dev.sh logs {{ARGS}}
 
 # Run backend tests
 test:
@@ -89,8 +108,9 @@ e2e-seed:
 
 # End-to-end smoke: real services, real models, real browser. Needs all three
 # running, writes to the dev database, and spends tokens.
-e2e:
+e2e: e2e-seed
     @echo "🌐 Running the end-to-end smoke..."
+    @bash scripts/dev.sh up
     cd web/e2e && npm install --silent && node smoke.mjs
 
 # Run backend tests with coverage

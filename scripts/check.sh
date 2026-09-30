@@ -20,19 +20,40 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-ALL=(b a w)
-declare -A NAMES=(
-  [b:ruff]="backend: ruff"
-  [b:mypy]="backend: mypy"
-  [b:django]="backend: django check"
-  [b:schema]="backend: openapi schema"
-  [a:ruff]="agent: ruff"
-  [a:mypy]="agent: mypy"
-  [w:eslint]="web: eslint"
-  [w:prettier]="web: prettier"
-  [w:tsc]="web: tsc"
-)
-declare -A PROJECTS=([b]="backend" [a]="agent" [w]="web")
+ALL="b a w"
+
+# Case lookups rather than associative arrays: those need bash 4, and macOS
+# still ships 3.2, so a reader cloning this repo would get "unbound variable"
+# instead of a check run.
+name_of() {
+  case $1 in
+    b:ruff) echo "backend: ruff" ;;
+    b:mypy) echo "backend: mypy" ;;
+    b:django) echo "backend: django check" ;;
+    b:schema) echo "backend: openapi schema" ;;
+    a:ruff) echo "agent: ruff" ;;
+    a:mypy) echo "agent: mypy" ;;
+    w:eslint) echo "web: eslint" ;;
+    w:prettier) echo "web: prettier" ;;
+    w:tsc) echo "web: tsc" ;;
+  esac
+}
+
+project_of() {
+  case $1 in
+    b) echo backend ;;
+    a) echo agent ;;
+    w) echo web ;;
+  esac
+}
+
+tasks_of() {
+  case $1 in
+    b) echo "b:ruff b:mypy b:django b:schema" ;;
+    a) echo "a:ruff a:mypy" ;;
+    w) echo "w:eslint w:prettier w:tsc" ;;
+  esac
+}
 
 usage() {
   awk 'NR>1 && /^#/{s=$0; sub(/^# ?/,"",s); print s; next} NR>1{exit}' "${BASH_SOURCE[0]}"
@@ -52,29 +73,31 @@ for arg in "$@"; do
   esac
 done
 
-SELECTED=()
-for (( i=0; i<${#LETTERS}; i++ )); do
-  letter="${LETTERS:$i:1}"
-  [[ -z "${PROJECTS[$letter]+x}" ]] && {
+SELECTED=""
+i=0
+while [ "$i" -lt "${#LETTERS}" ]; do
+  letter=$(printf '%s' "$LETTERS" | cut -c $((i + 1)))
+  if [ -z "$(project_of "$letter")" ]; then
     echo "unknown project: $letter (valid: b a w)" >&2
     exit 2
-  }
-  SELECTED+=("$letter")
+  fi
+  SELECTED="$SELECTED $letter"
+  i=$((i + 1))
 done
 
-if [[ ${#SELECTED[@]} -eq 0 ]]; then
-  TARGETS=("${ALL[@]}")
-elif [[ "$EXCLUDE" == true ]]; then
-  TARGETS=()
-  for candidate in "${ALL[@]}"; do
+if [ -z "$SELECTED" ]; then
+  TARGETS="$ALL"
+elif [ "$EXCLUDE" = true ]; then
+  TARGETS=""
+  for candidate in $ALL; do
     keep=true
-    for chosen in "${SELECTED[@]}"; do
-      [[ "$candidate" == "$chosen" ]] && keep=false && break
+    for chosen in $SELECTED; do
+      [ "$candidate" = "$chosen" ] && keep=false && break
     done
-    [[ "$keep" == true ]] && TARGETS+=("$candidate")
+    [ "$keep" = true ] && TARGETS="$TARGETS $candidate"
   done
 else
-  TARGETS=("${SELECTED[@]}")
+  TARGETS="$SELECTED"
 fi
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -125,46 +148,42 @@ run_task() {
   echo $? >"$OUT/$key.exit"
 }
 
-TASKS=()
-for target in "${TARGETS[@]}"; do
-  case $target in
-    b) TASKS+=(b:ruff b:mypy b:django b:schema) ;;
-    a) TASKS+=(a:ruff a:mypy) ;;
-    w) TASKS+=(w:eslint w:prettier w:tsc) ;;
-  esac
+TASKS=""
+for target in $TARGETS; do
+  TASKS="$TASKS $(tasks_of "$target")"
 done
+COUNT=$(echo "$TASKS" | wc -w | tr -d ' ')
 
-# The two linters in a project would race to rewrite the same files.
-if [[ "$FIX" == true ]]; then
-  echo -e "${CYAN}Running ${#TASKS[@]} checks (writing fixes)${NC}\n"
+if [ "$FIX" = true ]; then
+  echo -e "${CYAN}Running $COUNT checks (writing fixes)${NC}\n"
 else
-  echo -e "${CYAN}Running ${#TASKS[@]} checks${NC}\n"
+  echo -e "${CYAN}Running $COUNT checks${NC}\n"
 fi
 
-for task in "${TASKS[@]}"; do run_task "$task" & done
+for task in $TASKS; do run_task "$task" & done
 wait
 
 echo -e "${CYAN}── results ──${NC}"
-FAILED=()
-for task in "${TASKS[@]}"; do
+FAILED=""
+for task in $TASKS; do
   code=$(cat "$OUT/$task.exit" 2>/dev/null || echo 1)
-  if [[ "$code" == "0" ]]; then
-    echo -e "  ${GREEN}✓${NC} ${NAMES[$task]}"
+  if [ "$code" = "0" ]; then
+    echo -e "  ${GREEN}✓${NC} $(name_of "$task")"
   else
-    echo -e "  ${RED}✗${NC} ${NAMES[$task]}"
-    FAILED+=("$task")
+    echo -e "  ${RED}✗${NC} $(name_of "$task")"
+    FAILED="$FAILED $task"
   fi
 done
 echo
 
-if (( ${#FAILED[@]} )); then
-  for task in "${FAILED[@]}"; do
-    echo -e "${YELLOW}─── ${NAMES[$task]} ───${NC}"
+if [ -n "$FAILED" ]; then
+  for task in $FAILED; do
+    echo -e "${YELLOW}─── $(name_of "$task") ───${NC}"
     cat "$OUT/$task.log"
     echo
   done
-  echo -e "${RED}Failed: ${#FAILED[@]}/${#TASKS[@]}${NC}"
+  echo -e "${RED}Failed: $(echo "$FAILED" | wc -w | tr -d ' ')/$COUNT${NC}"
   exit 1
 fi
 
-echo -e "${GREEN}All ${#TASKS[@]} checks passed${NC}"
+echo -e "${GREEN}All $COUNT checks passed${NC}"

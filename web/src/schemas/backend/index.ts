@@ -128,6 +128,21 @@ const PaginatedMessageList = z
     results: z.array(Message),
   })
   .passthrough();
+const PurposeEnum = z.enum(["decision", "answer", "vision"]);
+const ModelPreference = z
+  .object({ purpose: PurposeEnum, model: z.string().max(100) })
+  .passthrough();
+const PaginatedModelPreferenceList = z
+  .object({
+    count: z.number().int(),
+    next: z.string().url().nullish(),
+    previous: z.string().url().nullish(),
+    results: z.array(ModelPreference),
+  })
+  .passthrough();
+const ModelPreferenceRequest = z
+  .object({ purpose: PurposeEnum, model: z.string().min(1).max(100) })
+  .passthrough();
 const TicketStatusEnum = z.enum(["open", "in_progress", "resolved", "closed"]);
 const PriorityEnum = z.enum(["low", "medium", "high", "urgent"]);
 const Ticket = z
@@ -155,13 +170,6 @@ const TicketCreateRequest = z
   .object({
     title: z.string().min(1).max(255),
     description: z.string().min(1),
-    priority: PriorityEnum.optional(),
-  })
-  .passthrough();
-const TicketCreate = z
-  .object({
-    title: z.string().max(255),
-    description: z.string(),
     priority: PriorityEnum.optional(),
   })
   .passthrough();
@@ -280,12 +288,15 @@ export const schemas = {
   RoleEnum,
   Message,
   PaginatedMessageList,
+  PurposeEnum,
+  ModelPreference,
+  PaginatedModelPreferenceList,
+  ModelPreferenceRequest,
   TicketStatusEnum,
   PriorityEnum,
   Ticket,
   PaginatedTicketList,
   TicketCreateRequest,
-  TicketCreate,
   TicketUpdateRequest,
   TicketUpdate,
   PatchedTicketUpdateRequest,
@@ -565,6 +576,43 @@ information about a token&#x27;s fitness for a particular use.`,
   },
   {
     method: "get",
+    path: "/api/preferences/model-preferences/",
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "ordering",
+        type: "Query",
+        schema: z.string().optional(),
+      },
+      {
+        name: "page",
+        type: "Query",
+        schema: z.number().int().optional(),
+      },
+      {
+        name: "search",
+        type: "Query",
+        schema: z.string().optional(),
+      },
+    ],
+    response: PaginatedModelPreferenceList,
+  },
+  {
+    method: "post",
+    path: "/api/preferences/model-preferences/",
+    description: `Which purpose a step runs under is fixed by the system; this only picks the model that fills it.`,
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: ModelPreferenceRequest,
+      },
+    ],
+    response: ModelPreference,
+  },
+  {
+    method: "get",
     path: "/api/tickets/",
     description: `Get paginated list of tickets with filtering and search`,
     requestFormat: "json",
@@ -616,7 +664,7 @@ information about a token&#x27;s fitness for a particular use.`,
         schema: TicketCreateRequest,
       },
     ],
-    response: TicketCreate,
+    response: Ticket,
   },
   {
     method: "get",

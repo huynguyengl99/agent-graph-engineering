@@ -119,6 +119,16 @@ export interface Message {
   createdAt: string;
 }
 
+export interface ModelPreference {
+  purpose: PurposeEnum;
+  model: string;
+}
+
+export interface ModelPreferenceRequest {
+  purpose: PurposeEnum;
+  model: string;
+}
+
 export interface PaginatedConversationList {
   count: number;
   next?: string | null;
@@ -131,6 +141,13 @@ export interface PaginatedMessageList {
   next?: string | null;
   previous?: string | null;
   results: Message[];
+}
+
+export interface PaginatedModelPreferenceList {
+  count: number;
+  next?: string | null;
+  previous?: string | null;
+  results: ModelPreference[];
 }
 
 export interface PaginatedTicketEventPolymorphicList {
@@ -200,6 +217,9 @@ export interface PatchedUserRequest {
 /** * `low` - Low * `medium` - Medium * `high` - High * `urgent` - Urgent */
 export type PriorityEnum = "low" | "medium" | "high" | "urgent";
 
+/** * `decision` - Decision * `answer` - Answer * `vision` - Vision */
+export type PurposeEnum = "decision" | "answer" | "vision";
+
 /** User registration with email verification. */
 export interface Register {
   detail: string;
@@ -256,13 +276,6 @@ export interface Ticket {
   assignedTo: User;
   createdAt: string;
   updatedAt: string;
-}
-
-/** Ticket creation serializer. */
-export interface TicketCreate {
-  title: string;
-  description: string;
-  priority?: PriorityEnum;
 }
 
 /** Ticket creation serializer. */

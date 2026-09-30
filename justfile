@@ -82,6 +82,17 @@ evals *args:
 evals-compare before after:
     cd agent && uv run python -m evals.compare {{before}} {{after}}
 
+# Seed a user and a couple of tickets for the end-to-end smoke
+e2e-seed:
+    @echo "🌱 Seeding e2e fixtures..."
+    cd backend && uv run python manage.py seed_e2e
+
+# End-to-end smoke: real services, real models, real browser. Needs all three
+# running, writes to the dev database, and spends tokens.
+e2e:
+    @echo "🌐 Running the end-to-end smoke..."
+    cd web/e2e && npm install --silent && node smoke.mjs
+
 # Run backend tests with coverage
 test-cov:
     @echo "🧪 Running backend tests with coverage..."

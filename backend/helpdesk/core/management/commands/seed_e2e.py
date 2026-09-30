@@ -1,0 +1,40 @@
+"""Fixtures for the end-to-end smoke, which needs something to log in as."""
+
+from typing import Any
+
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+
+from helpdesk.tickets.models import Ticket
+
+EMAIL = "demo@example.com"
+PASSWORD = "demo-pass-123"  # noqa: S105 - a dev fixture, never a real secret
+
+TICKETS = [
+    ("Charged twice this month", "My card shows two charges for the same plan."),
+    ("Cannot log in at all", "My password reset email never arrives."),
+]
+
+
+class Command(BaseCommand):
+    help = "Create the demo user and tickets the e2e smoke expects."
+
+    def handle(self, *args: Any, **options: Any) -> None:
+        user_model = get_user_model()
+        user, created = user_model.objects.get_or_create(
+            email=EMAIL, defaults={"is_staff": True, "is_superuser": True}
+        )
+        user.set_password(PASSWORD)
+        user.save()
+
+        for title, description in TICKETS:
+            Ticket.objects.get_or_create(
+                title=title, defaults={"description": description, "created_by": user}
+            )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"{'created' if created else 'updated'} {EMAIL}; "
+                f"{Ticket.objects.count()} tickets"
+            )
+        )

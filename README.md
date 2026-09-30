@@ -188,6 +188,22 @@ the picture cannot disagree with the code. `xray=true` (the default) expands
 the subgraphs inline; `xray=false` shows them as single boxes. The UI renders
 these at `/graphs`.
 
+## End-to-end
+
+```bash
+just e2e-seed   # a user and some tickets
+just e2e        # with all three services running
+```
+
+One pass through the product with **nothing mocked**: real Django, real agent,
+real models, real browser. Kept out of `just test` because it writes to the dev
+database and spends tokens.
+
+It earns its place by catching what the mocked suites structurally cannot - a
+Zodios client that threw on import, a create endpoint that returned no `id`,
+a dependency upgrade that changed how models are constructed. Run it after any
+of those.
+
 ## Guardrails
 
 Two guards with different jobs, both in `agent/assistant/guardrails/`:

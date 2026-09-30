@@ -37,6 +37,25 @@ from assistant.ws.messages import (
 logger = structlog.get_logger(__name__)
 
 
+# The thread is the ticket, so a second comment resumes a thread that already
+# holds the last run's answer, receipt and approval. Left alone the stale
+# receipt re-emits as a "reply sent" the moment the new run starts, and the
+# reviewer's panel disappears under it.
+FRESH_RUN: TriageState = {
+    "classification": None,  # type: ignore[typeddict-item]
+    "decision": None,  # type: ignore[typeddict-item]
+    "kb_query": "",
+    "kb_snippets": [],
+    "answer": None,  # type: ignore[typeddict-item]
+    "escalation_reason": "",
+    "tool_error": "",
+    "approval_granted": False,
+    "delivery_receipt": "",
+    "guardrail_findings": [],
+    "reply_blocked": False,
+}
+
+
 def _slugs(overrides: Any) -> dict[str, str | None] | None:
     """A user's model choices as `{purpose: slug}`, or None when unset."""
     return overrides.model_dump() if overrides is not None else None
@@ -124,7 +143,11 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
     async def _run_graph(
         self, context: TicketContext, agent_config: AgentConfig | None = None
     ) -> None:
-        initial: TriageState = {"context": context}
+        # The thread is the ticket, so a second comment resumes a thread that
+        # already holds the last run's answer, receipt and approval. Left
+        # alone, the stale receipt re-emits as a "reply sent" the moment the
+        # new run starts, and the reviewer's panel disappears under it.
+        initial: TriageState = {"context": context, **FRESH_RUN}
         await self._drive(context.ticket_id, initial, agent_config)
 
     def _findings(self, update: object) -> list[str]:
@@ -246,7 +269,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                 )
             )
 
-        if (receipt := update.get("delivery_receipt")) is not None:
+        if receipt := update.get("delivery_receipt"):
             await self.send_message(
                 ReplySentMessage(
                     payload=ReplySentPayload(ticket_id=ticket_id, receipt=str(receipt))

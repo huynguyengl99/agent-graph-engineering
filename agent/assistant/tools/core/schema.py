@@ -50,7 +50,8 @@ def arguments_schema(func: Callable[..., Any]) -> dict[str, Any]:
         ):
             continue
         annotation = (
-            Any if parameter.annotation is inspect.Parameter.empty
+            Any
+            if parameter.annotation is inspect.Parameter.empty
             else parameter.annotation
         )
         default = (
@@ -66,11 +67,6 @@ def arguments_schema(func: Callable[..., Any]) -> dict[str, Any]:
     return schema
 
 
-def accepted_arguments(schema: dict[str, Any]) -> set[str]:
-    """Argument names a tool actually takes."""
-    return set(schema.get("properties", {}))
-
-
 def split_arguments(
     schema: dict[str, Any], proposed: dict[str, Any]
 ) -> tuple[dict[str, Any], list[str]]:
@@ -83,7 +79,7 @@ def split_arguments(
     would run - the argument is not on the form, so they cannot see it, correct
     it, or know why the field they can see is empty.
     """
-    accepted = accepted_arguments(schema)
+    accepted = set(schema.get("properties", {}))
     kept = {name: value for name, value in proposed.items() if name in accepted}
     return kept, sorted(set(proposed) - accepted)
 

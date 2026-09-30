@@ -37,7 +37,7 @@ export function getBaseType(schema: z.ZodTypeAny): string {
 }
 
 /** A `.default()` anywhere in the stack. */
-export function getDefaultInZodStack(schema: z.ZodTypeAny): unknown {
+function getDefaultInZodStack(schema: z.ZodTypeAny): unknown {
   const def = schema._def as {
     typeName?: string;
     defaultValue?: () => unknown;

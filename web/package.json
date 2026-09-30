@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
     "format": "prettier --check src",
     "format:fix": "prettier --write src",
     "gen:schema": "tsx scripts/generate-schemas.ts",
@@ -16,7 +17,9 @@
     "gen:all": "pnpm gen:schema && pnpm gen:type && pnpm gen:ws",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "pnpm lint && pnpm format && pnpm typecheck",
+    "fix": "pnpm lint:fix && pnpm format:fix && pnpm typecheck"
   },
   "dependencies": {
     "@chanx-js/client": "^0.1.2",

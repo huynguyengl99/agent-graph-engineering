@@ -8,8 +8,6 @@ from assistant.tools.core.errors import (
 )
 from assistant.tools.core.metadata import ToolMetadata, ToolOutput
 from assistant.tools.core.schema import (
-    accepted_arguments,
-    argument_docs,
     arguments_schema,
     missing_arguments,
     split_arguments,
@@ -31,8 +29,6 @@ __all__ = [
     "ToolMetadata",
     "ToolOutput",
     "UpstreamServiceError",
-    "accepted_arguments",
-    "argument_docs",
     "arguments_schema",
     "missing_arguments",
     "split_arguments",

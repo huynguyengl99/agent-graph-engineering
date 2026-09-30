@@ -5,9 +5,14 @@ token counts (see pyproject), and that release predates the Claude 5 family.
 Without this table a Claude run reports its tokens and no cost at all, which
 makes the whole point of measuring cost moot.
 
-Hand-maintained, so it goes stale: check it against
+Delete this file once the agent runs pydantic-ai 2.x, which requires
+genai-prices >= 0.1.9 and prices these models itself. That upgrade is blocked
+on something bigger: 2.x moved to httpx 2, and respx - which every HTTP-level
+test mock here depends on - patches httpx 1.
+
+Until then this is hand-maintained and will go stale. Check it against
 https://www.anthropic.com/pricing when a model is added or a price moves.
-Anything absent here still reports `priced: false` rather than guessing.
+Anything absent still reports `priced: false` rather than guessing.
 
 Last checked: 2026-09-30. USD per million tokens, (input, output).
 """

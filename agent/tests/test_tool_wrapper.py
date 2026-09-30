@@ -115,5 +115,7 @@ async def test_planner_list_shows_description_and_hint() -> None:
     async def unrelated() -> None: ...
 
     rendered = render_tool_list(tags=("knowledge",))
-    assert rendered == "lookup: Looks things up. [Prefer this over guessing.]"
+    # The signature is part of the line: a planner shown only a description
+    # invents argument names.
+    assert rendered == "lookup(): Looks things up. [Prefer this over guessing.]"
     assert metadata_for("lookup").requires_approval is False

@@ -24,9 +24,26 @@ class ToolMetadata:
     # a hand-written form and neither can drift from the function.
     arguments: dict[str, Any] = field(default_factory=dict)
 
+    def signature(self) -> str:
+        """`name(arg: type, optional?: type)`, from the derived schema.
+
+        Worth spelling out: shown only an id and a description, a planner
+        invents argument names - `customer_email` for `email`, a `currency` the
+        tool does not take - and every one of those lands on a reviewer as a
+        blank required field to fill in by hand.
+        """
+        properties: dict[str, Any] = self.arguments.get("properties", {})
+        required = set(self.arguments.get("required", []))
+
+        parts = []
+        for name, schema in properties.items():
+            kind = schema.get("type") or "any"
+            parts.append(f"{name}: {kind}" if name in required else f"{name}?: {kind}")
+        return f"{self.id}({', '.join(parts)})"
+
     def render(self) -> str:
         """One line, as shown to the deciding model."""
-        line = f"{self.id}: {self.description}"
+        line = f"{self.signature()}: {self.description}"
         return f"{line} [{self.planner_hint}]" if self.planner_hint else line
 
 

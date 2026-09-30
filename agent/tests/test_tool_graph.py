@@ -16,6 +16,7 @@ from assistant.tools.core import (
     all_tools,
     get_tool,
     metadata_for,
+    render_tool_list,
 )
 from langgraph.types import Command
 
@@ -268,6 +269,21 @@ class TestReviewableWithoutBespokeUi:
 
         assert value["arguments_schema"]["properties"]["amount"]["type"] == "number"
         assert value["description"]
+
+    def test_the_planner_is_shown_what_each_tool_accepts(self) -> None:
+        """Every live run had the planner inventing `customer_email` and a
+        `currency` argument, because the list it picks from was `id:
+        description` and nothing else. Guessed names are dropped, which leaves
+        a person filling in a required field by hand for no reason."""
+        listing = render_tool_list()
+
+        assert "issue_refund(email: string, amount: number, reason: string)" in listing
+        # Optional arguments are marked, so a planner does not treat every one
+        # as mandatory and invent a value for it.
+        assert "limit?: integer" in listing
+
+    def test_the_signature_never_offers_the_approval_flag(self) -> None:
+        assert "approved" not in metadata_for("issue_refund").signature()
 
     def test_every_registered_tool_is_reviewable(self) -> None:
         """A tool whose schema cannot be derived would reach a reviewer as an

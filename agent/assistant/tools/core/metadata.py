@@ -19,6 +19,11 @@ class ToolMetadata:
     timeout: float = 10.0
     planner_hint: str | None = None
 
+    # JSON Schema for the arguments, derived from the signature. The planner
+    # fills it and the reviewer's form is generated from it, so no tool needs
+    # a hand-written form and neither can drift from the function.
+    arguments: dict[str, Any] = field(default_factory=dict)
+
     def render(self) -> str:
         """One line, as shown to the deciding model."""
         line = f"{self.id}: {self.description}"

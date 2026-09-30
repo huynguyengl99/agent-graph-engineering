@@ -67,12 +67,16 @@ class ToolGraph(BaseGraph):
 
     async def gate(self, state: ToolState) -> ToolState:
         """Park until a human approves, corrects the arguments, or cancels."""
+        meta = metadata_for(state["tool"])
         answer = interrupt(
             {
                 "kind": "tool_approval",
                 "tool": state["tool"],
                 "arguments": state["arguments"],
-                "description": metadata_for(state["tool"]).description,
+                "description": meta.description,
+                # The reviewer's form is generated from this, so no tool needs
+                # a hand-written one and a new tool is reviewable on arrival.
+                "schema": meta.arguments,
             }
         )
 

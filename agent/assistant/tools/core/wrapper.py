@@ -13,6 +13,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from assistant.tools.core.errors import ApprovalRequiredError, ToolError
 from assistant.tools.core.metadata import ToolMetadata, ToolOutput
+from assistant.tools.core.schema import arguments_schema
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -57,6 +58,7 @@ def wrap_tool(
             requires_approval=requires_approval,
             timeout=timeout,
             planner_hint=planner_hint,
+            arguments=arguments_schema(func),
         )
 
         @wraps(func)

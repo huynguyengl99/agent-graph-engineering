@@ -11,7 +11,12 @@ from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.deps import ChatContext
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.tool_graph import ToolGraph
-from assistant.tools.core import ApprovalRequiredError, get_tool
+from assistant.tools.core import (
+    ApprovalRequiredError,
+    all_tools,
+    get_tool,
+    metadata_for,
+)
 from langgraph.types import Command
 
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -152,3 +157,34 @@ class TestFailingClosed:
         )
 
         assert not output.ok
+
+
+class TestReviewableWithoutBespokeUi:
+    """The reviewer's form is generated from the tool's own schema."""
+
+    def test_the_schema_comes_from_the_signature_and_docstring(self) -> None:
+        schema = metadata_for("issue_refund").arguments
+        properties = schema["properties"]
+
+        assert properties["amount"]["type"] == "number"
+        assert properties["amount"]["description"] == "Amount in GBP."
+        assert set(schema["required"]) == {"email", "amount", "reason"}
+
+    def test_the_approval_flag_is_not_an_argument(self) -> None:
+        """It is wrap_tool machinery; a reviewer must never see it as a field."""
+        assert "approved" not in metadata_for("issue_refund").arguments["properties"]
+
+    async def test_the_interrupt_carries_the_schema(self) -> None:
+        _, parked, _ = await propose("t-schema", REFUND)
+        value = parked["__interrupt__"][0].value
+
+        assert value["schema"]["properties"]["amount"]["type"] == "number"
+        assert value["description"]
+
+    def test_every_registered_tool_is_reviewable(self) -> None:
+        """A tool whose schema cannot be derived would reach a reviewer as an
+        un-editable blob, so this fails at the tool, not in the browser."""
+        for tool_id in all_tools():
+            schema = metadata_for(tool_id).arguments
+            assert schema.get("type") == "object", tool_id
+            assert "properties" in schema, tool_id

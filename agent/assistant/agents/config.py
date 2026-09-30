@@ -11,6 +11,7 @@ Two separate decisions, deliberately kept apart:
 """
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,12 +22,23 @@ class ModelPurpose(StrEnum):
     VISION = "vision"  # screenshots and attachments
 
 
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+
+
 class ModelConfig(BaseModel):
     """One concrete model, in the provider:name form pydantic-ai infers from."""
 
     provider: str = "openai"
     name: str
-    temperature: float = Field(default=0, ge=0, le=2)
+
+    # Unset by default and only sent when set: the current Anthropic models
+    # reject `temperature` outright with a 400, so a default of 0 would break
+    # every Claude run the moment settings were actually wired through.
+    temperature: float | None = Field(default=None, ge=0, le=2)
+
+    # How hard the model should think. Spelled differently per provider, so
+    # the factory maps it; unset means the provider's own default.
+    effort: Effort | None = None
 
     @property
     def slug(self) -> str:

@@ -2,24 +2,20 @@
   "models": {
     "decision": {
       "provider": "anthropic",
-      "name": "claude-haiku-4-5",
-      "temperature": 0
+      "name": "claude-haiku-4-5"
     },
     "answer": {
       "provider": "anthropic",
-      "name": "claude-sonnet-5",
-      "temperature": 0
+      "name": "claude-sonnet-5"
     },
     "vision": {
       "provider": "anthropic",
-      "name": "claude-sonnet-5",
-      "temperature": 0
+      "name": "claude-sonnet-5"
     }
   },
   "judge": {
     "provider": "openai",
-    "name": "gpt-5.2",
-    "temperature": 0
+    "name": "gpt-5.2"
   },
   "trials": 1
 }

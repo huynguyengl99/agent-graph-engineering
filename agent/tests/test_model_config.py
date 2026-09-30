@@ -6,6 +6,7 @@ purpose and nothing else.
 """
 
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
+from assistant.agents.factory import model_settings
 from assistant.graphs.triage_graph import TriageGraph
 
 
@@ -46,3 +47,44 @@ def test_config_does_not_change_the_topology() -> None:
         )
     )
     assert sorted(cheap.nodes()) == sorted(swapped.nodes())
+
+
+class TestModelSettings:
+    """Knobs are spelled differently per provider, and one of them 400s."""
+
+    def test_nothing_is_sent_when_nothing_is_set(self) -> None:
+        assert model_settings(ModelConfig(provider="openai", name="gpt-4o")) is None
+
+    def test_effort_uses_each_provider_s_own_name(self) -> None:
+        anthropic = model_settings(
+            ModelConfig(provider="anthropic", name="claude-sonnet-5", effort="low")
+        )
+        openai = model_settings(
+            ModelConfig(provider="openai", name="gpt-5.2", effort="low")
+        )
+
+        assert anthropic == {"anthropic_effort": "low"}
+        assert openai == {"openai_reasoning_effort": "low"}
+
+    def test_temperature_is_absent_unless_asked_for(self) -> None:
+        """Current Anthropic models reject `temperature` with a 400, so a
+        default value would break every Claude run."""
+        settings = model_settings(
+            ModelConfig(provider="anthropic", name="claude-sonnet-5")
+        )
+
+        assert settings is None
+
+    def test_temperature_is_sent_when_set(self) -> None:
+        settings = model_settings(
+            ModelConfig(provider="openai", name="gpt-4o", temperature=0.7)
+        )
+
+        assert settings == {"temperature": 0.7}
+
+    def test_an_unknown_provider_drops_effort_rather_than_guessing(self) -> None:
+        settings = model_settings(
+            ModelConfig(provider="somebody-else", name="x", effort="max")
+        )
+
+        assert settings is None

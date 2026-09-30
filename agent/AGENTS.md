@@ -148,6 +148,17 @@ a model today, but that is a fact about the current graph, not a guarantee.
 `build_model` goes through pydantic-ai's `infer_model("provider:name")`, so
 adding a provider is config plus an API key, not code.
 
+`ModelConfig` also carries `effort` and `temperature`, mapped per provider by
+`model_settings()`. Two rules there, both learned the hard way:
+
+- **Only what is explicitly set is sent.** Current Anthropic models reject
+  `temperature` with a 400, so a field defaulting to `0` would break every
+  Claude run the moment settings were wired through. It defaults to `None`.
+- **Effort is spelled differently per provider** - `anthropic_effort` and
+  `openai_reasoning_effort` - and an unknown provider drops it rather than
+  guessing. It is the main cost lever inside one model: on Sonnet 5, `high`
+  measured ~1.7x the cost of `low` on the same ticket.
+
 ## Checkpointing
 
 `assistant/graphs/checkpointer.py` opens one saver per process in the FastAPI

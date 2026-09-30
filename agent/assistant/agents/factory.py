@@ -1,12 +1,13 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, cast
 
 from pydantic_ai import Agent
 from pydantic_ai.models import Model, infer_model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.settings import ModelSettings
 
 from assistant.agents.config import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.scripted import ScriptedModel
@@ -62,6 +63,29 @@ def build_model(config: ModelConfig) -> Model:
     return infer_model(config.slug)
 
 
+def model_settings(config: ModelConfig) -> ModelSettings | None:
+    """Per-model knobs, in whatever each provider calls them.
+
+    Only what was explicitly set is sent. That matters for `temperature`:
+    current Anthropic models reject it with a 400, so a value must never
+    appear just because a field had a default.
+    """
+    settings: dict[str, Any] = {}
+
+    if config.temperature is not None:
+        settings["temperature"] = config.temperature
+
+    if config.effort is not None:
+        key = {
+            "anthropic": "anthropic_effort",
+            "openai": "openai_reasoning_effort",
+        }.get(config.provider)
+        if key is not None:
+            settings[key] = config.effort
+
+    return cast(ModelSettings, settings) if settings else None
+
+
 class AgentFactory:
     """Builds agents against one run's model config."""
 
@@ -79,9 +103,11 @@ class AgentFactory:
         instructions: str,
         deps_type: Any,
     ) -> Agent[Any, Any]:
+        config = self.config.for_purpose(purpose)
         return Agent(  # type: ignore[call-overload,no-any-return]
             self.model(purpose),
             output_type=output_type,
             deps_type=deps_type,
             instructions=instructions,
+            model_settings=model_settings(config),
         )

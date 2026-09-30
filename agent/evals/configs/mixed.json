@@ -1,9 +1,21 @@
 {
   "models": {
-    "decision": { "provider": "openai",    "name": "gpt-5.2",          "temperature": 0 },
-    "answer":   { "provider": "anthropic", "name": "claude-sonnet-5",  "temperature": 0 },
-    "vision":   { "provider": "anthropic", "name": "claude-sonnet-5",  "temperature": 0 }
+    "decision": {
+      "provider": "openai",
+      "name": "gpt-5.2"
+    },
+    "answer": {
+      "provider": "anthropic",
+      "name": "claude-sonnet-5"
+    },
+    "vision": {
+      "provider": "anthropic",
+      "name": "claude-sonnet-5"
+    }
   },
-  "judge": { "provider": "openai", "name": "gpt-5.2", "temperature": 0 },
+  "judge": {
+    "provider": "openai",
+    "name": "gpt-5.2"
+  },
   "trials": 1
 }

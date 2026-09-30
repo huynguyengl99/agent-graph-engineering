@@ -2,24 +2,20 @@
   "models": {
     "decision": {
       "provider": "openai",
-      "name": "gpt-4o-mini",
-      "temperature": 0
+      "name": "gpt-4o-mini"
     },
     "answer": {
       "provider": "openai",
-      "name": "gpt-4o",
-      "temperature": 0
+      "name": "gpt-4o"
     },
     "vision": {
       "provider": "openai",
-      "name": "gpt-4o",
-      "temperature": 0
+      "name": "gpt-4o"
     }
   },
   "judge": {
     "provider": "openai",
-    "name": "gpt-5.2",
-    "temperature": 0
+    "name": "gpt-5.2"
   },
   "trials": 1
 }

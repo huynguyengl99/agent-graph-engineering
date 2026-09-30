@@ -28,6 +28,7 @@ from helpdesk.agent_client.chat.messages import (
     ChatTurn,
     IncomingMessage,
     ToolApprovalMessage,
+    ToolApprovalPayload,
     ToolDecisionMessage,
     ToolDecisionPayload,
 )
@@ -54,7 +55,12 @@ from helpdesk.conversations.messages import (
 from helpdesk.conversations.messages import (
     ToolApprovalPayload as FEToolApprovalPayload,
 )
-from helpdesk.conversations.models import Conversation, Message, MessageRole
+from helpdesk.conversations.models import (
+    Conversation,
+    Message,
+    MessageRole,
+    PendingApproval,
+)
 from helpdesk.conversations.serializers import serialize_message
 from helpdesk.conversations.topics.conversation_topic import ConversationTopic
 
@@ -117,6 +123,7 @@ class ConversationChatClient(ChatClient):
                     TokenMessage(payload=TokenPayload(delta=payload.delta)),
                 )
             case ToolApprovalMessage(payload=payload):
+                await self._remember_proposal(payload)
                 await broadcast(
                     self.group,
                     FEToolApprovalMessage(
@@ -150,6 +157,26 @@ class ConversationChatClient(ChatClient):
                 # so, because an unhandled branch that falls off the end reads
                 # like an oversight.
                 pass
+
+    @database_sync_to_async
+    def _remember_proposal(self, payload: ToolApprovalPayload) -> None:
+        """So a reload finds the card. The run is already durable in the agent;
+        this is the only way the browser can ask what is waiting."""
+        PendingApproval.objects.update_or_create(
+            conversation_id=self.conversation_id,
+            defaults={
+                "tool": payload.tool,
+                "description": payload.description,
+                "arguments": payload.arguments,
+                "arguments_schema": payload.arguments_schema or {},
+                "unknown_arguments": payload.unknown_arguments or [],
+            },
+        )
+
+    @staticmethod
+    @database_sync_to_async
+    def forget_proposal(conversation_id: str) -> None:
+        PendingApproval.objects.filter(conversation_id=conversation_id).delete()
 
     async def _persist_answer(self, content: str) -> None:
         message = await self._create_message(
@@ -252,6 +279,9 @@ async def decide_tool(
     keyed by conversation, not in the socket that proposed the call.
     """
     try:
+        # Cleared first: the card is answered whatever the resumed run does, and
+        # a row left behind would reappear on the next page load.
+        await ConversationChatClient.forget_proposal(conversation_id)
         await ConversationChatClient(
             conversation_id,
             ToolDecisionPayload(

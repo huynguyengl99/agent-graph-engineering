@@ -6,9 +6,9 @@
  * message lands. Without that the answer would appear twice.
  *
  * A turn can also end without an answer: if the assistant wants to run a tool
- * that needs clearing, the graph parks and `tool_approval` arrives instead.
- * That proposal is held until someone answers it, because there is nothing
- * else coming until they do.
+ * that needs clearing, the graph parks and `tool_approval` arrives instead. That
+ * proposal is held until someone answers it, and it is also persisted, so
+ * `parked` recovers it on a reload rather than stranding a run nobody can reach.
  */
 
 import { useCallback, useState } from 'react';
@@ -20,15 +20,18 @@ import type { ChatMessage } from '@/lib/types';
 interface UseConversationOptions {
   conversationId: string;
   onMessage?: (message: ChatMessage) => void;
+  /** A proposal already parked when the page loaded. */
+  parked?: ToolApprovalPayload | null;
 }
 
 export function useConversation({
   conversationId,
   onMessage,
+  parked = null,
 }: UseConversationOptions) {
   const [streaming, setStreaming] = useState('');
   const [pendingTool, setPendingTool] = useState<ToolApprovalPayload | null>(
-    null,
+    parked,
   );
 
   const handleMessage = useCallback(

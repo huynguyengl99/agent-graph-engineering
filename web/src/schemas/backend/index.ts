@@ -90,11 +90,22 @@ const PatchedUserRequest = z
   })
   .partial()
   .passthrough();
+const PendingApproval = z
+  .object({
+    tool: z.string().max(100),
+    description: z.string(),
+    arguments: z.object({}).partial().passthrough(),
+    argumentsSchema: z.object({}).partial().passthrough(),
+    unknownArguments: z.array(z.string()),
+    createdAt: z.string().datetime({ offset: true }),
+  })
+  .passthrough();
 const Conversation = z
   .object({
     id: z.string().uuid(),
     title: z.string().max(255).optional(),
     ticket: z.string().uuid().nullish(),
+    pendingApproval: PendingApproval.nullable(),
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
   })
@@ -128,7 +139,7 @@ const PaginatedMessageList = z
     results: z.array(Message),
   })
   .passthrough();
-const PurposeEnum = z.enum(["decision", "answer", "vision"]);
+const PurposeEnum = z.enum(["decision", "answer"]);
 const ModelPreference = z
   .object({ purpose: PurposeEnum, model: z.string().max(100) })
   .passthrough();
@@ -282,6 +293,7 @@ export const schemas = {
   TokenVerifyRequest,
   UserRequest,
   PatchedUserRequest,
+  PendingApproval,
   Conversation,
   PaginatedConversationList,
   ConversationCreateRequest,

@@ -170,3 +170,40 @@ class TestOneMessageShape(AuthAPITestCase):
         assert rest["content"] == wire["content"]
         assert rest["id"] == wire["id"]
         assert rest["createdAt"] == wire["created_at"]
+
+
+class TestPendingApprovalOnLoad(AuthAPITestCase):
+    """A cold page load is the only way back to a parked run."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.conversation = ConversationFactory.create(owner=self.user)
+
+    def test_absent_when_nothing_is_waiting(self) -> None:
+        response = self.auth_client.get(f"/api/conversations/{self.conversation.id}/")
+
+        assert response.status_code == 200
+        assert response.json()["pendingApproval"] is None
+
+    def test_it_comes_back_in_the_shape_the_socket_sends(self) -> None:
+        from helpdesk.conversations.models import PendingApproval
+
+        PendingApproval.objects.create(
+            conversation=self.conversation,
+            tool="issue_refund",
+            description="Refund a charge.",
+            arguments={"email": "demo@example.com", "amount": 29.0},
+            arguments_schema={"properties": {"email": {"type": "string"}}},
+            unknown_arguments=["currency"],
+        )
+
+        body = self.auth_client.get(
+            f"/api/conversations/{self.conversation.id}/"
+        ).json()["pendingApproval"]
+
+        # The same keys the tool_approval frame carries, so one browser type
+        # serves both paths.
+        assert body["tool"] == "issue_refund"
+        assert body["arguments"]["amount"] == 29.0
+        assert body["argumentsSchema"]["properties"]["email"]["type"] == "string"
+        assert body["unknownArguments"] == ["currency"]

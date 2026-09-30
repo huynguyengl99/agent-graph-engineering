@@ -55,6 +55,7 @@ export function ConversationPane({
     useConversation({
       conversationId,
       onMessage,
+      parked: conversation.pendingApproval ?? null,
     });
 
   useEffect(() => {

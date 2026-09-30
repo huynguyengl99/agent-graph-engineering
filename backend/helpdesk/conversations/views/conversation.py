@@ -43,7 +43,9 @@ class ConversationViewSet(
 
     def get_queryset(self) -> QuerySet[Conversation]:
         # A conversation is the rep's own working space, never shared.
-        return Conversation.objects.filter(owner=self.request.user.pk)
+        return Conversation.objects.filter(owner=self.request.user.pk).select_related(
+            "pending_approval"
+        )
 
     def get_serializer_class(self) -> type[BaseSerializer[Any]]:
         if self.action == "create":

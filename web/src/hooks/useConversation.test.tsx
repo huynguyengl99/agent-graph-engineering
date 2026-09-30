@@ -47,8 +47,10 @@ afterEach(() => {
   FakeSocket.closeAll();
 });
 
-function mount() {
-  return renderHook(() => useConversation({ conversationId: CONVERSATION }));
+function mount(parked: typeof PROPOSAL | null = null) {
+  return renderHook(() =>
+    useConversation({ conversationId: CONVERSATION, parked }),
+  );
 }
 
 async function park() {
@@ -90,6 +92,29 @@ describe('useConversation', () => {
     // turn and the same turn after a reload had different timestamps.
     expect(seen).toEqual([message]);
     expect(result.current.streaming).toBe('');
+  });
+});
+
+describe('useConversation recovering a parked proposal', () => {
+  it('shows a card that was already waiting when the page loaded', async () => {
+    // The only way back to a parked run: it arrived as one frame in a tab that
+    // has since been reloaded.
+    const { result } = mount(PROPOSAL);
+
+    expect(result.current.pendingTool?.tool).toBe('issue_refund');
+  });
+
+  it('a decision on a recovered card still resumes the run', async () => {
+    const { result } = mount(PROPOSAL);
+    await act(async () => FakeSocket.last.acceptAndSubscribe());
+
+    await act(async () => result.current.decideTool(true, {}));
+
+    expect(FakeSocket.last.lastSent).toMatchObject({
+      action: 'tool_decision',
+      payload: { approved: true },
+    });
+    expect(result.current.pendingTool).toBeNull();
   });
 });
 

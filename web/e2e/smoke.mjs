@@ -36,6 +36,10 @@ const stages = [];
 const proposals = [];
 const decisions = [];
 page.on('pageerror', (e) => errors.push(String(e)));
+let pageLoads = 0;
+page.on('load', () => {
+  pageLoads += 1;
+});
 page.on('websocket', (ws) => {
   sockets.push(ws.url());
   if (!ws.url().includes('/ws/')) return;
@@ -199,12 +203,25 @@ if ((proposal?.unknownArguments ?? []).length) {
 
 // Every input on the card comes from that schema. If the form were
 // hand-written per tool, this would pass while a new tool went unreviewable.
-const labels = await page
-  .locator('section [aria-label]')
-  .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label')));
+const fieldLabels = () =>
+  page
+    .locator('section [aria-label]')
+    .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label')));
+const labels = await fieldLabels();
 labels.some((l) => /amount/i.test(l)) && labels.some((l) => /email/i.test(l))
   ? ok(`the form was generated from the schema (${labels.join(', ')})`)
   : bad(`the generated form is missing fields: ${labels.join(', ')}`);
+
+// The card used to live only in this tab's React state, so a reload lost it
+// while the graph stayed parked in the agent with no way back to it.
+await page.reload();
+await page.waitForSelector('section button:has-text("Cancel")', {
+  timeout: 30000,
+});
+const recovered = await fieldLabels();
+recovered.some((l) => /amount/i.test(l))
+  ? ok('the card survived a reload, rebuilt from the persisted proposal')
+  : bad(`the reloaded card is missing its fields: ${recovered.join(', ')}`);
 
 // A planner that names an argument `customer_email` leaves the real one empty.
 // The tool would refuse the call, so the card refuses first - and the reviewer
@@ -317,11 +334,12 @@ const collapsed = await page.locator('main svg').innerHTML();
 
 console.log('== one socket for everything ==');
 const app = sockets.filter((u) => u.includes('/ws/'));
-app.length <= 3
-  ? ok(
-      `${app.length} app socket(s) across the whole session (reloads included)`,
-    )
-  : bad(`${app.length} app sockets - expected one per page load`);
+// One per page load, not a fixed number: a hard-coded count needs
+// recalibrating every time a navigation is added, and then it tests the
+// script rather than the app.
+app.length <= pageLoads
+  ? ok(`${app.length} app socket(s) across ${pageLoads} page load(s)`)
+  : bad(`${app.length} app sockets across ${pageLoads} page load(s)`);
 
 errors.length === 0
   ? ok('no page errors')

@@ -66,6 +66,7 @@ export interface Conversation {
   id: string;
   title?: string;
   ticket?: string | null;
+  pendingApproval: PendingApproval;
   createdAt: string;
   updatedAt: string;
 }
@@ -214,11 +215,21 @@ export interface PatchedUserRequest {
   lastName?: string;
 }
 
+/** Field for field the same shape the `tool_approval` frame carries, so the browser uses one type whether the proposal arrived live or on a reload. The JSON fields are declared rather than inferred: a bare `JSONField` generates `unknown` in TypeScript, which pushes a cast into every caller. */
+export interface PendingApproval {
+  tool: string;
+  description: string;
+  arguments: Record<string, unknown>;
+  argumentsSchema: Record<string, unknown>;
+  unknownArguments: string[];
+  createdAt: string;
+}
+
 /** * `low` - Low * `medium` - Medium * `high` - High * `urgent` - Urgent */
 export type PriorityEnum = "low" | "medium" | "high" | "urgent";
 
-/** * `decision` - Decision * `answer` - Answer * `vision` - Vision */
-export type PurposeEnum = "decision" | "answer" | "vision";
+/** * `decision` - Decision * `answer` - Answer */
+export type PurposeEnum = "decision" | "answer";
 
 /** User registration with email verification. */
 export interface Register {

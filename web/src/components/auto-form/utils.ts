@@ -21,7 +21,7 @@ export function beautifyName(name: string): string {
 }
 
 /** The innermost type, past optional, nullable, default and refinement wrappers. */
-export function getBaseSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
+function getBaseSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
   const def = schema._def as {
     innerType?: z.ZodTypeAny;
     schema?: z.ZodTypeAny;

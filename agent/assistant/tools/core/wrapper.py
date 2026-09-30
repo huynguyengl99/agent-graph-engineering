@@ -9,14 +9,11 @@ so a failing tool never takes down the graph.
 import asyncio
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar
+from typing import Any
 
 from assistant.tools.core.errors import ApprovalRequiredError, ToolError
 from assistant.tools.core.metadata import ToolMetadata, ToolOutput
 from assistant.tools.core.schema import arguments_schema
-
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
 
 WrappedTool = Callable[..., Awaitable[ToolOutput]]
 
@@ -31,7 +28,7 @@ def wrap_tool(
     requires_approval: bool = False,
     timeout: float = 10.0,
     planner_hint: str | None = None,
-) -> Callable[[Callable[_P, Awaitable[_R]]], WrappedTool]:
+) -> Callable[[Callable[..., Awaitable[object]]], WrappedTool]:
     """Register an async function as a tool.
 
     Args:
@@ -43,7 +40,7 @@ def wrap_tool(
         planner_hint: Extra steering shown only in the tool list.
     """
 
-    def decorator(func: Callable[_P, Awaitable[_R]]) -> WrappedTool:
+    def decorator(func: Callable[..., Awaitable[object]]) -> WrappedTool:
         tool_id = id or func.__name__
         if tool_id in _REGISTRY:
             raise ValueError(

@@ -8,8 +8,8 @@
 #   scripts/check.sh --fix    # let the formatters and linters write
 #
 # Projects:
-#   b = backend: ruff, mypy, django check, schema
-#   a = agent:   ruff, mypy
+#   b = backend: ruff, mypy, pyright, django check, schema
+#   a = agent:   ruff, mypy, pyright
 #   w = web:     eslint, prettier, tsc
 #
 # Sequential `just check` stops at the first failure, so a change that breaks
@@ -29,10 +29,12 @@ name_of() {
   case $1 in
     b:ruff) echo "backend: ruff" ;;
     b:mypy) echo "backend: mypy" ;;
+    b:pyright) echo "backend: pyright" ;;
     b:django) echo "backend: django check" ;;
     b:schema) echo "backend: openapi schema" ;;
     a:ruff) echo "agent: ruff" ;;
     a:mypy) echo "agent: mypy" ;;
+    a:pyright) echo "agent: pyright" ;;
     w:eslint) echo "web: eslint" ;;
     w:prettier) echo "web: prettier" ;;
     w:tsc) echo "web: tsc" ;;
@@ -49,8 +51,8 @@ project_of() {
 
 tasks_of() {
   case $1 in
-    b) echo "b:ruff b:mypy b:django b:schema" ;;
-    a) echo "a:ruff a:mypy" ;;
+    b) echo "b:ruff b:mypy b:pyright b:django b:schema" ;;
+    a) echo "a:ruff a:mypy a:pyright" ;;
     w) echo "w:eslint w:prettier w:tsc" ;;
   esac
 }
@@ -116,6 +118,10 @@ run_task() {
       fi
       ;;
     b:mypy)   ( cd backend && uv run mypy . ) >"$log" 2>&1 ;;
+    # Two checkers, because they disagree usefully: mypy knows Django through
+    # django-stubs, pyright caught a non-exhaustive match and dead code mypy
+    # passed over. Each one's config turns off what only reports the ecosystem.
+    b:pyright) ( cd backend && uv run pyright ) >"$log" 2>&1 ;;
     b:django) ( cd backend && uv run python manage.py check ) >"$log" 2>&1 ;;
     b:schema)
       ( cd backend && uv run python manage.py spectacular --validate --fail-on-warn \
@@ -129,6 +135,7 @@ run_task() {
       fi
       ;;
     a:mypy)   ( cd agent && uv run mypy assistant ) >"$log" 2>&1 ;;
+    a:pyright) ( cd agent && uv run pyright ) >"$log" 2>&1 ;;
     w:eslint)
       if [[ "$FIX" == true ]]; then
         ( cd web && pnpm lint:fix ) >"$log" 2>&1

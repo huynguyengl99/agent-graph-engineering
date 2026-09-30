@@ -46,7 +46,6 @@
     "autoprefixer": "^10.6.1",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "handlebars": "^4.7.8",
     "happy-dom": "^20.14.5",
     "openapi-zod-client": "^1.18.2",
     "postcss": "^8.5.28",

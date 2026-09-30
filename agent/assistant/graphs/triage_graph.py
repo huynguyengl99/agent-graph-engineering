@@ -20,16 +20,6 @@ def _context_of(state: TriageState) -> TicketContext:
     return context if isinstance(context, TicketContext) else TicketContext(**context)
 
 
-def _answer_of(state: TriageState) -> TicketAnswer:
-    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
-    answer = state["answer"]
-    return (
-        answer
-        if isinstance(answer, TicketAnswer)
-        else TicketAnswer.model_validate(answer)
-    )
-
-
 class TriageGraph(BaseGraph):
     """Works one ticket: file it, decide what to do, then answer or escalate.
 

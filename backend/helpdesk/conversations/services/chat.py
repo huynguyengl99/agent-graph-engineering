@@ -142,6 +142,12 @@ class ConversationChatClient(ChatClient):
                     ),
                 )
                 await self.disconnect()
+            case _:
+                # A heartbeat, or a message type the agent gained and this
+                # relay has not been taught yet. Ignored on purpose, and said
+                # so, because an unhandled branch that falls off the end reads
+                # like an oversight.
+                pass
 
     async def _persist_answer(self, content: str) -> None:
         message = await self._create_message(

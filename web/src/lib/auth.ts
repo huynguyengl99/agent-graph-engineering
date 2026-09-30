@@ -5,14 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiClient } from './api';
-
-interface User {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  fullName: string;
-}
+import type { User } from './types';
 
 interface AuthState {
   user: User | null;

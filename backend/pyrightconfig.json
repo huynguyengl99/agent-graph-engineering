@@ -11,6 +11,14 @@
     "reportUnknownVariableType": "none",
     "reportUnknownArgumentType": "none",
     "reportPrivateUsage": "none",
+    // factory_boy, rest_framework_nested and friends re-export without
+    // __all__ or an explicit alias. Every hit is a library's packaging
+    // choice, not something this codebase can fix.
+    "reportPrivateImportUsage": "none",
+    // Reverse relations (conversation.messages) are created at runtime from
+    // related_name. django-stubs teaches mypy about them; pyright cannot see
+    // them, and mypy is the checker that owns Django's dynamic surface.
+    "reportAttributeAccessIssue": "none",
     "executionEnvironments": [
         {
             "root": "helpdesk/config/settings",

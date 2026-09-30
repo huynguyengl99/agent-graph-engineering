@@ -77,9 +77,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^7.1.1
         version: 7.1.1(eslint@9.39.5(jiti@1.21.7))
-      handlebars:
-        specifier: ^4.7.8
-        version: 4.7.9
       happy-dom:
         specifier: ^20.14.5
         version: 20.14.5

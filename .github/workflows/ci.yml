@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A push while an earlier run is still going supersedes it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  # One job per project rather than one `scripts/check.sh` run: they go in
+  # parallel and each needs a different toolchain. The cost is that the two
+  # definitions can drift, so a check added there belongs here too.
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: triage_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/triage_test
+      DJANGO_SECRET_KEY: ci-secret-key-long-enough-for-hmac-sha256
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - run: uv run ruff check .
+        working-directory: backend
+      - run: uv run ruff format --check .
+        working-directory: backend
+      - run: uv run mypy .
+        working-directory: backend
+      - run: uv run pyright
+        working-directory: backend
+      - run: uv run python manage.py check
+        working-directory: backend
+      # The generated clients are only as good as the document they come from.
+      - run: uv run python manage.py spectacular --validate --fail-on-warn > /dev/null
+        working-directory: backend
+      - run: uv run pytest
+        working-directory: backend
+
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - run: uv run ruff check .
+        working-directory: agent
+      - run: uv run ruff format --check .
+        working-directory: agent
+      - run: uv run mypy assistant
+        working-directory: agent
+      - run: uv run pyright
+        working-directory: agent
+      # No database: the suite installs an in-memory checkpointer and ledger, so
+      # proving a run resumes should not need Postgres.
+      - run: uv run pytest
+        working-directory: agent
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web lint
+      - run: pnpm --filter web format
+      - run: pnpm --filter web typecheck
+      - run: pnpm --filter web test
+
+  # `just e2e` is deliberately absent: it needs provider keys and spends money.

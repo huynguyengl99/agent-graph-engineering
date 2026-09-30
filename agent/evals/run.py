@@ -64,7 +64,11 @@ async def run_scenario(
     if scenario.expect.answer is not None and not errors:
         # Judge the first trial: a judged criterion is prose, and scoring the
         # same prose three times mostly buys judge variance.
-        verdict = await judge.judge(observations[0].answer, scenario.expect.answer)
+        verdict = await judge.judge(
+            observations[0].answer,
+            scenario.expect.answer,
+            observations[0].kb_snippets,
+        )
 
     passed = bool(
         not errors and deterministic_passed and (verdict is None or verdict.passed)

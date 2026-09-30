@@ -20,6 +20,7 @@ class Observation:
     priority: str | None = None
     decision: str | None = None
     used_knowledge_base: bool = False
+    kb_snippets: list[str] = field(default_factory=list)
     blocked: bool = False
     findings: list[str] = field(default_factory=list)
     answer: str = ""
@@ -55,6 +56,7 @@ async def run_trial(scenario: Scenario, config: AgentConfig) -> Observation:
         priority=getattr(classification, "priority", None),
         decision=type(decision).__name__ if decision is not None else None,
         used_knowledge_base=bool(state.get("kb_snippets")),
+        kb_snippets=[str(s) for s in state.get("kb_snippets") or []],
         blocked=bool(state.get("reply_blocked")),
         findings=[str(f) for f in state.get("guardrail_findings") or []],
         answer=getattr(answer, "content", "") or "",

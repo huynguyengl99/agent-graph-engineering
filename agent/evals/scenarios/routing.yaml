@@ -35,19 +35,24 @@
 # The retrieval subgraph: a hit answers from the article, a miss must not loop
 # forever. `used_knowledge_base` is the parent's view of it - the attempt count
 # stays inside the subgraph, which is the isolation being asserted.
+# Asks only the policy. The earlier version added "and want to cancel", which
+# is a question and an action request at once - reasonable models split on it,
+# so it measured ambiguity rather than routing.
 - name: routing-a-documented-question-is-answered-from-the-knowledge-base
   title: What is your refund policy
-  description: I bought an annual plan last week and want to cancel.
+  description: Where can I read the refund rules for annual plans?
   expect:
     decision: SearchKnowledgeBase
     used_knowledge_base: true
     blocked: false
 
+# Whether nonsense retrieves anything depends on how the refiner broadens the
+# query, which differs per model. What must hold is that the run finishes with
+# a draft rather than failing.
 - name: routing-an-undocumented-question-still-produces-a-draft
   title: Zzzz qqqq
   description: Wwww eeee rrrr tttt.
   expect:
-    used_knowledge_base: false
     blocked: false
 
 # The other side of "search before you escalate": a request for a decision

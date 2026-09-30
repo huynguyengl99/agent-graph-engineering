@@ -17,6 +17,7 @@ import structlog
 from chanx.messages.base import BaseMessage
 
 from helpdesk.accounts.services.preferences import model_overrides
+from helpdesk.agent_client.connection import with_token
 from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.agent_client.triage.client import TriageClient
 from helpdesk.agent_client.triage.messages import (
@@ -87,6 +88,7 @@ class TicketTriageClient(TriageClient):
 
     def __init__(self, ticket_id: str, request: OutgoingPayload) -> None:
         super().__init__(settings.AGENT_WS_URL)
+        self.url = with_token(self.url)
         self.ticket_id = ticket_id
         self.request = request
         self.group = ticket_topic(ticket_id)

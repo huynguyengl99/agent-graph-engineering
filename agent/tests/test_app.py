@@ -1,11 +1,24 @@
 import httpx
 import pytest
+from assistant.core.auth import HEADER
+from assistant.core.config import settings
 from assistant.main import app
 from httpx import ASGITransport
 
 
 @pytest.fixture
 async def client() -> httpx.AsyncClient:
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={HEADER: settings.agent_token},
+    ) as c:
+        yield c
+
+
+@pytest.fixture
+async def anonymous() -> httpx.AsyncClient:
     transport = ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
@@ -66,3 +79,17 @@ async def test_xray_is_the_difference_between_a_box_and_the_flow(
 async def test_an_unknown_graph_is_a_404(client: httpx.AsyncClient) -> None:
     response = await client.get("/graphs/nope.mermaid")
     assert response.status_code == 404
+
+
+@pytest.mark.skipif(not settings.agent_token, reason="auth is off without a token")
+async def test_graph_introspection_needs_the_token(
+    anonymous: httpx.AsyncClient,
+) -> None:
+    assert (await anonymous.get("/graphs/triage.mermaid")).status_code == 401
+
+
+async def test_health_and_the_contract_stay_open(
+    anonymous: httpx.AsyncClient,
+) -> None:
+    assert (await anonymous.get("/health")).status_code == 200
+    assert (await anonymous.get("/asyncapi.json")).status_code == 200

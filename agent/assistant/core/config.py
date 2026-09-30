@@ -24,6 +24,14 @@ class Settings:
     decision_model: str = env.str("ASSISTANT_DECISION_MODEL", "openai:gpt-4o-mini")
     answer_model: str = env.str("ASSISTANT_ANSWER_MODEL", "openai:gpt-4o")
 
+    # The provider SDKs default to 600s, far too long for an interactive turn.
+    model_timeout: float = env.float("ASSISTANT_MODEL_TIMEOUT", 60.0)
+    # A backstop against a routing cycle, not a tuning knob.
+    graph_recursion_limit: int = env.int("ASSISTANT_GRAPH_RECURSION_LIMIT", 150)
+
+    # Shared with the backend. Empty accepts every caller.
+    agent_token: str = env.str("ASSISTANT_AGENT_TOKEN", "")
+
     redis_url: str = env.str("REDIS_URL", "")
     # Where paused runs live. Unset falls back to memory, which loses every
     # approval waiting on a human when the process restarts.

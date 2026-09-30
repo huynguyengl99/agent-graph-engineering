@@ -10,6 +10,7 @@ from langgraph.types import Command
 
 from assistant.agents import TicketContext
 from assistant.agents.config import AgentConfig
+from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import build_triage_graph
@@ -166,7 +167,10 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         The thread id is the ticket, so a resume arriving on a different socket
         still finds the paused run.
         """
-        config: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
+        config: RunnableConfig = {
+            "configurable": {"thread_id": ticket_id},
+            "recursion_limit": settings.graph_recursion_limit,
+        }
 
         # Built per run: the topology is fixed, but which model fills each
         # purpose comes from the requesting user.

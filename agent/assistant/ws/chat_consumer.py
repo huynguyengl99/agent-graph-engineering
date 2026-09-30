@@ -10,6 +10,7 @@ from langgraph.types import Command
 
 from assistant.agents.config import AgentConfig
 from assistant.agents.deps import ChatContext, TicketContext
+from assistant.core.config import settings
 from assistant.graphs.chat_graph import build_chat_graph
 from assistant.graphs.states import ChatState
 from assistant.tracing import run_span
@@ -150,7 +151,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def _consume(self, graph: Any, start: Any, conversation_id: str) -> None:
-        config: RunnableConfig = {"configurable": {"thread_id": conversation_id}}
+        config: RunnableConfig = {
+            "configurable": {"thread_id": conversation_id},
+            "recursion_limit": settings.graph_recursion_limit,
+        }
         answer = ""
         parked = False
         stream: Any = graph.astream(

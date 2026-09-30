@@ -64,10 +64,17 @@ def test_config_does_not_change_the_topology() -> None:
 
 
 class TestModelSettings:
-    """Knobs are spelled differently per provider, and one of them 400s."""
+    """Knobs are spelled differently per provider, and one of them 400s.
 
-    def test_nothing_is_sent_when_nothing_is_set(self) -> None:
-        assert model_settings(ModelConfig(provider="openai", name="gpt-4o")) is None
+    Every call carries a timeout, deliberately: the providers' own default is
+    600 seconds. Everything else is absent unless it was asked for, which is
+    what these check.
+    """
+
+    def test_no_knob_is_sent_unless_it_was_set(self) -> None:
+        plain = model_settings(ModelConfig(provider="openai", name="gpt-4o"))
+
+        assert set(plain) == {"timeout"}
 
     def test_effort_uses_each_provider_s_own_name(self) -> None:
         anthropic = model_settings(
@@ -77,8 +84,10 @@ class TestModelSettings:
             ModelConfig(provider="openai", name="gpt-5.2", effort="low")
         )
 
-        assert anthropic == {"anthropic_effort": "low"}
-        assert openai == {"openai_reasoning_effort": "low"}
+        assert anthropic["anthropic_effort"] == "low"
+        assert "openai_reasoning_effort" not in anthropic
+        assert openai["openai_reasoning_effort"] == "low"
+        assert "anthropic_effort" not in openai
 
     def test_temperature_is_absent_unless_asked_for(self) -> None:
         """Current Anthropic models reject `temperature` with a 400, so a
@@ -87,18 +96,19 @@ class TestModelSettings:
             ModelConfig(provider="anthropic", name="claude-sonnet-5")
         )
 
-        assert settings is None
+        assert "temperature" not in settings
 
     def test_temperature_is_sent_when_set(self) -> None:
         settings = model_settings(
             ModelConfig(provider="openai", name="gpt-4o", temperature=0.7)
         )
 
-        assert settings == {"temperature": 0.7}
+        assert settings["temperature"] == 0.7
 
     def test_an_unknown_provider_drops_effort_rather_than_guessing(self) -> None:
         settings = model_settings(
             ModelConfig(provider="somebody-else", name="x", effort="max")
         )
 
-        assert settings is None
+        assert "effort" not in settings
+        assert not any(key.endswith("_effort") for key in settings)

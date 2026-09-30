@@ -64,14 +64,18 @@ def build_model(config: ModelConfig) -> Model:
     return infer_model(config.slug)
 
 
-def model_settings(config: ModelConfig) -> ModelSettings | None:
+def model_settings(config: ModelConfig) -> ModelSettings:
     """Per-model knobs, in whatever each provider calls them.
 
     Only what was explicitly set is sent. That matters for `temperature`:
     current Anthropic models reject it with a 400, so a value must never
     appear just because a field had a default.
+
+    The timeout always goes: the providers' own default is 600 seconds.
     """
-    settings: dict[str, Any] = {}
+    from assistant.core.config import settings as app_settings
+
+    settings: dict[str, Any] = {"timeout": app_settings.model_timeout}
 
     if config.temperature is not None:
         settings["temperature"] = config.temperature
@@ -84,7 +88,7 @@ def model_settings(config: ModelConfig) -> ModelSettings | None:
         if key is not None:
             settings[key] = config.effort
 
-    return cast(ModelSettings, settings) if settings else None
+    return cast(ModelSettings, settings)
 
 
 class AgentFactory:

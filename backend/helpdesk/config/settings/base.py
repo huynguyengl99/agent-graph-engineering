@@ -285,6 +285,10 @@ LOGGING = {
 
 # Agent service
 AGENT_WS_URL = env.str("AGENT_WS_URL", "ws://localhost:8001")
+# Shared with the agent, which rejects the handshake without it. Empty on both
+# sides means an unauthenticated agent, which only holds while nothing but this
+# service can reach it.
+AGENT_TOKEN = env.str("ASSISTANT_AGENT_TOKEN", "")
 # Tests drive the triage client explicitly; leaving the automatic
 # trigger on would make results depend on whether the agent is running.
 TRIAGE_ON_COMMENT = env.bool("TRIAGE_ON_COMMENT", True)

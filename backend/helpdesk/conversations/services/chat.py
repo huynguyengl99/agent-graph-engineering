@@ -31,6 +31,7 @@ from helpdesk.agent_client.chat.messages import (
     ToolDecisionMessage,
     ToolDecisionPayload,
 )
+from helpdesk.agent_client.connection import with_token
 from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.conversations.messages import (
     AssistantDoneMessage,
@@ -91,6 +92,7 @@ class ConversationChatClient(ChatClient):
 
     def __init__(self, conversation_id: str, request: OutgoingPayload) -> None:
         super().__init__(settings.AGENT_WS_URL)
+        self.url = with_token(self.url)
         self.conversation_id = conversation_id
         self.request = request
         self.group = conversation_topic(conversation_id)

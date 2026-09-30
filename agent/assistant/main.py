@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import structlog
 from chanx.fast_channels import asyncapi_docs, asyncapi_spec_json, asyncapi_spec_yaml
 from chanx.fast_channels.type_defs import AsyncAPIConfig
 from fastapi import FastAPI, HTTPException, Response
@@ -10,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 
+from assistant.core.auth import SharedTokenMiddleware
 from assistant.core.config import settings
 from assistant.core.layers import setup_layers
 from assistant.core.logging import setup_logging
@@ -20,6 +22,7 @@ from assistant.ws.chat_consumer import ChatConsumer
 from assistant.ws.consumer import TriageConsumer
 
 setup_logging()
+logger = structlog.get_logger(__name__)
 setup_layers()
 setup_tracing()
 
@@ -46,6 +49,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Outermost, so it covers the mounted WebSocket app too.
+if settings.agent_token:
+    app.add_middleware(SharedTokenMiddleware, token=settings.agent_token)
+else:
+    logger.warning(
+        "agent.token_unset",
+        detail="ASSISTANT_AGENT_TOKEN is empty; every caller is accepted",
+    )
 
 asyncapi_conf = AsyncAPIConfig(
     description="WebSocket contract between the Django backend and the triage agent",

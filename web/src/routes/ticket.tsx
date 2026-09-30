@@ -16,7 +16,9 @@ export function TicketRoute({ ticketId }: { ticketId: string }) {
     let ignore = false;
     void (async () => {
       try {
-        const found = await api.get('/api/tickets/:id/', { params: { id: ticketId } });
+        const found = await api.get('/api/tickets/:id/', {
+          params: { id: ticketId },
+        });
         if (!ignore) setTicket(found);
       } catch {
         if (!ignore) setError(true);
@@ -27,7 +29,8 @@ export function TicketRoute({ ticketId }: { ticketId: string }) {
     };
   }, [ticketId]);
 
-  if (error) return <p className="p-8 text-red-600">That ticket could not be loaded.</p>;
+  if (error)
+    return <p className="p-8 text-red-600">That ticket could not be loaded.</p>;
   if (!ticket) return <p className="p-8 text-gray-500">Loading…</p>;
 
   return <TicketDetail ticket={ticket} />;

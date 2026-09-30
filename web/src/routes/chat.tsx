@@ -26,7 +26,9 @@ export function ChatRoute({ conversationId }: { conversationId: string }) {
   }, [conversationId]);
 
   if (error) {
-    return <p className="p-8 text-red-600">That conversation could not be loaded.</p>;
+    return (
+      <p className="p-8 text-red-600">That conversation could not be loaded.</p>
+    );
   }
   if (!conversation) return <p className="p-8 text-gray-500">Loading…</p>;
 

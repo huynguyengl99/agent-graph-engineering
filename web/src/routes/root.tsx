@@ -1,4 +1,9 @@
-import { Link, Outlet, useParams, useRouterState } from '@tanstack/react-router';
+import {
+  Link,
+  Outlet,
+  useParams,
+  useRouterState,
+} from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { router } from '@/router';
@@ -83,7 +88,9 @@ export function RootLayout() {
           <Link
             to="/"
             className={`rounded px-3 py-1 ${
-              pane === 'tickets' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'
+              pane === 'tickets'
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'text-gray-600'
             }`}
           >
             Tickets
@@ -99,7 +106,9 @@ export function RootLayout() {
           <Link
             to="/graphs"
             className={`rounded px-3 py-1 ${
-              pane === 'graphs' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'
+              pane === 'graphs'
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'text-gray-600'
             }`}
           >
             Graphs
@@ -115,18 +124,18 @@ export function RootLayout() {
 
       <div className="flex min-h-0 flex-1">
         {pane !== 'graphs' && (
-        <aside className="w-80 shrink-0 overflow-y-auto border-r bg-white">
-          {pane === 'chat' ? (
-            <ConversationList
-              conversations={conversations}
-              selectedId={conversationId ?? null}
-              onNew={() => void startConversation()}
-              busy={starting}
-            />
-          ) : (
-            <TicketList tickets={tickets} selectedId={ticketId ?? null} />
-          )}
-        </aside>
+          <aside className="w-80 shrink-0 overflow-y-auto border-r bg-white">
+            {pane === 'chat' ? (
+              <ConversationList
+                conversations={conversations}
+                selectedId={conversationId ?? null}
+                onNew={() => void startConversation()}
+                busy={starting}
+              />
+            ) : (
+              <TicketList tickets={tickets} selectedId={ticketId ?? null} />
+            )}
+          </aside>
         )}
 
         <main className="min-w-0 flex-1">

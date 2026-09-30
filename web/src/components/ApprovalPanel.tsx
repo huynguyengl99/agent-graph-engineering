@@ -17,7 +17,9 @@ export function ApprovalPanel({ draft, findings = [], onDecide }: Props) {
   return (
     <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
       <div className="flex items-center gap-2">
-        <h3 className="font-semibold text-amber-900">Reply awaiting approval</h3>
+        <h3 className="font-semibold text-amber-900">
+          Reply awaiting approval
+        </h3>
         <span className="rounded bg-amber-200 px-2 py-0.5 text-xs text-amber-900">
           not sent yet
         </span>

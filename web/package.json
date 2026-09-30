@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx",
+    "format": "prettier --check src",
+    "format:fix": "prettier --write src",
     "gen:schema": "tsx scripts/generate-schemas.ts",
     "gen:type": "tsx scripts/generate-types.ts",
     "gen:ws": "chanx-codegen http://localhost:8000/api/asyncapi/schema/ -o src/generated",

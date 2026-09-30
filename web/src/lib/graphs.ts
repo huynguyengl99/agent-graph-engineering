@@ -18,7 +18,10 @@ export async function listGraphs(): Promise<GraphSummary[]> {
   return body.graphs;
 }
 
-export async function fetchDiagram(name: string, xray: boolean): Promise<string> {
+export async function fetchDiagram(
+  name: string,
+  xray: boolean,
+): Promise<string> {
   const response = await fetch(`/agent/graphs/${name}.mermaid?xray=${xray}`);
   if (!response.ok) throw new Error(`agent returned ${response.status}`);
   return response.text();

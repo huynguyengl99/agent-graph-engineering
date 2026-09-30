@@ -1,0 +1,4 @@
+# Machine-written. Formatting these only means the next codegen run undoes it.
+src/generated
+src/schemas/backend
+src/types/backend

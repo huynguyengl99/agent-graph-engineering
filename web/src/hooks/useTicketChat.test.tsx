@@ -77,7 +77,11 @@ describe('useTicketChat', () => {
 
     const event = { id: 1, eventType: 'comment', content: 'hi' };
     await act(async () =>
-      FakeSocket.last.receive({ topic: `ticket:${TICKET}`, action: 'new_event', payload: { event } })
+      FakeSocket.last.receive({
+        topic: `ticket:${TICKET}`,
+        action: 'new_event',
+        payload: { event },
+      }),
     );
 
     expect(onNewEvent).toHaveBeenCalledWith(event);
@@ -93,10 +97,13 @@ describe('useTicketChat', () => {
         topic: `ticket:${TICKET}`,
         action: 'agent_progress',
         payload: { stage: 'classified', detail: 'billing / medium' },
-      })
+      }),
     );
 
-    expect(onAgentProgress).toHaveBeenCalledWith('classified', 'billing / medium');
+    expect(onAgentProgress).toHaveBeenCalledWith(
+      'classified',
+      'billing / medium',
+    );
   });
 
   it('surfaces the draft when the graph parks for approval', async () => {
@@ -109,12 +116,12 @@ describe('useTicketChat', () => {
         topic: `ticket:${TICKET}`,
         action: 'approval_required',
         payload: { draft: 'Proration explains the second charge.' },
-      })
+      }),
     );
 
     expect(onApprovalRequired).toHaveBeenCalledWith(
       'Proration explains the second charge.',
-      []
+      [],
     );
   });
 
@@ -153,7 +160,11 @@ describe('useTicketChat', () => {
     await act(async () => FakeSocket.last.acceptAndSubscribe());
 
     await act(async () =>
-      FakeSocket.last.receive({ topic: `ticket:${TICKET}`, action: 'streaming', payload: { chunk: 'x' } })
+      FakeSocket.last.receive({
+        topic: `ticket:${TICKET}`,
+        action: 'streaming',
+        payload: { chunk: 'x' },
+      }),
     );
 
     expect(onNewEvent).not.toHaveBeenCalled();

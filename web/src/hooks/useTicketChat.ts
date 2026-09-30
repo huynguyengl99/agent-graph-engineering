@@ -38,10 +38,10 @@ export function useTicketChat({
         approval_required: (message) =>
           onApprovalRequired?.(
             message.payload.draft,
-            message.payload.findings ?? []
+            message.payload.findings ?? [],
           ),
       },
-    }
+    },
   );
 
   const sendMessage = (content: string) => {

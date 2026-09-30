@@ -16,7 +16,8 @@ export function GraphsRoute() {
         const found = await listGraphs();
         if (!ignore) setGraphs(found);
       } catch (e) {
-        if (!ignore) setError(e instanceof Error ? e.message : 'Agent unreachable');
+        if (!ignore)
+          setError(e instanceof Error ? e.message : 'Agent unreachable');
       }
     })();
     return () => {
@@ -34,7 +35,8 @@ export function GraphsRoute() {
           setError(null);
         }
       } catch (e) {
-        if (!ignore) setError(e instanceof Error ? e.message : 'Agent unreachable');
+        if (!ignore)
+          setError(e instanceof Error ? e.message : 'Agent unreachable');
       }
     })();
     return () => {

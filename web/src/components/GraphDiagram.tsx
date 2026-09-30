@@ -22,14 +22,15 @@ export function GraphDiagram({ definition }: { definition: string }) {
         // A fresh id per render, or mermaid reuses a stale cached SVG.
         const { svg } = await mermaid.render(
           `graph-${Math.random().toString(36).slice(2)}`,
-          definition
+          definition,
         );
         if (!ignore && container.current) {
           container.current.innerHTML = svg;
           setError(null);
         }
       } catch (e) {
-        if (!ignore) setError(e instanceof Error ? e.message : 'Could not render');
+        if (!ignore)
+          setError(e instanceof Error ? e.message : 'Could not render');
       }
     })();
 
@@ -42,7 +43,9 @@ export function GraphDiagram({ definition }: { definition: string }) {
     return (
       <div className="rounded border border-red-200 bg-red-50 p-4">
         <p className="text-sm text-red-700">{error}</p>
-        <pre className="mt-2 overflow-x-auto text-xs text-red-900">{definition}</pre>
+        <pre className="mt-2 overflow-x-auto text-xs text-red-900">
+          {definition}
+        </pre>
       </div>
     );
   }

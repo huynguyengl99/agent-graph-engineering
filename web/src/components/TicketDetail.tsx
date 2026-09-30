@@ -76,7 +76,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
         ]);
       }
     },
-    [submitApproval]
+    [submitApproval],
   );
 
   useEffect(() => {
@@ -141,7 +141,10 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
         <ul className="space-y-3">
           {events.map((event) => (
-            <TicketEventItem key={`${event.eventType}-${event.id}`} event={event} />
+            <TicketEventItem
+              key={`${event.eventType}-${event.id}`}
+              event={event}
+            />
           ))}
         </ul>
 
@@ -173,7 +176,10 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
         <div ref={bottom} />
       </div>
 
-      <form onSubmit={submit} className="flex gap-2 border-t bg-white px-6 py-4">
+      <form
+        onSubmit={submit}
+        className="flex gap-2 border-t bg-white px-6 py-4"
+      >
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

@@ -169,6 +169,11 @@ await page.waitForSelector('text=live', { timeout: 20000 });
 // Not the streaming bubble: it carries the same role, so counting it reads a
 // half-written sentence as the answer.
 const ANSWER = 'main li[data-role="assistant"]:not([data-pending])';
+// The socket is live before the REST message list has rendered, and counting
+// the answers already on screen too early makes every later "wait for one more
+// answer" read the previous turn's - which looked exactly like the assistant
+// ignoring a cancellation.
+await page.waitForSelector(ANSWER, { timeout: 30000 });
 const answersBefore = await page.locator(ANSWER).count();
 await page.fill(
   'main form input[placeholder]',

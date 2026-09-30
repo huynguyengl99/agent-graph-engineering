@@ -1,9 +1,17 @@
 // @vitest-environment happy-dom
 /**
- * The card is generated from the schema, so these tests never name a tool's
- * fields in markup - they put them in the schema and expect inputs to appear.
+ * The card is generated from the schema the agent sent, so these tests never
+ * name a tool's fields in markup - they put them in the schema and expect
+ * inputs to appear. Validation is the schema's too, which is why approval is
+ * unreachable here until the arguments would satisfy the tool.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ToolApprovalCard } from './ToolApprovalCard';
@@ -40,27 +48,37 @@ describe('ToolApprovalCard', () => {
     expect(screen.getByLabelText('Reason').tagName).toBe('TEXTAREA');
   });
 
-  it('approves as proposed without sending arguments', () => {
+  it('approves as proposed without sending arguments', async () => {
     const onDecide = vi.fn();
     render(<ToolApprovalCard proposal={PROPOSAL} onDecide={onDecide} />);
 
+    await waitFor(() =>
+      expect(button(/approve and run/i).disabled).toBe(false),
+    );
     fireEvent.click(button(/approve and run/i));
 
-    expect(onDecide).toHaveBeenCalledWith(true, {});
+    await waitFor(() => expect(onDecide).toHaveBeenCalledWith(true, {}));
   });
 
-  it('sends the full corrected argument set once a field changes', () => {
+  it('sends the full corrected argument set once a field changes', async () => {
     const onDecide = vi.fn();
     render(<ToolApprovalCard proposal={PROPOSAL} onDecide={onDecide} />);
 
     fireEvent.change(input('Amount'), { target: { value: '9' } });
+    await waitFor(() =>
+      expect(button(/run with my corrections/i).disabled).toBe(false),
+    );
     fireEvent.click(button(/run with my corrections/i));
 
-    expect(onDecide).toHaveBeenCalledWith(true, {
-      email: 'demo@example.com',
-      amount: 9,
-      reason: 'Duplicate',
-    });
+    await waitFor(() =>
+      expect(onDecide).toHaveBeenCalledWith(true, {
+        email: 'demo@example.com',
+        // A number, not the string the input held: the schema coerces it, so
+        // the tool is called with the type it declared.
+        amount: 9,
+        reason: 'Duplicate',
+      }),
+    );
   });
 
   it('cancels without arguments', () => {
@@ -87,7 +105,7 @@ describe('ToolApprovalCard', () => {
     expect(screen.getByText(/customer_email/)).toBeTruthy();
   });
 
-  it('will not approve while a required field is empty', () => {
+  it('will not approve while a required field is empty', async () => {
     const onDecide = vi.fn();
     render(
       <ToolApprovalCard
@@ -99,14 +117,34 @@ describe('ToolApprovalCard', () => {
       />,
     );
 
-    expect(button(/approve and run/i).disabled).toBe(true);
+    // The schema says email is required, so the button is unreachable until it
+    // has one. Nothing in this component knows the tool is a refund.
+    await waitFor(() => expect(button(/approve and run/i).disabled).toBe(true));
     fireEvent.click(button(/approve and run/i));
     expect(onDecide).not.toHaveBeenCalled();
 
     // Filling it in is all it takes: the reviewer repairs what the model got
     // wrong instead of being sent back to the assistant.
     fireEvent.change(input('Email'), { target: { value: 'demo@example.com' } });
-    expect(button(/run with my corrections/i).disabled).toBe(false);
+    await waitFor(() =>
+      expect(button(/run with my corrections/i).disabled).toBe(false),
+    );
+  });
+
+  it('will not approve once a required number has been cleared', async () => {
+    const onDecide = vi.fn();
+    render(<ToolApprovalCard proposal={PROPOSAL} onDecide={onDecide} />);
+
+    fireEvent.change(input('Amount'), { target: { value: '' } });
+
+    // Clearing it is also an edit, so the label changes; either way the button
+    // is unreachable while the schema is unsatisfied.
+    await waitFor(() =>
+      expect(button(/approve and run|run with my corrections/i).disabled).toBe(
+        true,
+      ),
+    );
+    expect(onDecide).not.toHaveBeenCalled();
   });
 
   it('says so rather than breaking when a tool takes no arguments', () => {

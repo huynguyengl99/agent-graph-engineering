@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import {
-  corrections,
-  decisionArguments,
-  fieldsFromSchema,
-  incomplete,
-  initialValues,
-  type ToolField,
-} from '@/lib/toolForm';
+  AutoForm,
+  AutoFormSubmit,
+  type FieldConfig,
+} from '@/components/auto-form';
+import { isFreeText, zodFromJsonSchema } from '@/lib/zodFromJsonSchema';
+import { corrections, decisionArguments } from '@/lib/toolForm';
 import type { ToolApprovalPayload } from '@/generated';
 
 interface Props {
@@ -15,105 +14,36 @@ interface Props {
   disabled?: boolean;
 }
 
-function Field({
-  field,
-  value,
-  onChange,
-  changed,
-}: {
-  field: ToolField;
-  value: string;
-  onChange: (value: string) => void;
-  changed: boolean;
-}) {
-  const border = changed
-    ? 'border-indigo-400 bg-indigo-50'
-    : 'border-amber-300';
-  const shared = `w-full rounded border px-3 py-2 text-sm ${border}`;
-
-  return (
-    <label className="block">
-      <span className="flex items-center gap-2 text-xs font-medium text-amber-900">
-        {field.label}
-        {field.required && <span className="text-amber-700">required</span>}
-        {changed && (
-          <span className="rounded bg-indigo-100 px-1.5 text-indigo-800">
-            corrected
-          </span>
-        )}
-      </span>
-      {field.description && (
-        <span className="mt-0.5 block text-xs text-amber-800">
-          {field.description}
-        </span>
-      )}
-
-      {field.kind === 'text' ? (
-        <textarea
-          aria-label={field.label}
-          value={value}
-          rows={3}
-          onChange={(e) => onChange(e.target.value)}
-          className={`mt-1 ${shared}`}
-        />
-      ) : field.kind === 'enum' ? (
-        <select
-          aria-label={field.label}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`mt-1 ${shared}`}
-        >
-          {(field.options ?? []).map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      ) : field.kind === 'boolean' ? (
-        <select
-          aria-label={field.label}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`mt-1 ${shared}`}
-        >
-          <option value="true">yes</option>
-          <option value="false">no</option>
-        </select>
-      ) : (
-        <input
-          aria-label={field.label}
-          type={field.kind === 'string' ? 'text' : 'number'}
-          step={field.kind === 'number' ? 'any' : undefined}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`mt-1 ${shared}`}
-        />
-      )}
-    </label>
-  );
-}
-
 /**
- * The tool gate. Every input here is generated from the schema the agent sent,
- * so a tool added to the agent is reviewable without touching this file.
+ * The tool gate. Every input is generated from the schema the agent sent, so a
+ * tool added to the agent is reviewable here without touching this file.
  *
- * Nothing has run at this point. The graph is parked in the agent's
+ * Nothing has run at this point: the graph is parked in the agent's
  * checkpointer, and it stays parked until this card is answered.
  */
 export function ToolApprovalCard({ proposal, onDecide, disabled }: Props) {
-  const fields = useMemo(
-    () => fieldsFromSchema(proposal.argumentsSchema),
+  const schema = useMemo(
+    () => zodFromJsonSchema(proposal.argumentsSchema),
     [proposal.argumentsSchema],
   );
-  const [values, setValues] = useState(() =>
-    initialValues(fields, proposal.arguments),
-  );
 
-  const changed = corrections(fields, values, proposal.arguments);
+  // Which arguments read as prose. The same schema drives the field type, so
+  // this is a presentation note, not a second description of the arguments.
+  const fieldConfig = useMemo(() => {
+    const config: Record<string, { fieldType: 'textarea' }> = {};
+    for (const [name, field] of Object.entries(schema.shape)) {
+      if (isFreeText(name, field.description)) {
+        config[name] = { fieldType: 'textarea' };
+      }
+    }
+    return config as FieldConfig<Record<string, unknown>>;
+  }, [schema]);
+
+  const proposed = (proposal.arguments ?? {}) as Record<string, unknown>;
+  const [values, setValues] = useState<Record<string, unknown>>(proposed);
+
+  const changed = corrections(schema, values, proposed);
   const edited = Object.keys(changed).length > 0;
-  // A required field left empty is usually the planner having misnamed it. The
-  // tool would refuse the call anyway; refusing here says why.
-  const blank = incomplete(fields, values);
   const dropped = proposal.unknownArguments ?? [];
 
   return (
@@ -137,58 +67,55 @@ export function ToolApprovalCard({ proposal, onDecide, disabled }: Props) {
         </p>
       )}
 
-      <div className="mt-3 space-y-3">
-        {fields.map((field) => (
-          <Field
-            key={field.name}
-            field={field}
-            value={values[field.name] ?? ''}
-            changed={field.name in changed}
-            onChange={(value) =>
-              setValues((current) => ({ ...current, [field.name]: value }))
-            }
-          />
-        ))}
-        {fields.length === 0 && (
+      <AutoForm
+        schema={schema}
+        values={proposed}
+        fieldConfig={fieldConfig}
+        disabled={disabled}
+        className="mt-3 space-y-3"
+        onValuesChange={setValues}
+        // Validation is the schema's, so approval is only reachable once the
+        // arguments would actually satisfy the tool.
+        onSubmit={(submitted) =>
+          onDecide(
+            true,
+            decisionArguments(
+              schema,
+              submitted as Record<string, unknown>,
+              proposed,
+            ),
+          )
+        }
+      >
+        {Object.keys(schema.shape).length === 0 && (
           <p className="text-xs text-amber-800">
             This tool takes no arguments.
           </p>
         )}
-      </div>
 
-      <div className="mt-4 flex items-center gap-2">
-        <button
-          disabled={disabled || blank.length > 0}
-          onClick={() =>
-            onDecide(
-              true,
-              decisionArguments(fields, values, proposal.arguments),
-            )
-          }
-          className="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40"
-        >
-          {edited ? 'Run with my corrections' : 'Approve and run'}
-        </button>
-        <button
-          disabled={disabled}
-          onClick={() => onDecide(false, {})}
-          className="rounded border border-amber-400 px-4 py-2 text-sm text-amber-900 hover:bg-amber-100 disabled:opacity-40"
-        >
-          Cancel
-        </button>
-        {blank.length > 0 ? (
-          <span className="text-xs text-amber-800">
-            {blank.join(', ')} {blank.length === 1 ? 'is' : 'are'} required
-          </span>
-        ) : (
-          edited && (
+        <div className="mt-4 flex items-center gap-2">
+          <AutoFormSubmit
+            disabled={disabled}
+            className="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40"
+          >
+            {edited ? 'Run with my corrections' : 'Approve and run'}
+          </AutoFormSubmit>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onDecide(false, {})}
+            className="rounded border border-amber-400 px-4 py-2 text-sm text-amber-900 hover:bg-amber-100 disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          {edited && (
             <span className="text-xs text-amber-800">
               {Object.keys(changed).length} field
               {Object.keys(changed).length === 1 ? '' : 's'} changed
             </span>
-          )
-        )}
-      </div>
+          )}
+        </div>
+      </AutoForm>
     </section>
   );
 }

@@ -10,7 +10,7 @@ export function TicketList({ tickets, selectedId }: Props) {
   if (tickets.length === 0) {
     return (
       <p className="px-4 py-6 text-sm text-gray-500">
-        No tickets yet. Create one in the Django admin at <code>/admin/</code>.
+        No tickets yet. Create one above.
       </p>
     );
   }

@@ -10,6 +10,7 @@ import { router } from '@/router';
 import { useAuthStore } from '@/lib/auth';
 import { LoginForm } from '@/components/LoginForm';
 import { TicketList } from '@/components/TicketList';
+import { NewTicketForm } from '@/components/NewTicketForm';
 import { ConversationList } from '@/components/ConversationList';
 import type { Conversation, Ticket } from '@/lib/types';
 
@@ -133,7 +134,14 @@ export function RootLayout() {
                 busy={starting}
               />
             ) : (
-              <TicketList tickets={tickets} selectedId={ticketId ?? null} />
+              <>
+                <NewTicketForm
+                  onCreated={(ticket) =>
+                    setTickets((current) => [ticket, ...current])
+                  }
+                />
+                <TicketList tickets={tickets} selectedId={ticketId ?? null} />
+              </>
             )}
           </aside>
         )}

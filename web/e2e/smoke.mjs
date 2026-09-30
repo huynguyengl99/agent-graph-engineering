@@ -87,22 +87,33 @@ console.log('== ticket triage, end to end ==');
 // a ticket with eight identical complaints eventually routes to escalation -
 // which correctly has no approval gate, so the run "failed" on a correct
 // decision.
-const ticketId = await page.evaluate(async () => {
-  const response = await fetch('/api/tickets/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({
-      title: 'Charged twice this month',
-      description: 'My card shows two charges for the same plan.',
-      status: 'open',
-      priority: 'medium',
-    }),
-  });
-  if (!response.ok) throw new Error(`ticket create: ${response.status}`);
-  return (await response.json()).id;
-});
-ok(`created a fresh ticket for this run (${String(ticketId).slice(0, 8)})`);
+// Through the form, not through fetch: the form is generated from the same
+// OpenAPI schema the client validates against, so creating a ticket this way
+// covers the generated schema, the form built from it and the request together.
+await page.fill('aside input[aria-label="Title"]', 'Charged twice this month');
+await page.fill(
+  'aside textarea[aria-label="Description"]',
+  'My card shows two charges for the same plan.',
+);
+await page.selectOption('aside select[aria-label="Priority"]', 'medium');
+
+// The list already has tickets, so waiting for "a ticket link" would match one
+// from a previous run. Wait for the list to grow instead.
+const TICKET_LINK = 'aside a[href^="/tickets/"]';
+const ticketsBefore = await page.locator(TICKET_LINK).count();
+await page.click('aside button:has-text("Create ticket")');
+await page.waitForFunction(
+  ([selector, n]) => document.querySelectorAll(selector).length > n,
+  [TICKET_LINK, ticketsBefore],
+  { timeout: 20000 },
+);
+const ticketId = await page
+  .locator(TICKET_LINK)
+  .first()
+  .getAttribute('href')
+  .then((href) => href.split('/').pop());
+ok(`created a ticket through the generated form (${ticketId.slice(0, 8)})`);
+
 await page.goto(`${BASE}/tickets/${ticketId}`);
 await page.waitForSelector('text=live', { timeout: 20000 });
 await page.fill(
@@ -184,10 +195,10 @@ if ((proposal?.unknownArguments ?? []).length) {
 // Every input on the card comes from that schema. If the form were
 // hand-written per tool, this would pass while a new tool went unreviewable.
 const labels = await page
-  .locator('section label span:nth-child(1)')
-  .allInnerTexts();
+  .locator('section [aria-label]')
+  .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label')));
 labels.some((l) => /amount/i.test(l)) && labels.some((l) => /email/i.test(l))
-  ? ok(`the form was generated from the schema (${labels.length} fields)`)
+  ? ok(`the form was generated from the schema (${labels.join(', ')})`)
   : bad(`the generated form is missing fields: ${labels.join(', ')}`);
 
 // A planner that names an argument `customer_email` leaves the real one empty.
@@ -197,11 +208,17 @@ const approve = page.locator('section button', {
   hasText: /Approve and run|corrections/,
 });
 if (await approve.isDisabled()) {
-  const missing = await page
-    .locator('section span:has-text("required")')
-    .allInnerTexts();
+  // Named from the form itself, so the message says which argument the planner
+  // failed to supply rather than just that something is missing.
+  const empty = await page
+    .locator('section [aria-label]')
+    .evaluateAll((nodes) =>
+      nodes
+        .filter((n) => !(n instanceof HTMLSelectElement) && !n.value)
+        .map((n) => n.getAttribute('aria-label')),
+    );
   ok(
-    `approval is blocked while a required field is empty (${missing.join('; ')})`,
+    `approval is blocked while a required field is empty (${empty.join(', ')})`,
   );
   for (const [label, value] of [
     ['Email', 'demo@example.com'],

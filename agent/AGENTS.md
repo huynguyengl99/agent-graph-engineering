@@ -183,6 +183,7 @@ pressure.
 | `chat` | parent | the rep's own thread; routes, then answers |
 | `knowledge` | subgraph | it *loops*, and **both parents** compose it |
 | `delivery` | subgraph | the only route to a customer, and the only irreversible step |
+| `tool` | subgraph | propose a tool, clear it with a human, then run it |
 
 `knowledge` is composed by triage *and* by chat, which is what makes it a
 subgraph rather than a node - one retrieval loop, two callers, no duplication.
@@ -231,3 +232,28 @@ Three things moved in the 1.x -> 2.x upgrade, all of them load-bearing here:
 Span names changed with it: `agent run` is now `invoke_agent agent`, per-call
 usage sits on the `chat <model>` span beneath it, and the aggregate on the
 agent span. `cost_of_span` keys on the per-call span, so nothing double-counts.
+
+## Tools and the approval gate
+
+`@wrap_tool` registers a tool at import, which is why `assistant/tools/__init__.py`
+imports every module: one nobody imports does not exist as far as the planner
+is concerned. `render_tool_list()` is the block the planner prompt embeds.
+
+There are **two** independent gates on an irreversible tool, and that is
+deliberate:
+
+1. **The graph** parks at `tool.gate` with the proposed tool and arguments. A
+   reviewer approves, **corrects the arguments**, or cancels. A correction
+   replaces the arguments wholesale, so what they saw is what runs.
+2. **The tool itself** refuses to run without `approved=True`
+   (`ApprovalRequiredError`). A graph wired wrongly fails closed instead of
+   spending money, and `issue_refund` keeps its own ceiling that no amount of
+   approving gets past.
+
+The gate is on the *proposal*, not the result: nothing has happened by the
+time a person is asked. Tests for approve, correct, cancel, a hallucinated
+tool id and both backstops are in `tests/test_tool_graph.py`.
+
+One tool per turn. Asked to refund a duplicate charge, a planner will often
+propose the lookup first and the refund next - which is what a person would
+do, and chaining them would take that judgement away.

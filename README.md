@@ -182,6 +182,7 @@ Four graphs, two of them composed into a parent as nodes:
 | `chat` | parent | the rep's own thread: routes, looks things up, then answers |
 | `knowledge` | subgraph | it loops, and both parents compose it |
 | `delivery` | subgraph | the only route to a customer, and the only irreversible step |
+| `tool` | subgraph | propose a tool, clear it with a human, then run it |
 
 `GET /graphs/triage.mermaid` renders the graph **from the compiled object**, so
 the picture cannot disagree with the code. `xray=true` (the default) expands
@@ -203,6 +204,19 @@ It earns its place by catching what the mocked suites structurally cannot - a
 Zodios client that threw on import, a create endpoint that returned no `id`,
 a dependency upgrade that changed how models are constructed. Run it after any
 of those.
+
+## Human in the loop
+
+Two things wait for a person, for different reasons.
+
+A **drafted reply** parks at `delivery.await_approval`: the reviewer can edit
+the text, approve, or reject, and nothing reaches the customer until they do.
+
+A **tool call** parks at `tool.gate` *before it runs*. The reviewer sees the
+tool and the arguments the model chose, and can approve, **correct the
+arguments**, or cancel - correcting £29 to £9 means £9 is what gets refunded.
+Underneath, `@wrap_tool` refuses an approval-marked tool that arrives without
+`approved=True`, so a mis-wired graph fails closed rather than spending money.
 
 ## Guardrails
 

@@ -1,0 +1,136 @@
+from typing import Any
+
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import interrupt
+
+import assistant.tools  # noqa: F401  # importing registers the tools
+from assistant.agents import AgentConfig
+from assistant.agents.deps import ChatContext
+from assistant.agents.planner import ToolPlannerAgent
+from assistant.graphs.base import BaseGraph
+from assistant.graphs.states import ToolState
+from assistant.outputs.tools import ToolProposal
+from assistant.tools.core import all_tools, get_tool, metadata_for, render_tool_list
+from assistant.tracing.nodes import Node
+
+
+def _context_of(state: ToolState) -> ChatContext:
+    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
+    context = state["context"]
+    return context if isinstance(context, ChatContext) else ChatContext(**context)
+
+
+class ToolGraph(BaseGraph):
+    """Propose a tool, clear it with a human, then run it.
+
+    The gate is on the *proposal*, not the result: a reviewer sees the tool and
+    the arguments before anything happens, and can correct them or cancel. By
+    the time `execute` runs, the only question left is whether the tool works.
+
+    `wrap_tool` refuses an approval-marked tool that arrives without
+    `approved=True`, so a graph wired wrongly fails closed rather than
+    spending money.
+
+    One tool per turn, deliberately. Asked to refund a duplicate charge, a
+    planner will often propose the lookup first and the refund next, which is
+    what a person would do; chaining them into a single turn would take that
+    judgement away from it.
+    """
+
+    name = "tool"
+
+    def __init__(self, config: AgentConfig | None = None) -> None:
+        super().__init__(config)
+        self.planner = ToolPlannerAgent(self.config)
+
+    async def plan(self, state: ToolState) -> ToolState:
+        context = _context_of(state)
+        prompt = (
+            f"{context.render(state['request'])}\n\n"
+            f"Available tools:\n{render_tool_list()}"
+        )
+        decision = await self.planner.run(prompt, context)
+
+        update: ToolState = {"decision": decision}
+        if isinstance(decision, ToolProposal):
+            if decision.tool not in all_tools():
+                # A hallucinated tool id never reaches a human, let alone a
+                # call: it is a planning failure, reported as one.
+                return {
+                    "decision": decision,
+                    "tool_error": f"No such tool: {decision.tool!r}.",
+                }
+            update["tool"] = decision.tool
+            update["arguments"] = dict(decision.arguments)
+        return update
+
+    async def gate(self, state: ToolState) -> ToolState:
+        """Park until a human approves, corrects the arguments, or cancels."""
+        answer = interrupt(
+            {
+                "kind": "tool_approval",
+                "tool": state["tool"],
+                "arguments": state["arguments"],
+                "description": metadata_for(state["tool"]).description,
+            }
+        )
+
+        if not isinstance(answer, dict):
+            return {"approved": bool(answer), "cancelled": not answer}
+        if answer.get("decision") == "cancel":
+            return {"approved": False, "cancelled": True}
+
+        # Corrections replace the proposed arguments wholesale, so what a
+        # reviewer saw is exactly what runs.
+        corrected = answer.get("arguments")
+        update: ToolState = {"approved": True, "cancelled": False}
+        if isinstance(corrected, dict) and corrected:
+            update["arguments"] = dict(corrected)
+        return update
+
+    async def execute(self, state: ToolState) -> ToolState:
+        tool = get_tool(state["tool"])
+        arguments: dict[str, Any] = dict(state.get("arguments") or {})
+        if metadata_for(state["tool"]).requires_approval:
+            arguments["approved"] = True
+
+        output = await tool(**arguments)
+        if not output.ok:
+            return {"tool_error": output.user_error or output.error or ""}
+        return {"result": str(output.result)}
+
+    def route_after_plan(self, state: ToolState) -> str:
+        if state.get("tool_error") or not state.get("tool"):
+            return END
+        return "gate" if metadata_for(state["tool"]).requires_approval else "execute"
+
+    def route_after_gate(self, state: ToolState) -> str:
+        return "execute" if state.get("approved") else END
+
+    def nodes(self) -> dict[str, Node]:
+        return {"plan": self.plan, "gate": self.gate, "execute": self.execute}
+
+    def build(self) -> StateGraph[ToolState, None, ToolState, ToolState]:
+        graph: StateGraph[ToolState, None, ToolState, ToolState] = StateGraph(ToolState)
+        self.add_nodes(graph)
+
+        graph.add_edge(START, "plan")
+        graph.add_conditional_edges(
+            "plan",
+            self.route_after_plan,
+            {"gate": "gate", "execute": "execute", END: END},
+        )
+        graph.add_conditional_edges(
+            "gate", self.route_after_gate, {"execute": "execute", END: END}
+        )
+        graph.add_edge("execute", END)
+
+        return graph
+
+
+def build_tool_graph(
+    config: AgentConfig | None = None,
+) -> CompiledStateGraph[ToolState, None, ToolState, ToolState]:
+    """Compiled, so a parent can add it as a node directly."""
+    return ToolGraph(config).build().compile()

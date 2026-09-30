@@ -10,6 +10,7 @@ from assistant.graphs.base import BaseGraph
 from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import KnowledgeGraph
+from assistant.graphs.tool_graph import ToolGraph
 from assistant.graphs.triage_graph import TriageGraph
 
 GRAPHS: dict[str, type[BaseGraph]] = {
@@ -17,10 +18,11 @@ GRAPHS: dict[str, type[BaseGraph]] = {
     "chat": ChatGraph,
     "knowledge": KnowledgeGraph,
     "delivery": DeliveryGraph,
+    "tool": ToolGraph,
 }
 
 # The ones a parent composes rather than a caller starts.
-SUBGRAPHS = frozenset({"knowledge", "delivery"})
+SUBGRAPHS = frozenset({"knowledge", "delivery", "tool"})
 
 
 def describe() -> list[dict[str, object]]:

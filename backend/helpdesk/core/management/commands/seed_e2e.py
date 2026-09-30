@@ -28,9 +28,13 @@ class Command(BaseCommand):
         user.save()
 
         for title, description in TICKETS:
-            Ticket.objects.get_or_create(
-                title=title, defaults={"description": description, "created_by": user}
-            )
+            # Not get_or_create: the smoke itself creates a ticket per run with
+            # one of these titles, so after a few runs the lookup matches
+            # several and seeding fails on a database it only wanted to read.
+            if not Ticket.objects.filter(title=title).exists():
+                Ticket.objects.create(
+                    title=title, description=description, created_by=user
+                )
 
         self.stdout.write(
             self.style.SUCCESS(

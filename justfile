@@ -151,8 +151,8 @@ check-schema:
 check: check-schema
     @echo "✅ Running all checks..."
     cd backend && uv run mypy . && uv run ruff check . && uv run python manage.py check
-    cd agent && uv run mypy triage && uv run ruff check .
-    cd web && pnpm typecheck && pnpm lint
+    cd agent && uv run mypy assistant && uv run ruff check .
+    cd web && pnpm typecheck && pnpm lint && pnpm format
 
 # Clean generated files and caches
 clean:

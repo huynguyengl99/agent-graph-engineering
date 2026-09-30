@@ -2,7 +2,7 @@
 # Generate the backend's Python WebSocket client from the agent's AsyncAPI document.
 #
 # The agent service must be running. Its AsyncAPI document is the contract:
-# change a message in triage/ws/messages.py, restart the agent, re-run this,
+# change a message in assistant/ws/messages.py, restart the agent, re-run this,
 # and the backend's client follows.
 
 set -euo pipefail

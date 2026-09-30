@@ -70,6 +70,50 @@ def tool_call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def text_stream(*chunks: str) -> dict[str, Any]:
+    """A streamed assistant reply, as server-sent events.
+
+    Marked so the transport knows to answer a `stream: true` request with SSE
+    rather than a completion body - the streaming path parses differently, and
+    a JSON body there fails as "ended without content or tool calls".
+    """
+    return {"__sse__": list(chunks)}
+
+
+def _sse(chunks: list[str]) -> str:
+    frames = [
+        json.dumps(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "gpt-4o",
+                "choices": [
+                    {"index": 0, "delta": {"content": chunk}, "finish_reason": None}
+                ],
+            }
+        )
+        for chunk in chunks
+    ]
+    frames.append(
+        json.dumps(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "gpt-4o",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "usage": {
+                    "prompt_tokens": 1,
+                    "completion_tokens": len(chunks),
+                    "total_tokens": 1 + len(chunks),
+                },
+            }
+        )
+    )
+    return "".join(f"data: {frame}\n\n" for frame in frames) + "data: [DONE]\n\n"
+
+
 @dataclass
 class Recorder:
     """What the transport saw, so a test can assert on the calls made."""
@@ -96,7 +140,14 @@ def mock_openai(*responses: dict[str, Any]) -> Iterator[Recorder]:
                 f"the graph made {recorder.call_count} model calls but only "
                 f"{len(responses)} responses were provided"
             )
-        return httpx2.Response(200, json=queue.pop(0))
+        body = queue.pop(0)
+        if "__sse__" in body:
+            return httpx2.Response(
+                200,
+                text=_sse(body["__sse__"]),
+                headers={"content-type": "text/event-stream"},
+            )
+        return httpx2.Response(200, json=body)
 
     client = httpx2.AsyncClient(transport=httpx2.MockTransport(handle))
     with use_http_client(client):

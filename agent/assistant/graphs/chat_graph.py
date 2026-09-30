@@ -4,11 +4,13 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from assistant.agents import AgentConfig
-from assistant.agents.chat import ChatAgent
+from assistant.agents.chat import ChatAgent, ChatRouterAgent
 from assistant.agents.deps import ChatContext
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.checkpointer import checkpointer
+from assistant.graphs.knowledge_graph import build_knowledge_graph
 from assistant.graphs.states import ChatState
+from assistant.outputs.chat import ConsultKnowledgeBase
 from assistant.tracing.nodes import Node
 
 
@@ -21,38 +23,70 @@ def _context_of(state: ChatState) -> ChatContext:
 class ChatGraph(BaseGraph):
     """The rep-facing surface. Nothing here reaches a customer.
 
-    One node today. It exists as a graph rather than a bare agent call because
-    routing, planning, and retrieval land here next, and the streaming and
-    checkpointing they need are already wired.
+    It routes before it answers, and reaches for the knowledge base rather
+    than recalling policy. That retrieval is the same compiled subgraph triage
+    uses, which is what a subgraph is for: two parents, one loop.
     """
 
     name = "chat"
 
     def __init__(self, config: AgentConfig | None = None) -> None:
         super().__init__(config)
+        self.router = ChatRouterAgent(self.config)
         self.chat = ChatAgent(self.config)
+
+    async def route(self, state: ChatState) -> ChatState:
+        context = _context_of(state)
+        decision = await self.router.run(context.render(state["question"]), context)
+
+        update: ChatState = {"route": decision}
+        if isinstance(decision, ConsultKnowledgeBase):
+            # Hand the subgraph what to search for, as triage does.
+            update["kb_query"] = decision.query
+        return update
 
     async def answer(self, state: ChatState) -> ChatState:
         context = _context_of(state)
+        prompt = context.render(state["question"])
+
+        snippets = state.get("kb_snippets") or []
+        if snippets:
+            prompt += "\n\nKnowledge base articles:\n" + "\n\n".join(snippets)
+
         # LangGraph's custom stream channel: deltas leave the node as they are
         # produced rather than being returned in one block at the end.
         writer = get_stream_writer()
 
         parts: list[str] = []
-        async for delta in self.chat.stream(context.render(state["question"]), context):
+        async for delta in self.chat.stream(prompt, context):
             parts.append(delta)
             writer({"delta": delta})
 
         return {"answer": "".join(parts)}
 
+    def route_after_routing(self, state: ChatState) -> str:
+        return "knowledge" if isinstance(state["route"], ConsultKnowledgeBase) else "answer"
+
     def nodes(self) -> dict[str, Node]:
-        return {"answer": self.answer}
+        return {"route": self.route, "answer": self.answer}
 
     def build(self) -> StateGraph[ChatState, None, ChatState, ChatState]:
         graph: StateGraph[ChatState, None, ChatState, ChatState] = StateGraph(ChatState)
         self.add_nodes(graph)
-        graph.add_edge(START, "answer")
+
+        # The same subgraph triage composes. It shares only kb_query and
+        # kb_snippets with this state, so nothing has to be mapped across.
+        graph.add_node("knowledge", build_knowledge_graph(self.config))
+
+        graph.add_edge(START, "route")
+        graph.add_conditional_edges(
+            "route",
+            self.route_after_routing,
+            {"knowledge": "knowledge", "answer": "answer"},
+        )
+        graph.add_edge("knowledge", "answer")
         graph.add_edge("answer", END)
+
         return graph
 
 

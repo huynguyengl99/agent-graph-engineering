@@ -180,9 +180,12 @@ pressure.
 | Graph | Kind | Why it is its own graph |
 |---|---|---|
 | `triage` | parent | works one ticket: classify, decide, answer or escalate |
-| `chat` | parent | the rep's own thread; nothing customer-visible |
-| `knowledge` | subgraph | it *loops* - search, refine, search again, capped at `MAX_ATTEMPTS` |
+| `chat` | parent | the rep's own thread; routes, then answers |
+| `knowledge` | subgraph | it *loops*, and **both parents** compose it |
 | `delivery` | subgraph | the only route to a customer, and the only irreversible step |
+
+`knowledge` is composed by triage *and* by chat, which is what makes it a
+subgraph rather than a node - one retrieval loop, two callers, no duplication.
 
 Subgraphs are compiled and added as nodes (`graph.add_node("knowledge", build_knowledge_graph(...))`).
 They share only the keys they need with the parent state, so nothing has to be

@@ -118,10 +118,12 @@ class ScriptedModel(Model):
         if name := pick("final_result_AnswerDirectly"):
             return name, {"reasoning": "Short question, no lookup needed."}
 
-        # Any other single output type. Built from the requested schema rather
-        # than a hardcoded shape, so a new agent does not fail output
-        # validation here with a confusing "exceeded maximum retries".
-        return "final_result", self._from_schema(params)
+        # Anything else: the first declared output, built from its own schema.
+        # A union it has never seen resolves to that union's first member,
+        # deterministically, rather than failing validation with a confusing
+        # "exceeded maximum retries".
+        chosen = params.output_tools[0].name if params.output_tools else "final_result"
+        return chosen, self._from_schema(params)
 
     def _from_schema(self, params: ModelRequestParameters) -> dict[str, Any]:
         if not params.output_tools:

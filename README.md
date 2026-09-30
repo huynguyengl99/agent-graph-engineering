@@ -179,8 +179,8 @@ Four graphs, two of them composed into a parent as nodes:
 | Graph | Kind | Why |
 |---|---|---|
 | `triage` | parent | classify, decide, answer or escalate |
-| `chat` | parent | the rep's own thread with the assistant |
-| `knowledge` | subgraph | it loops: search, refine, search again, capped |
+| `chat` | parent | the rep's own thread: routes, looks things up, then answers |
+| `knowledge` | subgraph | it loops, and both parents compose it |
 | `delivery` | subgraph | the only route to a customer, and the only irreversible step |
 
 `GET /graphs/triage.mermaid` renders the graph **from the compiled object**, so

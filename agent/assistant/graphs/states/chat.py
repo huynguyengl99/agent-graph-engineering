@@ -1,6 +1,11 @@
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 from assistant.agents.deps import ChatContext
+from assistant.outputs.chat import ChatRoute
+
+
+def last_wins(_current: object, incoming: object) -> object:
+    return incoming
 
 
 class ChatState(TypedDict, total=False):
@@ -12,4 +17,10 @@ class ChatState(TypedDict, total=False):
 
     context: ChatContext
     question: str
+    route: ChatRoute
     answer: str
+
+    # Shared with the knowledge subgraph, which is how a compiled graph can be
+    # dropped in as a node here as well as in triage.
+    kb_query: str
+    kb_snippets: Annotated[list[str], last_wins]

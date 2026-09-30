@@ -94,3 +94,35 @@ def test_duplicate_scenario_names_are_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="duplicate"):
         load_scenarios(tmp_path)
+
+
+class TestFlakyDetection:
+    """A result that passed on majority but not every trial is unsettled, and
+    saying so is the difference between a suite and a coin flip."""
+
+    def test_unanimous_trials_are_not_flaky(self) -> None:
+        checks = score(
+            Expect(category="billing"),
+            [observation(category="billing"), observation(category="billing")],
+        )
+
+        assert checks["category"].unanimous is True
+
+    def test_disagreeing_trials_are_flaky_even_when_they_pass(self) -> None:
+        checks = score(
+            Expect(category="billing"),
+            [
+                observation(category="billing"),
+                observation(category="billing"),
+                observation(category="general"),
+            ],
+        )
+
+        assert checks["category"].passed is True, "majority still carries it"
+        assert checks["category"].unanimous is False, "but it is not settled"
+
+    def test_a_single_trial_can_never_look_flaky(self) -> None:
+        """Which is exactly why trials=1 is for iterating, not for deciding."""
+        checks = score(Expect(category="billing"), [observation(category="billing")])
+
+        assert checks["category"].unanimous is True

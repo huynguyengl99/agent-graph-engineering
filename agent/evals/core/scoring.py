@@ -18,6 +18,10 @@ class Check(BaseModel):
     actual: list[Any]
     passed: bool
 
+    @property
+    def unanimous(self) -> bool:
+        return len(set(map(repr, self.actual))) <= 1
+
 
 def _majority(matches: list[bool]) -> bool:
     return sum(matches) > len(matches) / 2

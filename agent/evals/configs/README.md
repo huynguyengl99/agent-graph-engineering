@@ -18,3 +18,15 @@ separately.
 **The judge is the same model in every config on purpose.** Changing it
 changes the scores, so a run judged differently is not comparable to the
 others - and judging Anthropic with Anthropic is not a comparison at all.
+
+## Trials
+
+`trials: 1` is the default: fast and cheap for iterating, but a single bad
+sample fails a scenario and nothing can be reported as flaky. Three trials
+cost about 3x (measured: $0.019 -> $0.055 on the openai set) and let scoring
+report a scenario that passed on majority without being unanimous.
+
+```
+just evals --trials 3              # settle a result before trusting it
+just evals routing --trials 3      # or just the one that keeps moving
+```

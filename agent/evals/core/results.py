@@ -26,6 +26,10 @@ class ScenarioResult(BaseModel):
     scenario: str
     trials: int
     pass_rate: float
+    # True when the trials disagreed: it passed on majority, but not every
+    # time. Invisible at trials=1, which is why that is not the default to
+    # trust a decision on.
+    flaky: bool = False
     deterministic: dict[str, Check] = {}
     judged: Verdict | None = None
     passed: bool
@@ -41,6 +45,7 @@ class RunSummary(BaseModel):
     total: int
     passed: int
     failed: int
+    flaky: int = 0
     usage: Usage
     results: list[ScenarioResult]
 

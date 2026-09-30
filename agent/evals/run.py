@@ -3,6 +3,7 @@
     uv run python -m evals.run                      # every scenario
     uv run python -m evals.run routing              # names matching "routing"
     uv run python -m evals.run --config claude      # a different model set
+    uv run python -m evals.run --trials 3           # settle a flaky result
 
 Configs are `evals/configs/<name>.json`; the run is labelled by the model that
 actually answered, so two providers land in separate result files and
@@ -73,10 +74,12 @@ async def run_scenario(
     passed = bool(
         not errors and deterministic_passed and (verdict is None or verdict.passed)
     )
+    flaky = passed and any(not check.unanimous for check in checks.values())
     return ScenarioResult(
         scenario=scenario.name,
         trials=config.trials,
         pass_rate=1.0 if passed else 0.0,
+        flaky=flaky,
         deterministic=checks,
         judged=verdict,
         passed=passed,
@@ -85,8 +88,14 @@ async def run_scenario(
     )
 
 
-async def main(pattern: str | None = None, config_name: str | None = None) -> int:
+async def main(
+    pattern: str | None = None,
+    config_name: str | None = None,
+    trials: int | None = None,
+) -> int:
     config = EvalConfig.load(config_name)
+    if trials is not None:
+        config = config.model_copy(update={"trials": trials})
     scenarios = load_scenarios(SCENARIOS_DIR)
     if pattern:
         scenarios = [s for s in scenarios if pattern in s.name]
@@ -118,6 +127,7 @@ async def main(pattern: str | None = None, config_name: str | None = None) -> in
         total=len(results),
         passed=sum(r.passed for r in results),
         failed=sum(not r.passed for r in results),
+        flaky=sum(r.flaky for r in results),
         usage=total_usage,
         results=results,
     )
@@ -129,8 +139,8 @@ async def main(pattern: str | None = None, config_name: str | None = None) -> in
 
 def _report(summary: RunSummary, run_dir: Path) -> None:
     for r in summary.results:
-        mark = "PASS" if r.passed else "FAIL"
-        print(f"  {mark}  {r.scenario}")
+        mark = "FLAKY" if r.flaky else ("PASS" if r.passed else "FAIL")
+        print(f"  {mark:5} {r.scenario}")
         if not r.passed:
             for name, check in r.deterministic.items():
                 if not check.passed:
@@ -151,6 +161,14 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
         f"{summary.usage.input_tokens + summary.usage.output_tokens} tokens, {cost})"
     )
 
+    if summary.flaky:
+        print(
+            f"{summary.flaky} scenario(s) passed on majority but not every "
+            "trial - treat those as unsettled."
+        )
+    elif summary.trials == 1:
+        print("trials=1, so a single bad sample fails a scenario. --trials 3 to settle one.")
+
     skipped = [r.scenario for r in summary.results if r.judged and not r.judged.judged]
     if skipped:
         print(
@@ -160,17 +178,21 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
     print(f"written to {run_dir}")
 
 
-def _parse(argv: list[str]) -> tuple[str | None, str | None]:
-    pattern: str | None = None
-    config: str | None = None
+def _parse(argv: list[str]) -> tuple[str | None, str | None, int | None]:
     rest = list(argv)
-    if "--config" in rest:
-        index = rest.index("--config")
-        config = rest[index + 1] if index + 1 < len(rest) else None
+
+    def take(flag: str) -> str | None:
+        if flag not in rest:
+            return None
+        index = rest.index(flag)
+        value = rest[index + 1] if index + 1 < len(rest) else None
         del rest[index : index + 2]
-    if rest:
-        pattern = rest[0]
-    return pattern, config
+        return value
+
+    config = take("--config")
+    trials = take("--trials")
+    pattern = rest[0] if rest else None
+    return pattern, config, int(trials) if trials else None
 
 
 if __name__ == "__main__":

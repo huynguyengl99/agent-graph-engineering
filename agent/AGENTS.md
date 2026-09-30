@@ -133,9 +133,11 @@ parsing takes a different path and that bug does not reproduce.
 Two axes, kept apart on purpose:
 
 - **Which purpose a step runs under is system config.** A step names a
-  `ModelPurpose` (`decision`, `answer`, `vision`), never a model, so no config
-  can route classification onto the vision model or send the cheap one to
-  write customer prose.
+  `ModelPurpose` (`decision`, `answer`), never a model, so no config can send
+  the cheap model off to write customer prose. A purpose exists once something
+  runs under it: `vision` was declared, priced and offered as a user
+  preference for a while without a single caller, and has been removed until
+  an attachment graph needs it.
 - **Which model fills a purpose is user config.** A `ModelPreference` row per
   user per purpose travels the wire as optional overrides and resolves
   user -> deployment default.

@@ -11,7 +11,6 @@ class ModelPurpose(models.TextChoices):
 
     DECISION = "decision", "Decision"
     ANSWER = "answer", "Answer"
-    VISION = "vision", "Vision"
 
 
 class ModelPreference(models.Model):

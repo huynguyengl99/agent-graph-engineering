@@ -16,7 +16,6 @@ class ModelOverrides(BaseModel):
 
     decision: str | None = None
     answer: str | None = None
-    vision: str | None = None
 
 
 class TriageRequestPayload(BaseModel):

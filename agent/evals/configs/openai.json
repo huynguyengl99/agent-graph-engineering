@@ -7,10 +7,6 @@
     "answer": {
       "provider": "openai",
       "name": "gpt-4o"
-    },
-    "vision": {
-      "provider": "openai",
-      "name": "gpt-4o"
     }
   },
   "judge": {

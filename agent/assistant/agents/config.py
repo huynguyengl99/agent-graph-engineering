@@ -17,9 +17,15 @@ from pydantic import BaseModel, Field
 
 
 class ModelPurpose(StrEnum):
+    """A purpose exists once something runs under it.
+
+    There was a `vision` member here for a while with no caller: configurable,
+    priced, and offered to users as a preference that changed nothing. Add it
+    back in the same breath as the graph that reads an attachment.
+    """
+
     DECISION = "decision"  # classification and routing: cheap and fast
     ANSWER = "answer"  # customer-facing prose: the strong model
-    VISION = "vision"  # screenshots and attachments
 
 
 Effort = Literal["low", "medium", "high", "xhigh", "max"]

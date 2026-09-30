@@ -21,6 +21,8 @@ async def send_reply_to_customer(ticket_id: str, body: str) -> str:
             "send_reply_to_customer called with an empty body.",
             user_message="There is nothing to send.",
         )
-    # A real deployment posts to the helpdesk here. The approval gate in
-    # `wrap_tool` is what matters at this stage of the series.
+    # The receipt is the whole job. This service owns no helpdesk data, so
+    # "sent" means the backend has been told: it persists an AIResponseEvent
+    # and fans it out, and that event is what the customer sees. Emailing
+    # them is the backend's business, not the agent's.
     return f"Reply queued for ticket {ticket_id} ({len(body)} chars)."

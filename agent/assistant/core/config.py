@@ -23,7 +23,6 @@ class Settings:
     # own choice overrides these one slot at a time.
     decision_model: str = env.str("ASSISTANT_DECISION_MODEL", "openai:gpt-4o-mini")
     answer_model: str = env.str("ASSISTANT_ANSWER_MODEL", "openai:gpt-4o")
-    vision_model: str = env.str("ASSISTANT_VISION_MODEL", "openai:gpt-4o")
 
     redis_url: str = env.str("REDIS_URL", "")
     # Where paused runs live. Unset falls back to memory, which loses every
@@ -60,7 +59,6 @@ def default_models() -> "dict[ModelPurpose, ModelConfig]":
     return {
         ModelPurpose.DECISION: parse(settings.decision_model),
         ModelPurpose.ANSWER: parse(settings.answer_model),
-        ModelPurpose.VISION: parse(settings.vision_model),
     }
 
 

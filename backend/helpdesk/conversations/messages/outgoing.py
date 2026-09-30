@@ -3,12 +3,13 @@ from typing import Any, Literal
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
 
+from helpdesk.conversations.messages.message import ChatMessage
+
 
 class ChatMessagePayload(BaseModel):
-    id: str
-    role: Literal["user", "assistant"]
-    content: str
-    created_at: str
+    """The same `ChatMessage` the REST endpoint returns, not a copy of it."""
+
+    message: ChatMessage
 
 
 class ChatMessageMessage(BaseMessage):
@@ -33,12 +34,14 @@ class TokenMessage(BaseMessage):
 
 
 class AssistantDonePayload(BaseModel):
-    message_id: str
-    content: str
+    """Carries the persisted row, so the client replaces its streaming text
+    with the same object a reload would have fetched."""
+
+    message: ChatMessage
 
 
 class AssistantDoneMessage(BaseMessage):
-    """Streaming finished; carries the final persisted text."""
+    """Streaming finished; carries the persisted turn."""
 
     action: Literal["assistant_done"] = "assistant_done"
     payload: AssistantDonePayload

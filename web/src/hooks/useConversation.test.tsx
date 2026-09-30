@@ -61,6 +61,38 @@ async function park() {
   );
 }
 
+describe('useConversation', () => {
+  it('takes a persisted turn as it arrives, without rebuilding it', async () => {
+    const seen: unknown[] = [];
+    const { result } = renderHook(() =>
+      useConversation({
+        conversationId: CONVERSATION,
+        onMessage: (m) => seen.push(m),
+      }),
+    );
+    await act(async () => FakeSocket.last.acceptAndSubscribe());
+
+    const message = {
+      id: 'm-1',
+      role: 'assistant',
+      content: 'Here you go.',
+      createdAt: '2026-09-30T10:00:00Z',
+    };
+    await act(async () =>
+      FakeSocket.last.receive({
+        topic: TOPIC,
+        action: 'assistant_done',
+        payload: { message },
+      }),
+    );
+
+    // Including createdAt: the client used to invent one here, so a persisted
+    // turn and the same turn after a reload had different timestamps.
+    expect(seen).toEqual([message]);
+    expect(result.current.streaming).toBe('');
+  });
+});
+
 describe('useConversation at the tool gate', () => {
   it('holds the proposal, because nothing else is coming until it is answered', async () => {
     const { result } = mount();

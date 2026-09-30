@@ -132,3 +132,41 @@ class TestConversationApi(AuthAPITestCase):
 
         assert response.status_code == 200
         assert response.json()["count"] == 1
+
+
+class TestOneMessageShape(AuthAPITestCase):
+    """A message reaches the browser two ways. They have to agree.
+
+    They did not: the REST endpoint returned `{id, role, content, createdAt}`,
+    the realtime feed declared its own copy of that, and `assistant_done`
+    declared a third shape, so the client synthesized a timestamp for a row the
+    database had already stamped. A field added to one would have been missing
+    from the others with nothing failing.
+    """
+
+    def test_the_wire_model_and_the_serializer_carry_the_same_fields(self) -> None:
+        from helpdesk.conversations.messages import ChatMessage
+        from helpdesk.conversations.serializers import MessageSerializer
+
+        assert set(ChatMessage.model_fields) == set(MessageSerializer().fields)
+
+    def test_the_realtime_payload_is_the_rest_representation(self) -> None:
+        from helpdesk.conversations.serializers import serialize_message
+
+        conversation = ConversationFactory.create(owner=self.user)
+        message = Message.objects.create(
+            conversation=conversation, role="user", content="hello"
+        )
+
+        response = self.auth_client.get(
+            f"/api/conversations/{conversation.id}/messages/"
+        )
+        rest = response.json()["results"][0]
+        # Both sides camelize at render time, so compare the rendered keys.
+        wire = serialize_message(message).model_dump()
+
+        assert response.status_code == 200
+        assert {"id", "role", "content"} <= set(rest)
+        assert rest["content"] == wire["content"]
+        assert rest["id"] == wire["id"]
+        assert rest["createdAt"] == wire["created_at"]

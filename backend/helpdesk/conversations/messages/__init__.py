@@ -6,6 +6,7 @@ from .incoming import (
     ToolDecisionMessage,
     ToolDecisionPayload,
 )
+from .message import ChatMessage
 from .outgoing import (
     AssistantDoneMessage,
     AssistantDonePayload,
@@ -21,6 +22,7 @@ from .outgoing import (
 
 __all__ = [
     "AskMessage",
+    "ChatMessage",
     "AskPayload",
     "AssistantDoneMessage",
     "AssistantDonePayload",

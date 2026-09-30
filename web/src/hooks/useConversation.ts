@@ -47,25 +47,14 @@ export function useConversation({
     hub.topics.conversationTopic.with({ conversation_id: conversationId }),
     {
       on: {
-        chat_message: (frame) =>
-          handleMessage({
-            id: frame.payload.id,
-            role: frame.payload.role,
-            content: frame.payload.content,
-            createdAt: frame.payload.createdAt,
-          }),
+        chat_message: (frame) => handleMessage(frame.payload.message),
         token: (frame) => setStreaming((text) => text + frame.payload.delta),
         tool_approval: (frame) => {
           setStreaming('');
           setPendingTool(frame.payload);
         },
-        assistant_done: (frame) =>
-          handleMessage({
-            id: frame.payload.messageId,
-            role: 'assistant',
-            content: frame.payload.content,
-            createdAt: new Date().toISOString(),
-          }),
+        // The persisted row, so this is the same object a reload would fetch.
+        assistant_done: (frame) => handleMessage(frame.payload.message),
         chat_error: (frame) => {
           setStreaming('');
           handleMessage({

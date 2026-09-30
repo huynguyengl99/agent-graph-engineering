@@ -35,6 +35,7 @@ from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.conversations.messages import (
     AssistantDoneMessage,
     AssistantDonePayload,
+    ChatMessage,
     ChatMessageMessage,
     ChatMessagePayload,
     TokenMessage,
@@ -53,6 +54,7 @@ from helpdesk.conversations.messages import (
     ToolApprovalPayload as FEToolApprovalPayload,
 )
 from helpdesk.conversations.models import Conversation, Message, MessageRole
+from helpdesk.conversations.serializers import serialize_message
 from helpdesk.conversations.topics.conversation_topic import ConversationTopic
 
 logger = structlog.get_logger(__name__)
@@ -147,17 +149,19 @@ class ConversationChatClient(ChatClient):
         )
         await broadcast(
             self.group,
-            AssistantDoneMessage(
-                payload=AssistantDonePayload(
-                    message_id=str(message.id), content=content
-                )
-            ),
+            AssistantDoneMessage(payload=AssistantDonePayload(message=message)),
         )
 
     @database_sync_to_async
-    def _create_message(self, conversation_id: str, role: str, content: str) -> Message:
-        return Message.objects.create(
-            conversation_id=conversation_id, role=role, content=content
+    def _create_message(
+        self, conversation_id: str, role: str, content: str
+    ) -> ChatMessage:
+        """Returns the wire shape, not the model: the payload carries the same
+        representation the REST endpoint would return for this row."""
+        return serialize_message(
+            Message.objects.create(
+                conversation_id=conversation_id, role=role, content=content
+            )
         )
 
 
@@ -200,14 +204,7 @@ async def ask(conversation_id: str, question: str, user_id: Any = None) -> None:
         message = await _create_user_message(conversation_id, question)
         await broadcast(
             conversation_topic(conversation_id),
-            ChatMessageMessage(
-                payload=ChatMessagePayload(
-                    id=str(message.id),
-                    role="user",
-                    content=question,
-                    created_at=message.created_at.isoformat(),
-                )
-            ),
+            ChatMessageMessage(payload=ChatMessagePayload(message=message)),
         )
 
         request = await conversation_request(
@@ -225,9 +222,11 @@ async def ask(conversation_id: str, question: str, user_id: Any = None) -> None:
 
 
 @database_sync_to_async
-def _create_user_message(conversation_id: str, content: str) -> Message:
-    return Message.objects.create(
-        conversation_id=conversation_id, role=MessageRole.USER, content=content
+def _create_user_message(conversation_id: str, content: str) -> ChatMessage:
+    return serialize_message(
+        Message.objects.create(
+            conversation_id=conversation_id, role=MessageRole.USER, content=content
+        )
     )
 
 

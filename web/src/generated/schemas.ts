@@ -63,15 +63,15 @@ export interface AssignmentEvent {
   newAssignee?: EventUser | null;
 }
 
-/** Streaming finished; carries the final persisted text. */
+/** Streaming finished; carries the persisted turn. */
 export interface AssistantDoneMessage {
   action: 'assistant_done';
   payload: AssistantDonePayload;
 }
 
+/** Carries the persisted row, so the client replaces its streaming text with the same object a reload would have fetched. */
 export interface AssistantDonePayload {
-  messageId: string;
-  content: string;
+  message: ChatMessage;
 }
 
 export interface ChatErrorMessage {
@@ -83,17 +83,23 @@ export interface ChatErrorPayload {
   detail: string;
 }
 
+/** A persisted turn. The same shape the REST endpoint returns. */
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
 /** A persisted turn, echoed to every tab on this conversation. */
 export interface ChatMessageMessage {
   action: 'chat_message';
   payload: ChatMessagePayload;
 }
 
+/** The same `ChatMessage` the REST endpoint returns, not a copy of it. */
 export interface ChatMessagePayload {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt: string;
+  message: ChatMessage;
 }
 
 export interface CommentEvent {

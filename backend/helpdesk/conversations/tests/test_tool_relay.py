@@ -11,6 +11,8 @@ from typing import Any
 from unittest.mock import patch
 
 from helpdesk.agent_client.chat.messages import (
+    ChatCompleteMessage,
+    ChatCompletePayload,
     ChatRequestPayload,
     ToolApprovalMessage,
     ToolApprovalPayload,
@@ -143,3 +145,61 @@ class TestRelayingTheProposal(WebsocketTestCase):
 
         assert isinstance(sent[0], ToolDecisionMessage)
         assert sent[0].payload.arguments == {"amount": 9.0}
+
+
+class TestPersistingTheAnswer(WebsocketTestCase):
+    """The relay's other half: the finished answer becomes a row and a frame.
+
+    Nothing covered this, so a payload built from the Django model rather than
+    the wire shape got through every backend test and only failed in a browser -
+    the answer streamed, the validation blew up on the persist, and the pane sat
+    there with no finished turn.
+    """
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.conversation = ConversationFactory.create(owner=self.user)
+        self.topic = f"conversation:{self.conversation.id}"
+
+    async def _finish(self, content: str) -> list[dict[str, Any]]:
+        await self.subscribe_ready(self.topic)
+
+        client = ConversationChatClient(
+            str(self.conversation.id),
+            ChatRequestPayload(
+                conversation_id=str(self.conversation.id), question="Anything?"
+            ),
+        )
+        await client.handle_message(
+            ChatCompleteMessage(
+                payload=ChatCompletePayload(
+                    conversation_id=str(self.conversation.id), content=content
+                )
+            )
+        )
+        return await self.auth_communicator.receive_all_json()
+
+    async def test_the_answer_is_persisted_and_broadcast_as_one_row(self) -> None:
+        messages = await self._finish("Proration explains the second charge.")
+
+        done = next(m for m in messages if m["action"] == "assistant_done")
+        row = await Message.objects.aget(conversation=self.conversation)
+
+        assert done["payload"]["message"]["id"] == str(row.id)
+        assert done["payload"]["message"]["role"] == "assistant"
+        assert done["payload"]["message"]["content"] == row.content
+
+    async def test_the_broadcast_carries_the_stored_timestamp(self) -> None:
+        """The client used to invent one, so a turn and the same turn after a
+        reload disagreed."""
+        messages = await self._finish("Anything.")
+
+        done = next(m for m in messages if m["action"] == "assistant_done")
+        row = await Message.objects.aget(conversation=self.conversation)
+
+        assert done["payload"]["message"]["createdAt"].startswith(
+            row.created_at.isoformat()[:19]
+        )

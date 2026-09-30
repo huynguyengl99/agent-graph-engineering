@@ -94,16 +94,25 @@ the same, only the reasoning is canned. Set a real key to get real answers.
 ### Setup
 
 ```bash
-cp .env.example .env
-# edit .env and set OPENAI_API_KEY
-
-just setup           # install deps, start Docker, migrate, generate clients
+just setup           # .env, deps, Docker, migrations, generated clients
 just createsuperuser
 ```
 
+`just setup` writes `.env` from `.env.example` if you have none, and waits for
+Postgres to accept connections before migrating. Set `OPENAI_API_KEY` in `.env`
+when you want real answers.
+
 ### Run
 
-Three terminals:
+```bash
+just up          # all three, in the background, waiting until each answers
+just status      # which are up
+just logs a      # follow one of them (b backend, a agent, w web)
+just down        # stop them and free the ports
+```
+
+Or one per terminal, when you are working on that service and want its output
+in front of you:
 
 ```bash
 just backend     # http://localhost:8000
@@ -122,17 +131,30 @@ Backend endpoints:
 
 ```bash
 just gen               # everything
-just gen-frontend      # OpenAPI + AsyncAPI to TypeScript (needs backend running)
-just gen-agent-client  # agent AsyncAPI to Python client (needs agent running)
+just gen-frontend      # OpenAPI + AsyncAPI to TypeScript
+just gen-agent-client  # agent AsyncAPI to Python client
 ```
+
+Each generator reads a live schema, so it starts the service it reads from if
+that service is not already up.
 
 ## Testing
 
 ```bash
 just test    # backend, agent, and web suites
-just check   # mypy + ruff + django check + frontend typecheck and lint
-just lint    # lint all workspaces
+just check   # every project's checks in parallel
+just fix     # the same set, writing the fixes it can
 ```
+
+`just check` runs twelve checks at once and prints a summary, then the output of
+only the ones that failed - a change that breaks two projects should not take
+two runs to find. `just check ba` narrows it to the backend and the agent, and
+`just check -e w` excludes the web app.
+
+Python is checked twice, by mypy and by pyright, because they disagree
+usefully: mypy understands Django through django-stubs, and pyright caught a
+non-exhaustive `match` and a dead function that mypy passed over. Each one's
+config turns off the rules that report the framework rather than this code.
 
 Agent tests mock the LLM at the HTTP layer rather than stubbing Pydantic AI, so the real pipeline runs: SSE parsing, tool call assembly, streaming, and validation. Web tests swap only the socket, through chanx-js's `socketFactory`, so the client's framing and routing run for real. Evals against real models live separately and never run in CI, because they cost money.
 

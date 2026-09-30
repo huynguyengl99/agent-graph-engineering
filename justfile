@@ -11,10 +11,11 @@ install:
     uv sync
     cd web && pnpm install
 
-# Start Docker infrastructure (PostgreSQL + Redis)
+# Start Docker infrastructure (PostgreSQL + Redis), waiting until it accepts
 infra-up:
     @echo "🚀 Starting infrastructure..."
     docker compose up -d
+    @bash scripts/wait-for-infra.sh
 
 # Stop Docker infrastructure
 infra-down:
@@ -66,8 +67,7 @@ frontend:
     @echo "💻 Starting frontend..."
     cd web && pnpm dev
 
-# Start every service in the background, waiting until each one answers
-# (scripts/dev.sh --help; `just up a w` for a subset)
+# Start every service in the background, waiting until each answers (`just up a w` for a subset)
 up *ARGS:
     @bash scripts/dev.sh up {{ARGS}}
 
@@ -83,12 +83,14 @@ status:
 logs *ARGS:
     @bash scripts/dev.sh logs {{ARGS}}
 
-# Run backend tests
+# Run the backend, agent and web test suites
 test:
     @echo "🧪 Running backend tests..."
     cd backend && uv run pytest
     @echo "🧪 Running agent tests..."
     cd agent && uv run pytest
+    @echo "🧪 Running web tests..."
+    cd web && pnpm test
     @echo "🧪 Running web tests..."
     cd web && pnpm test
 
@@ -106,8 +108,7 @@ e2e-seed:
     @echo "🌱 Seeding e2e fixtures..."
     cd backend && uv run python manage.py seed_e2e
 
-# End-to-end smoke: real services, real models, real browser. Needs all three
-# running, writes to the dev database, and spends tokens.
+# End-to-end smoke: real services, real models, real browser (spends tokens)
 e2e: e2e-seed
     @echo "🌐 Running the end-to-end smoke..."
     @bash scripts/dev.sh up
@@ -123,10 +124,11 @@ typecheck-backend:
     @echo "🔍 Type checking backend with mypy..."
     cd backend && uv run mypy .
 
-# Type check backend (pyright)
+# Type check with pyright (the second opinion; mypy is the first)
 typecheck-pyright:
-    @echo "🔍 Type checking backend with pyright..."
-    cd backend && pyright
+    @echo "🔍 Type checking with pyright..."
+    cd backend && uv run pyright
+    cd agent && uv run pyright
 
 # Lint backend (ruff)
 lint-backend:
@@ -167,8 +169,7 @@ check-schema:
     @echo "🔍 Validating OpenAPI schema..."
     cd backend && uv run python manage.py spectacular --validate --fail-on-warn > /dev/null
 
-# Run every project's checks in parallel, reporting all failures at once
-# (scripts/check.sh --help for picking projects; --fix to write fixes)
+# Every project's checks in parallel, reporting all failures at once (`just check ba`, `-e w`)
 check *ARGS:
     @bash scripts/check.sh {{ARGS}}
 
@@ -199,15 +200,24 @@ pre-commit:
     @echo "🪝 Running pre-commit..."
     cd backend && uv run pre-commit run --all-files
 
-# Full setup (install + infra + migrate + gen)
-setup: install infra-up migrate gen
-    @echo "✅ Setup complete!"
+# Everything a fresh clone needs: .env, dependencies, infrastructure, schema, clients
+setup: env install infra-up migrate gen
     @echo ""
-    @echo "Next steps:"
-    @echo "  1. Create superuser: just createsuperuser"
-    @echo "  2. Start backend:    just backend"
-    @echo "  3. Start agent:      just agent"
-    @echo "  4. Start frontend:   just frontend"
+    @echo "✅ Setup complete. Next:"
+    @echo "     just createsuperuser   # someone to log in as"
+    @echo "     just up                # all three services"
+    @echo ""
+    @echo "   The agent runs on a scripted model until OPENAI_API_KEY is set in .env."
+
+# Create .env from the example, if it is not there yet
+env:
+    #!/usr/bin/env bash
+    if [ -f .env ]; then
+      echo "🔑 .env already exists, leaving it alone"
+    else
+      cp .env.example .env
+      echo "🔑 wrote .env from .env.example"
+    fi
 
 # Development workflow: start all services
 dev:

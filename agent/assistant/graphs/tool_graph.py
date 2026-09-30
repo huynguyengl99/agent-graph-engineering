@@ -19,6 +19,7 @@ from assistant.tools.core import (
     render_tool_list,
     split_arguments,
 )
+from assistant.tools.core.ledger import execution_key, ledger
 from assistant.tracing.nodes import Node
 
 
@@ -128,14 +129,46 @@ class ToolGraph(BaseGraph):
 
         if meta.requires_approval:
             arguments["approved"] = True
+            return await self._execute_once(state, arguments)
+        return await self._call(state, arguments)
 
+    async def _execute_once(
+        self, state: ToolState, arguments: dict[str, Any]
+    ) -> ToolState:
+        """At-most-once for a tool that cannot be undone.
+
+        A crash inside this node re-runs it on resume, so without the ledger an
+        interrupted refund refunds twice.
+        """
+        key = execution_key(state["tool"])
+        if key is None:
+            return await self._call(state, arguments)
+
+        claim = await ledger().claim(key, state["tool"], arguments)
+        if claim.settled:
+            return {"result": str(claim.result)}
+        if claim.unknown:
+            return {
+                "tool_error": (
+                    f"A previous attempt to run {state['tool']} was interrupted and "
+                    "its outcome is unknown. Check before running it again."
+                )
+            }
+
+        update = await self._call(state, arguments)
+        if result := update.get("result"):
+            await ledger().settle(key, result)
+        else:
+            # It refused rather than acted, so the next attempt may try again.
+            await ledger().release(key)
+        return update
+
+    async def _call(self, state: ToolState, arguments: dict[str, Any]) -> ToolState:
         tool = get_tool(state["tool"])
         try:
             output = await tool(**arguments)
         except TypeError as error:
-            # A signature mismatch is a bug or a made-up argument name, not
-            # something the caller did. Reported rather than raised so the turn
-            # still answers instead of dying mid-stream.
+            # A made-up argument name or a bug, not something the caller did.
             return {"tool_error": f"{state['tool']} could not be called: {error}"}
         if not output.ok:
             return {"tool_error": output.user_error or output.error or ""}

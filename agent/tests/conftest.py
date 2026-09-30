@@ -14,13 +14,15 @@ os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-respx")
 
 import pytest
 from assistant.graphs.checkpointer import install_checkpointer, memory_checkpointer
+from assistant.tools.core.ledger import MemoryLedger, install_ledger
 
 
 @pytest.fixture(autouse=True)
 def _checkpointer() -> None:
-    """A fresh in-memory saver per test.
+    """A fresh in-memory saver and tool ledger per test.
 
     The service uses Postgres; a unit test should not need a database to prove
     that a run resumes, and a saver shared between tests leaks threads.
     """
     install_checkpointer(memory_checkpointer())
+    install_ledger(MemoryLedger())

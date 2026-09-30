@@ -15,8 +15,13 @@ from assistant.core.auth import SharedTokenMiddleware
 from assistant.core.config import settings
 from assistant.core.layers import setup_layers
 from assistant.core.logging import setup_logging
-from assistant.graphs.checkpointer import close_checkpointer, setup_checkpointer
+from assistant.graphs.checkpointer import (
+    checkpoint_pool,
+    close_checkpointer,
+    setup_checkpointer,
+)
 from assistant.graphs.registry import GRAPHS, describe, mermaid
+from assistant.tools.core.ledger import setup_ledger
 from assistant.tracing import setup_tracing, trace_store
 from assistant.ws.chat_consumer import ChatConsumer
 from assistant.ws.consumer import TriageConsumer
@@ -31,6 +36,7 @@ setup_tracing()
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Opens the pool and creates the checkpoint tables before the first socket.
     await setup_checkpointer()
+    await setup_ledger(checkpoint_pool())
     yield
     await close_checkpointer()
 

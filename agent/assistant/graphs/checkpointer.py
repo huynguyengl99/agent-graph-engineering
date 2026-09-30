@@ -71,6 +71,8 @@ async def setup_checkpointer() -> BaseCheckpointSaver[str]:
 
     _live.pool = AsyncConnectionPool(
         conninfo=settings.checkpoint_database_url,
+        # psycopg's own min_size default is 4, so a smaller max would raise.
+        min_size=min(4, settings.checkpoint_pool_size),
         max_size=settings.checkpoint_pool_size,
         open=False,
         # AsyncPostgresSaver issues DDL and expects no surrounding transaction.
@@ -89,6 +91,11 @@ async def close_checkpointer() -> None:
     if _live.pool is not None:
         await _live.pool.close()
     _live.saver, _live.pool = None, None
+
+
+def checkpoint_pool() -> AsyncConnectionPool | None:
+    """The ledger shares it: one database, one pool, same lifecycle."""
+    return _live.pool
 
 
 def checkpointer() -> BaseCheckpointSaver[str]:

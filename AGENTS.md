@@ -19,33 +19,28 @@ Public prose here follows the author's blog style:
 - No manufactured engagement hooks ("What's your take?").
 - Never add `Co-Authored-By` trailers or any AI attribution to commit messages.
 
-### Known state (2026-09-19)
+### Known state
 
-Inherited from an earlier schema-first reference project whose WebSocket layer had never run. Both sides have been rewritten against chanx 2.11.
+Counts and snapshots rot, so this says where to look rather than what the
+numbers are: `just check` runs every project's checks in parallel and `just test`
+runs the three suites. `just e2e` drives a real browser against real services and
+real models.
 
-**Working end to end:**
+Inherited from an earlier schema-first reference project whose WebSocket layer
+had never run; both sides were rewritten against current chanx.
 
-- Django backend: models, polymorphic `TicketEvent`, serializers, views, migrations, admin. `manage.py check` clean, `ruff` clean, 9 tests pass.
-- Ticket WebSocket consumer on current chanx, routing via `chanx.channels.routing`, AsyncAPI at `/api/asyncapi/docs/` and `/api/asyncapi/schema/`.
-- Agent service: FastAPI + LangGraph triage graph + Pydantic AI typed outputs, tool registry, approval interrupt. `ruff` clean, 31 tests pass. AsyncAPI at `/asyncapi.json`, rendered graph at `/graph.mermaid`.
-- Schema-first codegen: `pnpm gen:all` produces Zodios clients, TS types, and WebSocket types from the running backend.
+What is deliberately not done, so it is not mistaken for an oversight:
 
-- Frontend: ticket list, event log, live progress, approval panel. `pnpm typecheck`, `pnpm lint`, `pnpm build` all clean.
-- The full loop verified live across three processes: comment, classify, decide, park at approval, approve or reject, send, persist.
-
-**Still not done:**
-
-- Never run against a real provider. Verified end to end with `ScriptedModel`; the OpenAI path is covered only by respx mocks.
-- Backend `mypy .` still reports 23 annotation gaps in inherited code.
-- No automated browser test. The hook is covered by unit tests against a fake
-  socket, and the full stack by a scripted WebSocket client, but nothing drives
-  a real browser.
-- Checkpointing is `InMemorySaver`, so a run parked at approval is lost if the agent restarts. Swapping in a Postgres saver is the only change needed.
-- No evals yet.
+- No trace viewer in the product. `GET /traces/{run_id}` returns the tree and
+  nothing renders it.
+- No context budgeting. The whole conversation is sent, so cost grows with its
+  length.
+- Cost is measured, not capped.
+- `just e2e` is kept out of CI: it needs provider keys and spends money.
 
 ### Tools
 
-Tools live in `triage/tools/`, with the infrastructure in `triage/tools/core/`.
+Tools live in `assistant/tools/`, with the infrastructure in `assistant/tools/core/`.
 Add one with `@wrap_tool`:
 
 ```python
@@ -94,7 +89,7 @@ reaches `send_reply`. Notes that cost time to rediscover:
 
 ### Tracing
 
-OpenTelemetry, set up in `triage/tracing/`. Every graph node opens a span tagged
+OpenTelemetry, set up in `assistant/tracing/`. Every graph node opens a span tagged
 with the ticket; Pydantic AI's own spans (`instrument=True`) nest underneath.
 
 - `TraceStoreExporter` always runs so `/traces/{ticket_id}` works with no
@@ -104,7 +99,7 @@ with the ticket; Pydantic AI's own spans (`instrument=True`) nest underneath.
   that names the ticket, and only the node span carries the ticket id. The
   exporter therefore keys on **trace id** and buffers orphans until the naming
   span arrives. Keying on parent id instead silently loses every model call.
-- `setup_tracing()` is called from `triage/agents/triage_agents.py` at import,
+- `setup_tracing()` is called from `assistant/agents/` at import,
   before any `Agent` is constructed. Later and the first model call has no
   provider to report to.
 
@@ -167,9 +162,11 @@ The second one has to be stripped by hand after each regeneration until fixed.
 - The root venv needs `.python-version` = 3.13; on 3.14 langchain-core warns about pydantic v1.
 - `rest_polymorphic` defaults the discriminator to the class name (`CommentEvent`); `to_resource_type` is overridden to return `get_event_type()` (`comment`) so it matches the OpenAPI mapping.
 
-### Current chanx API (2.11.1)
+### Current chanx API (2.11.5+)
 
 Verified against the installed package and the working repos listed below.
+A generated client sends the `headers` it was given from 2.11.5 on; before that
+it accepted them and dropped them.
 
 Shared:
 
@@ -220,15 +217,19 @@ Channel layers are registered through `fast_channels.layers.register_channel_lay
 cd web && pnpm install           # Node packages (frontend)
 uv sync --all-packages --active  # Python packages (backend + agent)
 
-# Run services (see project AGENTS.md for details)
-just backend                     # Backend: http://localhost:8000
-just agent                       # Agent: http://localhost:8001
-just frontend                    # Frontend: http://localhost:5173
+# Run services
+just up                          # all three in the background, waiting for each
+just status                      # which are up
+just logs a                      # follow one (b backend, a agent, w web)
+just down                        # stop them and free the ports
+just backend                     # or one per terminal, to watch its output
 
 # Build & validate
-just check                       # All checks (mypy + ruff + django check + typecheck)
-just lint                        # Lint all workspaces
-just test                        # Run backend tests
+just check                       # every project's checks in parallel
+just check ba                    # backend and agent only (-e w excludes web)
+just fix                         # the same set, writing what it can
+just test                        # backend, agent and web suites
+just e2e                         # real browser, real models, spends tokens
 ```
 
 ## Project Navigation

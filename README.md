@@ -37,6 +37,14 @@ The backend owns users, tickets, conversations, and history. The agent service o
 
 Every browser tab holds **one** WebSocket at `/ws/`. Tickets and conversations are *topics* on it, addressed per frame, so watching four resources is one connection rather than four. Publishing needs no consumer instance: `Topic.broadcast` is a classmethod, which is what a background task driving the agent requires.
 
+## A note on the agent's boundary
+
+The agent is internal: only the backend connects to it, never a browser. The
+approval gate lives inside the graph, so anything that can open `/ws/chat` can
+propose a tool call *and* approve it - network isolation is the primary control
+and `ASSISTANT_AGENT_TOKEN` is the second. Unset means the agent accepts every
+caller, which is why a fresh clone runs without one.
+
 ## Everything is a generated contract
 
 This is the core pattern, and the reason the three services can change independently without drifting apart:
@@ -162,41 +170,26 @@ Agent tests mock the LLM at the HTTP layer rather than stubbing Pydantic AI, so 
 
 Work in progress, tracking the series as it publishes.
 
-Working end to end: post a comment in the browser and the backend persists it,
-fans it out over the ticket channel, hands the ticket to the agent over a typed
-WebSocket, and streams the classification and the routing decision back live.
-The drafted reply then parks at a human approval gate. Approve, edit, or reject
-it; only an approved reply runs the irreversible send and becomes a ticket
-event. The paused run lives in the graph's checkpointer keyed by ticket, so the
-decision can arrive on a different socket than the one that started the run.
+Working end to end, with nothing mocked in `just e2e`:
 
-Every run is traced. `GET /traces/{ticket_id}` returns the route the graph
-actually took, with each model call nested under the node that made it:
+- **Triage.** A comment in the browser is persisted, fanned out over the ticket
+  channel, handed to the agent over a typed WebSocket, and the classification
+  and routing decision stream back live.
+- **Two human gates.** A drafted reply parks before it reaches a customer; a
+  tool call parks before it runs. Both survive a reload, and both resume on a
+  different socket than the one that started the run.
+- **The rep's own thread.** Routes, consults the knowledge base, or proposes a
+  tool, streaming the answer as it is produced.
+- Postgres checkpointing, at-most-once execution for irreversible tools,
+  guardrails on both sides of the model, evals, and per-run tracing.
 
-```
-node.classify (22.2ms)
-  agent run
-    chat gpt-4o-mini
-node.decide (20.1ms) {decision: SearchKnowledgeBase}
-  agent run
-node.search_kb (0.2ms) {query: "invoice billing refund", articles: 2}
-node.respond (6.9ms) {grounded: true}
-```
-
-That is a tree, not a list of completions, and the branch not taken leaves no
-span. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to forward the same spans to Langfuse,
-Jaeger, or any OTLP collector; leave it unset and they stay in memory.
-
-Not built yet: evals, and a Postgres checkpointer (the current one is in-memory,
-so a paused run does not survive an agent restart).
-
-## License
-
-MIT
+Not built yet: a trace viewer in the product (the tree is `GET /traces/{run_id}`
+and nothing renders it), context budgeting for long conversations, and spend
+caps - cost is measured, not enforced.
 
 ## Graphs and subgraphs
 
-Four graphs, two of them composed into a parent as nodes:
+Five graphs, three of them composed into a parent as nodes:
 
 | Graph | Kind | Why |
 |---|---|---|
@@ -240,6 +233,37 @@ arguments**, or cancel - correcting £29 to £9 means £9 is what gets refunded.
 Underneath, `@wrap_tool` refuses an approval-marked tool that arrives without
 `approved=True`, so a mis-wired graph fails closed rather than spending money.
 
+Approval is not the end of the risk. LangGraph checkpoints *after* a node
+returns, so a process killed mid-refund re-runs that node on resume and refunds
+twice. A ledger keyed on the thread and the checkpoint namespace claims the call
+before it is made and records the result after, so the second attempt returns the
+first one's result. If the process dies between those two, nobody can know
+whether the money moved, so the run says exactly that and asks a person to check
+rather than guessing.
+
+## Forms generated from a schema
+
+One form engine, two sources of schema. The REST schemas are already Zod,
+generated from the OpenAPI document. A tool's arguments arrive over the
+WebSocket as JSON Schema, derived by the agent from the function's own
+signature, and `lib/zodFromJsonSchema` converts them. `AutoForm` reads either
+one for its fields, their types, which are required, their defaults and their
+validation, so a form cannot ask for something the server or the tool will
+reject.
+
+That is what makes the tool gate work for a tool nobody wrote a form for: add a
+tool to the agent and it is reviewable on its next proposal. The same engine
+renders ticket creation and the model preferences at `/settings`, from
+`TicketCreateRequest` and `ModelPreferenceRequest`.
+
+## Choosing the models
+
+Purposes are system config and the models filling them are user config, which
+is what keeps provider independence real rather than theoretical. `/settings`
+writes a preference per purpose; unset purposes fall through to the
+deployment default. `provider:name` is validated server-side, and the field
+error lands on the field.
+
 ## Guardrails
 
 Two guards with different jobs, both in `agent/assistant/guardrails/`:
@@ -262,3 +286,7 @@ It runs with **no API key**: the scripted model keeps the deterministic checks r
 ## Observability
 
 Every graph node opens a span and Pydantic AI nests its model calls underneath, so `GET /traces/{run_id}` returns the tree for one run plus what it cost. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to forward the same spans to Langfuse, Jaeger, or any OTLP collector - there is a test with a fake collector proving the request lands with its auth header intact.
+
+## License
+
+MIT

@@ -204,139 +204,161 @@ await page.fill(
   'Please refund demo@example.com £29 for the duplicate charge.',
 );
 await page.click('main button:has-text("Ask")');
-await page.waitForSelector('button:has-text("Approve and run")', {
-  timeout: 90000,
-});
-ok('the tool call parked before running');
 
-const proposal = proposals.at(-1);
-proposal?.tool === 'issue_refund'
-  ? ok(`the proposal named a real tool (${proposal.tool})`)
-  : bad(`unexpected proposal: ${JSON.stringify(proposal)}`);
-Object.keys(proposal?.argumentsSchema?.properties ?? {}).length > 0
-  ? ok('the proposal carried the schema the form is built from')
-  : bad('no argument schema arrived, so the form cannot be generated');
-console.log(`   proposed: ${JSON.stringify(proposal?.arguments)}`);
-if ((proposal?.unknownArguments ?? []).length) {
-  console.log(`   dropped:  ${proposal.unknownArguments.join(', ')}`);
-}
+// The router decides whether this needs a tool at all, and it is a model. If it
+// routes elsewhere the gate never appears, so report that and carry on: a
+// 90-second Playwright timeout here used to abort the run and lose every check
+// after it, which is a worse outcome than one honest failure.
+const parked = await page
+  .waitForSelector('button:has-text("Approve and run")', { timeout: 90000 })
+  .then(() => true)
+  .catch(() => false);
 
-// Every input on the card comes from that schema. If the form were
-// hand-written per tool, this would pass while a new tool went unreviewable.
-const fieldLabels = () =>
-  page
-    .locator('section [aria-label]')
-    .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label')));
-const labels = await fieldLabels();
-labels.some((l) => /amount/i.test(l)) && labels.some((l) => /email/i.test(l))
-  ? ok(`the form was generated from the schema (${labels.join(', ')})`)
-  : bad(`the generated form is missing fields: ${labels.join(', ')}`);
-
-// The card used to live only in this tab's React state, so a reload lost it
-// while the graph stayed parked in the agent with no way back to it.
-await page.reload();
-await page.waitForSelector('section button:has-text("Cancel")', {
-  timeout: 30000,
-});
-const recovered = await fieldLabels();
-recovered.some((l) => /amount/i.test(l))
-  ? ok('the card survived a reload, rebuilt from the persisted proposal')
-  : bad(`the reloaded card is missing its fields: ${recovered.join(', ')}`);
-
-// A planner that names an argument `customer_email` leaves the real one empty.
-// The tool would refuse the call, so the card refuses first - and the reviewer
-// fills it in, which is the entire reason a person is in this loop.
-const approve = page.locator('section button', {
-  hasText: /Approve and run|corrections/,
-});
-if (await approve.isDisabled()) {
-  // Named from the form itself, so the message says which argument the planner
-  // failed to supply rather than just that something is missing.
-  const empty = await page
-    .locator('section [aria-label]')
-    .evaluateAll((nodes) =>
-      nodes
-        .filter((n) => !(n instanceof HTMLSelectElement) && !n.value)
-        .map((n) => n.getAttribute('aria-label')),
-    );
-  ok(
-    `approval is blocked while a required field is empty (${empty.join(', ')})`,
+if (!parked) {
+  bad(
+    'the router did not propose a tool for an explicit refund request; ' +
+      'it answered from context instead, so the gate never opened',
   );
-  for (const [label, value] of [
-    ['Email', 'demo@example.com'],
-    ['Reason', 'Duplicate charge'],
-  ]) {
-    const field = page.locator(`section [aria-label="${label}"]`);
-    if ((await field.count()) && !(await field.inputValue())) {
-      await field.fill(value);
-    }
-  }
-} else {
-  ok('the proposal arrived complete, so approval is available immediately');
 }
 
-// Correct the amount before approving: the button label is the UI admitting
-// that what runs is no longer what was proposed.
-await page.fill('section input[aria-label="Amount"]', '9');
-await page.waitForSelector(
-  'section button:has-text("Run with my corrections"):not([disabled])',
-  {
-    timeout: 5000,
-  },
-);
-ok('editing an argument turns approval into a correction');
-await page.click('section button:has-text("Run with my corrections")');
+if (parked) {
+  const proposal = proposals.at(-1);
+  proposal?.tool === 'issue_refund'
+    ? ok(`the proposal named a real tool (${proposal.tool})`)
+    : bad(`unexpected proposal: ${JSON.stringify(proposal)}`);
+  Object.keys(proposal?.argumentsSchema?.properties ?? {}).length > 0
+    ? ok('the proposal carried the schema the form is built from')
+    : bad('no argument schema arrived, so the form cannot be generated');
+  console.log(`   proposed: ${JSON.stringify(proposal?.arguments)}`);
+  if ((proposal?.unknownArguments ?? []).length) {
+    console.log(`   dropped:  ${proposal.unknownArguments.join(', ')}`);
+  }
 
-const decision = decisions.at(-1);
-decision?.approved === true && Number(decision?.arguments?.amount) === 9
-  ? ok('the corrected amount is what went back to the graph')
-  : bad(`the decision dropped the correction: ${JSON.stringify(decision)}`);
+  // Every input on the card comes from that schema. If the form were
+  // hand-written per tool, this would pass while a new tool went unreviewable.
+  const fieldLabels = () =>
+    page
+      .locator('section [aria-label]')
+      .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label')));
+  const labels = await fieldLabels();
+  labels.some((l) => /amount/i.test(l)) && labels.some((l) => /email/i.test(l))
+    ? ok(`the form was generated from the schema (${labels.join(', ')})`)
+    : bad(`the generated form is missing fields: ${labels.join(', ')}`);
 
-const nextAnswer = async (seen) => {
-  // The rep's own question mentions £29, so waiting for any element whose text
-  // contains "9" matches the question and reads it as the answer.
-  await page
-    .waitForFunction(
-      ([selector, n]) => document.querySelectorAll(selector).length > n,
-      [ANSWER, seen],
-      { timeout: 90000 },
-    )
-    .catch(() => null);
-  const text = await page.locator(ANSWER).last().innerText();
-  // One line: a wrapped answer makes the failure message unreadable, and this
-  // is the only record of what the model actually said.
-  const flat = text.replace(/\s+/g, ' ').trim().toLowerCase();
-  console.log(`   answered: ${flat.slice(0, 300)}`);
-  return flat;
-};
+  // The card used to live only in this tab's React state, so a reload lost it
+  // while the graph stayed parked in the agent with no way back to it.
+  await page.reload();
+  await page.waitForSelector('section button:has-text("Cancel")', {
+    timeout: 30000,
+  });
+  const recovered = await fieldLabels();
+  recovered.some((l) => /amount/i.test(l))
+    ? ok('the card survived a reload, rebuilt from the persisted proposal')
+    : bad(`the reloaded card is missing its fields: ${recovered.join(', ')}`);
 
-// That the *tool* ran on the corrected amount is settled by the decision frame
-// above and by the agent's own tests. What is checked here is narrower and is
-// all the browser can honestly see: the answer is about the corrected refund.
-// It may well also mention the £29 charge, and explaining the difference to the
-// rep is the assistant doing its job, not a leak of the proposed amount.
-const answer = await nextAnswer(answersBefore);
-/\b9(\.00)?\b/.test(answer)
-  ? ok('the answer is about the corrected refund')
-  : bad(`the answer never mentions the corrected amount: ${answer}`);
+  // A planner that names an argument `customer_email` leaves the real one empty.
+  // The tool would refuse the call, so the card refuses first - and the reviewer
+  // fills it in, which is the entire reason a person is in this loop.
+  const approve = page.locator('section button', {
+    hasText: /Approve and run|corrections/,
+  });
+  if (await approve.isDisabled()) {
+    // Named from the form itself, so the message says which argument the planner
+    // failed to supply rather than just that something is missing.
+    const empty = await page
+      .locator('section [aria-label]')
+      .evaluateAll((nodes) =>
+        nodes
+          .filter((n) => !(n instanceof HTMLSelectElement) && !n.value)
+          .map((n) => n.getAttribute('aria-label')),
+      );
+    ok(
+      `approval is blocked while a required field is empty (${empty.join(', ')})`,
+    );
+    for (const [label, value] of [
+      ['Email', 'demo@example.com'],
+      ['Reason', 'Duplicate charge'],
+    ]) {
+      const field = page.locator(`section [aria-label="${label}"]`);
+      if ((await field.count()) && !(await field.inputValue())) {
+        await field.fill(value);
+      }
+    }
+  } else {
+    ok('the proposal arrived complete, so approval is available immediately');
+  }
 
-console.log('== tool gate: cancelling runs nothing ==');
-await page.fill(
-  'main form input[placeholder]',
-  'Actually refund demo@example.com £50 as well.',
-);
-await page.click('main button:has-text("Ask")');
-await page.waitForSelector('button:has-text("Cancel")', { timeout: 90000 });
-await page.click('button:has-text("Cancel")');
-await page.waitForSelector('button:has-text("Cancel")', {
-  state: 'detached',
-  timeout: 30000,
-});
-ok('cancelling closes the gate without running the tool');
-const afterCancel = await nextAnswer(answersBefore + 1);
-/cancel/i.test(afterCancel)
-  ? ok('the assistant says the action was cancelled')
-  : bad(`the run resumed but never mentioned the cancellation: ${afterCancel}`);
+  // Correct the amount before approving: the button label is the UI admitting
+  // that what runs is no longer what was proposed.
+  await page.fill('section input[aria-label="Amount"]', '9');
+  await page.waitForSelector(
+    'section button:has-text("Run with my corrections"):not([disabled])',
+    {
+      timeout: 5000,
+    },
+  );
+  ok('editing an argument turns approval into a correction');
+  await page.click('section button:has-text("Run with my corrections")');
+
+  const decision = decisions.at(-1);
+  decision?.approved === true && Number(decision?.arguments?.amount) === 9
+    ? ok('the corrected amount is what went back to the graph')
+    : bad(`the decision dropped the correction: ${JSON.stringify(decision)}`);
+
+  const nextAnswer = async (seen) => {
+    // The rep's own question mentions £29, so waiting for any element whose text
+    // contains "9" matches the question and reads it as the answer.
+    await page
+      .waitForFunction(
+        ([selector, n]) => document.querySelectorAll(selector).length > n,
+        [ANSWER, seen],
+        { timeout: 90000 },
+      )
+      .catch(() => null);
+    const text = await page.locator(ANSWER).last().innerText();
+    // One line: a wrapped answer makes the failure message unreadable, and this
+    // is the only record of what the model actually said.
+    const flat = text.replace(/\s+/g, ' ').trim().toLowerCase();
+    console.log(`   answered: ${flat.slice(0, 300)}`);
+    return flat;
+  };
+
+  // That the *tool* ran on the corrected amount is settled by the decision frame
+  // above and by the agent's own tests. What is checked here is narrower and is
+  // all the browser can honestly see: the answer is about the corrected refund.
+  // It may well also mention the £29 charge, and explaining the difference to the
+  // rep is the assistant doing its job, not a leak of the proposed amount.
+  const answer = await nextAnswer(answersBefore);
+  /\b9(\.00)?\b/.test(answer)
+    ? ok('the answer is about the corrected refund')
+    : bad(`the answer never mentions the corrected amount: ${answer}`);
+
+  console.log('== tool gate: cancelling runs nothing ==');
+  await page.fill(
+    'main form input[placeholder]',
+    'Actually refund demo@example.com £50 as well.',
+  );
+  await page.click('main button:has-text("Ask")');
+  await page.waitForSelector('button:has-text("Cancel")', { timeout: 90000 });
+  await page.click('button:has-text("Cancel")');
+  await page.waitForSelector('button:has-text("Cancel")', {
+    state: 'detached',
+    timeout: 30000,
+  });
+  ok('cancelling closes the gate without running the tool');
+  // Deliberately broad. A run that correctly said "has been reviewed and has not
+  // been authorized" failed a /cancel/ check, and tightening prose assertions
+  // around one model's wording is how you end up tuning the test instead of the
+  // product. That nothing *ran* is asserted above; this only catches the
+  // assistant reporting success for a call that was refused.
+  const afterCancel = await nextAnswer(answersBefore + 1);
+  /cancel|not authori[sz]|declin|rejected|not (been )?process|was not/i.test(
+    afterCancel,
+  )
+    ? ok('the assistant reports that the action did not happen')
+    : bad(`the resumed run did not report the cancellation: ${afterCancel}`);
+  ok('the tool call parked before running');
+}
 
 console.log('== settings: models and contracts ==');
 await page.click('a[href="/settings"]');
@@ -383,6 +405,46 @@ const collapsed = await page.locator('main svg').innerHTML();
 !collapsed.includes('await_approval') && collapsed.includes('delivery')
   ? ok('collapsed shows subgraphs as single nodes')
   : bad('collapse did not work');
+
+console.log('== traces, in the admin ==');
+// The run just exercised above should be on the dashboard, with the nodes it
+// took nested under the run. Visited last so there is something to look at.
+// The admin is its own auth surface: the app signs in with JWT cookies, which
+// Django's session-backed admin does not accept.
+const ADMIN = `${BASE.replace('5173', '8000')}/admin`;
+await page.goto(`${ADMIN}/login/`);
+await page.fill('input[name="username"]', EMAIL);
+await page.fill('input[name="password"]', PASSWORD);
+await page.click('input[type="submit"], button[type="submit"]');
+await page.waitForURL(/\/admin\/?$/, { timeout: 20000 });
+ok('the admin is reachable with the seeded staff account');
+
+await page.goto(`${ADMIN}/observability/trace/dashboard/`);
+const traceLinks = page.locator('ul.runs a');
+(await traceLinks.count()) > 0
+  ? ok(`${await traceLinks.count()} run(s) listed in the trace dashboard`)
+  : bad('the trace dashboard listed no runs after a full session');
+
+await traceLinks.first().click();
+await page.waitForSelector('ul.spans', { timeout: 20000 });
+const traceText = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
+/node\./.test(traceText) && /Cost \$/.test(traceText)
+  ? ok('the trace shows its nodes and what the run cost')
+  : bad(`the trace page is missing nodes or cost: ${traceText.slice(0, 200)}`);
+
+// The stylesheet has to come through the proxy, or the page is unreadable.
+const cssStatus = await page.evaluate(async () => {
+  const response = await fetch('/admin/observability/trace/static/trace.css');
+  return response.status;
+});
+cssStatus === 200
+  ? ok('the stylesheet is served through the admin proxy')
+  : bad(`the stylesheet returned ${cssStatus}`);
+
+// Prompts and ticket text are customer-written and must not reach a span.
+!/BEGIN TICKET|Thank you for reaching out/i.test(traceText)
+  ? ok('no customer prose leaked into the visible spans')
+  : bad('a span is showing customer text');
 
 console.log('== one socket for everything ==');
 const app = sockets.filter((u) => u.includes('/ws/'));

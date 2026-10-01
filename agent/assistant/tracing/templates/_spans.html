@@ -1,0 +1,23 @@
+{% macro span_tree(spans) %}
+  <ul class="spans">
+    {% for span in spans %}
+      <li>
+        <div class="row">
+          <span class="name">{{ span.name }}</span>
+          <span class="ms">{{ '%.1f' % span.duration_ms }}ms</span>
+          {% for key, value in span.signal.items() %}
+            <code class="attr">{{ key }}={{ value }}</code>
+          {% endfor %}
+          {% if span.noise %}
+            <span class="noise" hidden>
+              {% for key, value in span.noise.items() %}
+                <code class="attr">{{ key }}={{ value }}</code>
+              {% endfor %}
+            </span>
+          {% endif %}
+        </div>
+        {% if span.children %}{{ span_tree(span.children) }}{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endmacro %}

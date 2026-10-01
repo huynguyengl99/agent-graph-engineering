@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 
@@ -23,6 +24,7 @@ from assistant.graphs.checkpointer import (
 from assistant.graphs.registry import GRAPHS, describe, mermaid
 from assistant.tools.core.ledger import setup_ledger
 from assistant.tracing import setup_tracing, trace_store
+from assistant.tracing.views import STATIC_DIR, prepare, templates
 from assistant.ws.chat_consumer import ChatConsumer
 from assistant.ws.consumer import TriageConsumer
 
@@ -111,6 +113,33 @@ async def graph_diagram(name: str, xray: bool = True) -> Response:
     )
 
 
+@app.get("/traces/dashboard", response_class=HTMLResponse, tags=["Observability"])
+async def trace_dashboard(request: Request, base: str = "/traces") -> HTMLResponse:
+    """`base` is the prefix links and assets should use, because the backend
+    serves this under /admin/ rather than here."""
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {"runs": trace_store.runs(), "base": base},
+    )
+
+
+@app.get("/traces/{run_id}/html", response_class=HTMLResponse, tags=["Observability"])
+async def run_trace_html(
+    request: Request, run_id: str, base: str = "/traces"
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "trace.html",
+        {
+            "run_id": run_id,
+            "usage": trace_store.cost(run_id).as_dict(),
+            "spans": prepare(trace_store.tree(run_id)),
+            "base": base,
+        },
+    )
+
+
 @app.get("/traces", tags=["Observability"])
 async def list_traced_runs() -> dict[str, list[str]]:
     return {"runs": trace_store.runs()}
@@ -129,6 +158,8 @@ async def run_trace(run_id: str) -> dict[str, object]:
         "spans": trace_store.tree(run_id),
     }
 
+
+app.mount("/traces/static", StaticFiles(directory=str(STATIC_DIR)), name="trace-static")
 
 ws_app = Starlette(
     routes=[

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "helpdesk.core",
     "helpdesk.tickets",
     "helpdesk.conversations",
+    "helpdesk.observability",
 ]
 
 # Required for allauth
@@ -285,6 +286,12 @@ LOGGING = {
 
 # Agent service
 AGENT_WS_URL = env.str("AGENT_WS_URL", "ws://localhost:8001")
+# Same service over HTTP, for the trace endpoints. Derived so one env var moves
+# both, and overridable when they differ.
+AGENT_HTTP_URL = env.str(
+    "AGENT_HTTP_URL",
+    AGENT_WS_URL.replace("ws://", "http://").replace("wss://", "https://"),
+)
 # Shared with the agent, which rejects the handshake without it. Empty on both
 # sides means an unauthenticated agent, which only holds while nothing but this
 # service can reach it.

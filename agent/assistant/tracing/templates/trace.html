@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_spans.html" import span_tree %}
+{% block title %}Trace {{ run_id }}{% endblock %}
+{% block content %}
+  <h1>{{ run_id }}</h1>
+  <p class="lede">
+    Every graph node, with its model calls nested underneath. The branch not
+    taken leaves no span.
+  </p>
+
+  <table class="cost">
+    <tr><td>Model calls</td><td>{{ usage.calls }}</td></tr>
+    <tr><td>Input tokens</td><td>{{ usage.input_tokens }}</td></tr>
+    <tr><td>Output tokens</td><td>{{ usage.output_tokens }}</td></tr>
+    <tr><td>Cost</td><td>${{ '%.6f' % usage.cost_usd }}</td></tr>
+  </table>
+  {% if usage.unpriced_models %}
+    <p class="warn">
+      No price table for {{ usage.unpriced_models | join(', ') }}, so the cost
+      above is incomplete.
+    </p>
+  {% endif %}
+
+  {% if spans %}
+    <p class="hint">
+      Framework attributes are hidden.
+      <button type="button" data-toggle-noise>Show all</button>
+    </p>
+    {{ span_tree(spans) }}
+  {% else %}
+    <p class="empty">No spans recorded for this run.</p>
+  {% endif %}
+{% endblock %}

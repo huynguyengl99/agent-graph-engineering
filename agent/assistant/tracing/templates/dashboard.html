@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Traces</h1>
+  {% if runs %}
+    <p class="lede">{{ runs | length }} run(s), newest last.</p>
+    <ul class="runs">
+      {% for run in runs %}
+        <li><a href="{{ base }}/{{ run }}/html">{{ run }}</a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="lede">
+      Nothing traced yet. Spans are held in memory, so they start from empty
+      after a restart.
+    </p>
+  {% endif %}
+{% endblock %}

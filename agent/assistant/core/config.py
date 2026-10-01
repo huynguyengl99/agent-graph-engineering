@@ -49,6 +49,15 @@ class Settings:
 
     # Any OTLP-speaking backend: Langfuse, Jaeger, Grafana, an OTel collector.
     # Unset means traces stay in memory and are readable at /traces/{ticket_id}.
+    # Where finished spans are written. Empty keeps them in memory only, so a
+    # restart loses them.
+    trace_dir: str = env.str("ASSISTANT_TRACE_DIR", ".traces")
+    # Off by default: the dashboard is where people look, and a trace is worth
+    # having because it shows what the model was sent. Turn it on when spans
+    # leave for a collector you do not control. Never applies to the local
+    # files.
+    trace_redact_exports: bool = env.bool("ASSISTANT_TRACE_REDACT_EXPORTS", False)
+
     otlp_endpoint: str = env.str("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
     otlp_headers: dict[str, str] = env.dict("OTEL_EXPORTER_OTLP_HEADERS", {})
 

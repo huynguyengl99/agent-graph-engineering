@@ -10,15 +10,23 @@ Pydantic AI emits its own spans for every model call, so once a graph node opens
 a span the model calls nest underneath it automatically.
 """
 
+from pathlib import Path
+
 import structlog
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    SpanExporter,
+)
 from pydantic_ai import Agent
 
 from assistant.core.config import settings
-from assistant.tracing.store import TraceStoreExporter
+from assistant.tracing.files import TraceFiles
+from assistant.tracing.redact import RedactingExporter
+from assistant.tracing.store import TraceStoreExporter, trace_store
 
 logger = structlog.get_logger(__name__)
 
@@ -32,6 +40,11 @@ def setup_tracing(force: bool = False) -> None:
     provider = TracerProvider(
         resource=Resource.create({"service.name": "triage-agent"})
     )
+
+    if settings.trace_dir:
+        files = TraceFiles(Path(settings.trace_dir))
+        trace_store.use_files(files)
+        logger.info("tracing.files", directory=str(files.directory))
 
     # Simple (not batched) so a span is queryable the moment the run ends.
     provider.add_span_processor(SimpleSpanProcessor(TraceStoreExporter()))
@@ -71,12 +84,15 @@ def otlp_processor() -> BatchSpanProcessor | None:
         )
         return None
 
-    return BatchSpanProcessor(
-        OTLPSpanExporter(
-            endpoint=f"{settings.otlp_endpoint.rstrip('/')}/v1/traces",
-            headers=settings.otlp_headers,
-        )
+    exporter: SpanExporter = OTLPSpanExporter(
+        endpoint=f"{settings.otlp_endpoint.rstrip('/')}/v1/traces",
+        headers=settings.otlp_headers,
     )
+    if settings.trace_redact_exports:
+        exporter = RedactingExporter(exporter)
+        logger.info("otlp.redacting", detail="message bodies are stripped on export")
+
+    return BatchSpanProcessor(exporter)
 
 
 def tracer() -> trace.Tracer:

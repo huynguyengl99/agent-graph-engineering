@@ -15,6 +15,7 @@ os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-respx")
 import pytest
 from assistant.graphs.checkpointer import install_checkpointer, memory_checkpointer
 from assistant.tools.core.ledger import MemoryLedger, install_ledger
+from assistant.tracing import trace_store
 
 
 @pytest.fixture(autouse=True)
@@ -26,3 +27,8 @@ def _checkpointer() -> None:
     """
     install_checkpointer(memory_checkpointer())
     install_ledger(MemoryLedger())
+    # No trace files: these tests are about the in-memory ring, and a suite that
+    # writes spans into the repo leaks state between runs. The file store has
+    # its own test with its own directory.
+    trace_store.use_files(None)
+    trace_store.clear()

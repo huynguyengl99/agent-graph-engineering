@@ -56,3 +56,7 @@ media-testing/
 
 # Eval runs pile up; the committed baseline in evals/results/latest/ is enough.
 agent/evals/results/runs/
+
+# Trace files written by the agent
+.traces/
+agent/.traces/

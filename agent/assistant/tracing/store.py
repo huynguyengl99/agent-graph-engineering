@@ -1,12 +1,13 @@
-"""Keeps finished spans in memory so a run can be inspected without a vendor.
+"""Finished spans, in memory for this process and on disk for the next one.
 
 The series' complaint about observability platforms is that they hand you a flat
 list of model calls and leave you to reconstruct the flow. This collector keeps
 the parent/child structure, grouped by ticket, so `GET /traces/{ticket_id}`
 answers "what happened to this one message" directly.
 
-It is a demo aid, not a replacement for a real backend. Set an OTLP endpoint to
-send the same spans somewhere durable.
+Memory is the fast path for a run in flight; the files behind it are what make a
+trace readable after a restart. Set an OTLP endpoint to send the same spans to a
+collector as well.
 """
 
 from collections import OrderedDict, defaultdict
@@ -38,12 +39,20 @@ class SpanRecord:
 
 
 class TraceStore:
-    """A bounded, per-ticket ring of spans."""
+    """A bounded, per-run ring of spans, optionally backed by files.
 
-    def __init__(self, max_runs: int = MAX_RUNS) -> None:
+    The ring keeps the process responsive without growing; the files are the
+    durable copy, so a run from before the last restart still renders.
+    """
+
+    def __init__(self, max_runs: int = MAX_RUNS, files: Any = None) -> None:
         self._lock = Lock()
         self._by_ticket: OrderedDict[str, list[SpanRecord]] = OrderedDict()
         self._max_runs = max_runs
+        self._files = files
+
+    def use_files(self, files: Any) -> None:
+        self._files = files
 
     def add(self, ticket_id: str, record: SpanRecord) -> None:
         with self._lock:
@@ -53,13 +62,25 @@ class TraceStore:
             while len(self._by_ticket) > self._max_runs:
                 self._by_ticket.popitem(last=False)
 
+        if self._files is not None:
+            self._files.write(ticket_id, record)
+
     def runs(self) -> list[str]:
         with self._lock:
-            return list(self._by_ticket)
+            live = list(self._by_ticket)
+        if self._files is None:
+            return live
+
+        # Files first, so the order is oldest to newest across both.
+        stored = [run for run in self._files.runs() if run not in live]
+        return stored + live
 
     def spans(self, ticket_id: str) -> list[SpanRecord]:
         with self._lock:
-            return sorted(self._by_ticket.get(ticket_id, []), key=lambda s: s.start_ns)
+            held = list(self._by_ticket.get(ticket_id, []))
+        if not held and self._files is not None:
+            held = self._files.spans(ticket_id)
+        return sorted(held, key=lambda s: s.start_ns)
 
     def tree(self, ticket_id: str) -> list[dict[str, Any]]:
         """Spans nested by parent, which is the view code cannot give you."""
@@ -93,6 +114,8 @@ class TraceStore:
         return total
 
     def clear(self) -> None:
+        """Memory only. Files are data, and a test clearing its own spans has no
+        business deleting a run someone was looking at."""
         with self._lock:
             self._by_ticket.clear()
 

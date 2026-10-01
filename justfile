@@ -17,6 +17,26 @@ infra-up:
     docker compose up -d
     @bash scripts/wait-for-infra.sh
 
+# Build the three service images
+images:
+    @echo "🐳 Building images..."
+    docker build -f backend/Dockerfile -t agent-graph-backend .
+    docker build -f agent/Dockerfile -t agent-graph-agent .
+    docker build -f web/Dockerfile -t agent-graph-web .
+
+# Run the built images on top of the infrastructure (http://localhost:8080)
+app-up: images
+    @echo "🐳 Starting the containerised app..."
+    docker compose -f docker-compose.yml -f docker-compose.app.yml up -d
+    @bash scripts/wait-for-infra.sh
+    docker compose -f docker-compose.yml -f docker-compose.app.yml \
+        exec -T backend python manage.py migrate
+
+# Stop the containerised app, leaving the infrastructure alone
+app-down:
+    @echo "🐳 Stopping the containerised app..."
+    docker compose -f docker-compose.yml -f docker-compose.app.yml down
+
 # Stop Docker infrastructure
 infra-down:
     @echo "🛑 Stopping infrastructure..."

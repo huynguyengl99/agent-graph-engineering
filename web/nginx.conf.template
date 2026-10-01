@@ -1,0 +1,60 @@
+# Processed by the nginx image's envsubst at startup, which replaces the
+# ${BRACED} placeholders and leaves nginx's own $variables alone.
+#
+# The app resolves its API and socket from `location.host`, so whatever serves
+# the build has to proxy them to the backend. Same origin means no CORS and no
+# build-time base URL to get wrong per environment.
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    # A client-routed app: unknown paths are routes, not missing files.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws/ {
+        proxy_pass http://backend:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        # A socket held open for a conversation must not be closed as idle.
+        proxy_read_timeout 1h;
+    }
+
+    # The admin, including the trace viewer, on the same origin as the app.
+    location /admin/ {
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/ {
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $host;
+    }
+
+    # The agent's read-only documentation surfaces: the graph diagrams the
+    # /graphs page draws, and its AsyncAPI document. Named individually rather
+    # than proxying /agent/, which would also expose /agent/traces to anyone who
+    # can reach this server. Traces go through the admin, behind staff auth.
+    #
+    # The token is added here so the browser never holds it. The agent itself
+    # stays unreachable from outside.
+    location ~ ^/agent/(graphs|asyncapi) {
+        rewrite ^/agent/(.*)$ /$1 break;
+        proxy_pass http://agent:8001;
+        proxy_set_header Host $host;
+        proxy_set_header x-agent-token "${ASSISTANT_AGENT_TOKEN}";
+    }
+}

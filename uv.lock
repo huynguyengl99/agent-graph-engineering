@@ -20,11 +20,13 @@ source = { editable = "agent" }
 dependencies = [
     { name = "chanx", extra = ["cli", "fast-channels"] },
     { name = "environs" },
+    { name = "fast-channels", extra = ["redis"] },
     { name = "fastapi" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "openai" },
     { name = "opentelemetry-sdk" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-ai" },
     { name = "structlog" },
@@ -51,12 +53,14 @@ dev = [
 requires-dist = [
     { name = "chanx", extras = ["fast-channels", "cli"], specifier = ">=2.11.5,<3" },
     { name = "environs", specifier = ">=11.2.2" },
+    { name = "fast-channels", extras = ["redis"], specifier = ">=1.0.2" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "langgraph", specifier = ">=1.2,<2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.1,<4" },
     { name = "openai", specifier = ">=1.57.0" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'tracing'", specifier = ">=1.30,<2" },
     { name = "opentelemetry-sdk", specifier = ">=1.30,<2" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9,<4" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pydantic-ai", specifier = ">=2.52,<3" },
     { name = "structlog", specifier = ">=24.4.0" },
@@ -252,6 +256,7 @@ dependencies = [
     { name = "drf-standardized-errors" },
     { name = "environs" },
     { name = "granian" },
+    { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
     { name = "structlog" },
     { name = "whitenoise" },
@@ -294,6 +299,7 @@ requires-dist = [
     { name = "drf-standardized-errors", specifier = ">=0.15.0,<1" },
     { name = "environs", specifier = ">=14.2.0" },
     { name = "granian", specifier = ">=2.3.2" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9,<4" },
     { name = "structlog", specifier = ">=25.4.0,<26" },
     { name = "whitenoise", specifier = ">=6.9.0,<7" },
@@ -1079,6 +1085,13 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a4/ab/63f329a23508c1a885f79cc169b92dd2bc6e6bcbc3432a7fd983a900bda2/fast_channels-1.1.0.tar.gz", hash = "sha256:a1c7d8b725af5a6f1b378ed4dc418df6c3c1b23f348d3b4d5ecfae21eb5b60b2", size = 36731, upload-time = "2025-12-13T15:17:31.553Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e8/ce/cdabbf9453f2fab19519d2f1f91cc6032a573d7bc8c15fdea3d6fd1ebb83/fast_channels-1.1.0-py3-none-any.whl", hash = "sha256:a5e31074d169b6278c891304b9314c055dc90b2d5f211e6f2ebd16fb888419c9", size = 49045, upload-time = "2025-12-13T15:17:29.968Z" },
+]
+
+[package.optional-dependencies]
+redis = [
+    { name = "cryptography" },
+    { name = "msgpack" },
+    { name = "redis" },
 ]
 
 [[package]]

@@ -18,7 +18,6 @@ ALLOWED_HOSTS: list[str] = env.list("DJANGO_ALLOWED_HOSTS", [])
 
 # Application definition
 INSTALLED_APPS = [
-    "daphne",  # Must be first for ASGI
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -132,6 +131,16 @@ CORS_ALLOWED_ORIGINS = env.list(
     ["http://localhost:5173", "http://127.0.0.1:5173"],
 )
 CORS_ALLOW_CREDENTIALS = True
+
+# Browsers send `Origin` on form posts, and Django checks it against this for
+# any session-authenticated POST. Behind a reverse proxy the app's origin is not
+# the one Django sees itself on, so without this the admin login fails with a
+# bare "CSRF verification failed" - and it fails only in a browser, because curl
+# sends no Origin at all.
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    ["http://localhost:5173", "http://localhost:8000"],
+)
 
 # WebSocket Origin check. Defaults to the same origins the REST API trusts;
 # set "*" only in local development.

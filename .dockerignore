@@ -1,0 +1,25 @@
+# One ignore file at the root, because every image builds from here.
+.git
+.github
+.idea
+.claude
+.venv
+.venv*/
+**/__pycache__/
+**/*.py[cod]
+**/.mypy_cache/
+**/.ruff_cache/
+**/.pytest_cache/
+**/node_modules/
+**/dist/
+.env
+*.log
+
+# Written at run time, never baked in.
+.traces/
+agent/.traces/
+backend/helpdesk/staticfiles/
+
+# Generated clients are committed, but tests and docs are not worth shipping.
+**/tests/
+web/e2e/

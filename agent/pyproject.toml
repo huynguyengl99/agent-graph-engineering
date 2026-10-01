@@ -10,11 +10,19 @@ dependencies = [
     "pydantic-ai>=2.52,<3",
     "langgraph>=1.2,<2",
     "chanx[fast-channels,cli]>=2.11.5,<3",
+    # The Redis channel layer. `chanx[fast-channels]` brings fast-channels
+    # without its redis extra, and the import only worked because the backend's
+    # channels-redis put `redis` in the shared venv.
+    "fast-channels[redis]>=1.0.2",
     "openai>=1.57.0",
     "structlog>=24.4.0",
     "environs>=11.2.2",
     "opentelemetry-sdk>=1.30,<2",
     "langgraph-checkpoint-postgres>=3.1,<4",
+    # `[binary]` ships libpq in the wheel, so a slim runtime image needs no apt
+    # packages. It arrived transitively as bare `psycopg` and only worked
+    # because the dev venv is shared with the backend, which declares the extra.
+    "psycopg[binary]>=3.2.9,<4",
 ]
 
 [project.optional-dependencies]

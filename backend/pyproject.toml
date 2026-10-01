@@ -18,6 +18,8 @@ dependencies = [
     "django-rest-polymorphic>=0.1.10",
     "environs>=14.2.0",
     "dj-database-url>=2.3.0",
+    # The observability admin proxies the agent's trace pages over HTTP.
+    "httpx>=0.28,<1",
     "psycopg[binary]>=3.2.9,<4",
     "django-stubs-ext>=5.2.1",
     "structlog>=25.4.0,<26",

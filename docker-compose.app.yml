@@ -1,0 +1,67 @@
+# The three services as images, on top of the infrastructure in
+# docker-compose.yml. Not how you develop (no reload, no source mount); this is
+# what proves the Dockerfiles work and what a deployment is shaped like.
+#
+#   just images          # build all three
+#   just app-up          # infra + the three services
+#   just app-down
+#
+# No project name: the infrastructure compose pins container names, so a second
+# project would try to create another `triage-postgres` rather than reuse it.
+
+services:
+  backend:
+    image: agent-graph-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: helpdesk.config.settings.base
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-compose-only-not-a-secret}
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,web
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/triage_dev
+      REDIS_URL: redis://redis:6379/0
+      AGENT_WS_URL: ws://agent:8001
+      AGENT_HTTP_URL: http://agent:8001
+      ASSISTANT_AGENT_TOKEN: ${ASSISTANT_AGENT_TOKEN:-}
+      CORS_ALLOWED_ORIGINS: http://localhost:8080
+      CSRF_TRUSTED_ORIGINS: http://localhost:8080
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+    ports: ["8000:8000"]
+
+  agent:
+    image: agent-graph-agent
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    environment:
+      CHECKPOINT_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/triage_dev
+      REDIS_URL: redis://redis:6379/0
+      ASSISTANT_AGENT_TOKEN: ${ASSISTANT_AGENT_TOKEN:-}
+      ASSISTANT_TRACE_DIR: /traces
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      postgres: {condition: service_healthy}
+    volumes:
+      # Traces are data: a restart should not lose them.
+      - traces:/traces
+    # No ports: the agent is internal, and the backend is the only caller.
+
+  web:
+    image: agent-graph-web
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    environment:
+      # nginx holds the token so the browser does not, and proxies only the
+      # agent's read-only documentation paths.
+      ASSISTANT_AGENT_TOKEN: ${ASSISTANT_AGENT_TOKEN:-}
+    depends_on: [backend, agent]
+    ports: ["8080:80"]
+
+volumes:
+  traces:

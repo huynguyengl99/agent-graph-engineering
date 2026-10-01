@@ -15,8 +15,14 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const [events, setEvents] = useState<TicketEvent[]>([]);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [draft, setDraft] = useState('');
-  const [pendingApproval, setPendingApproval] = useState<string | null>(null);
-  const [findings, setFindings] = useState<string[]>([]);
+  // Seeded from the ticket, so a reload finds a draft still waiting at the gate
+  // instead of stranding a run nobody can reach.
+  const [pendingApproval, setPendingApproval] = useState<string | null>(
+    ticket.pendingReply?.draft ?? null,
+  );
+  const [findings, setFindings] = useState<string[]>(
+    ticket.pendingReply?.findings ?? [],
+  );
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 

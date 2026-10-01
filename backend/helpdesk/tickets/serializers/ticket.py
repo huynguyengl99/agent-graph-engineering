@@ -5,7 +5,17 @@ from typing import Any
 from rest_framework import serializers
 
 from helpdesk.accounts.serializers import UserSerializer
-from helpdesk.tickets.models import Ticket
+from helpdesk.tickets.models import PendingReply, Ticket
+
+
+class PendingReplySerializer(serializers.ModelSerializer[PendingReply]):
+    """The same shape the `approval_required` frame carries."""
+
+    findings = serializers.ListField(child=serializers.CharField(), read_only=True)
+
+    class Meta:
+        model = PendingReply
+        fields = ["draft", "findings", "created_at"]
 
 
 class TicketSerializer(serializers.ModelSerializer[Ticket]):
@@ -13,6 +23,7 @@ class TicketSerializer(serializers.ModelSerializer[Ticket]):
 
     created_by = UserSerializer(read_only=True)
     assigned_to = UserSerializer(read_only=True, allow_null=True)
+    pending_reply = PendingReplySerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = Ticket
@@ -24,6 +35,7 @@ class TicketSerializer(serializers.ModelSerializer[Ticket]):
             "priority",
             "created_by",
             "assigned_to",
+            "pending_reply",
             "created_at",
             "updated_at",
         ]

@@ -133,9 +133,29 @@ await page.click('main form button[type="submit"]');
   : bad('no decided stage arrived');
 await page.waitForSelector('button:has-text("Approve")', { timeout: 60000 });
 ok('the run parked at the human approval gate');
+
+// The draft lived on a relay client that is discarded when the socket closes,
+// and in this tab's React state. A reload lost a customer-facing reply.
+const draftBefore = await page.locator('section textarea').inputValue();
+await page.reload();
+await page.waitForSelector('button:has-text("Approve")', { timeout: 30000 });
+(await page.locator('section textarea').inputValue()) === draftBefore
+  ? ok('the drafted reply survived a reload')
+  : bad('the reloaded page lost the drafted reply');
+
 await page.click('button:has-text("Approve")');
 await page.waitForSelector('li:has-text("Agent (")', { timeout: 60000 });
 ok('the approved reply was persisted and broadcast back');
+
+// Approving without editing used to record an empty event: `reply_sent` carries
+// a receipt, not the text.
+const recorded = await page
+  .locator('li:has-text("Agent (")')
+  .last()
+  .innerText();
+recorded.replace(/Agent \([^)]*\)/, '').trim().length > 20
+  ? ok('the ticket recorded the reply that was sent')
+  : bad(`the ticket event is empty: ${recorded}`);
 
 console.log('== rep chat, streaming + persistence ==');
 await page.click('button:has-text("Ask the assistant")');

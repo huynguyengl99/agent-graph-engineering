@@ -225,6 +225,13 @@ export interface PendingApproval {
   createdAt: string;
 }
 
+/** The same shape the `approval_required` frame carries. */
+export interface PendingReply {
+  draft: string;
+  findings: string[];
+  createdAt: string;
+}
+
 /** * `low` - Low * `medium` - Medium * `high` - High * `urgent` - Urgent */
 export type PriorityEnum = "low" | "medium" | "high" | "urgent";
 
@@ -285,6 +292,7 @@ export interface Ticket {
   priority?: PriorityEnum;
   createdBy: User;
   assignedTo: User;
+  pendingReply: PendingReply;
   createdAt: string;
   updatedAt: string;
 }

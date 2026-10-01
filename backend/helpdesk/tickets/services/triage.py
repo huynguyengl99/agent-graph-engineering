@@ -17,7 +17,6 @@ import structlog
 from chanx.messages.base import BaseMessage
 
 from helpdesk.accounts.services.preferences import model_overrides
-from helpdesk.agent_client.connection import with_token
 from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.agent_client.triage.client import TriageClient
 from helpdesk.agent_client.triage.messages import (
@@ -33,6 +32,7 @@ from helpdesk.agent_client.triage.messages import (
     TriageRequestMessage,
     TriageRequestPayload,
 )
+from helpdesk.core.agent_connection import agent_headers
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,
@@ -46,7 +46,7 @@ from helpdesk.tickets.messages import (
     ApprovalRequiredPayload as FEApprovalRequiredPayload,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
-from helpdesk.tickets.models import AIResponseEvent
+from helpdesk.tickets.models import AIResponseEvent, PendingReply
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
@@ -87,8 +87,7 @@ class TicketTriageClient(TriageClient):
     """Runs one triage request, then disconnects."""
 
     def __init__(self, ticket_id: str, request: OutgoingPayload) -> None:
-        super().__init__(settings.AGENT_WS_URL)
-        self.url = with_token(self.url)
+        super().__init__(settings.AGENT_WS_URL, headers=agent_headers())
         self.ticket_id = ticket_id
         self.request = request
         self.group = ticket_topic(ticket_id)
@@ -136,6 +135,7 @@ class TicketTriageClient(TriageClient):
                     ),
                 )
             case ApprovalRequiredMessage(payload=payload):
+                await self._remember_draft(payload.draft, payload.findings)
                 await broadcast(
                     self.group,
                     FEApprovalRequiredMessage(
@@ -150,7 +150,7 @@ class TicketTriageClient(TriageClient):
 
             case ReplySentMessage():
                 # The reply actually went out, so it becomes a ticket event.
-                event = await self._persist_answer(self.pending_reply or "")
+                event = await self._persist_answer(await self._sent_text())
                 await broadcast(
                     self.group,
                     NewEventMessage(payload=NewEventPayload(event=event)),
@@ -179,6 +179,34 @@ class TicketTriageClient(TriageClient):
                 await self.disconnect()
             case _:
                 pass
+
+    @database_sync_to_async
+    def _remember_draft(self, draft: str, findings: list[str]) -> None:
+        PendingReply.objects.update_or_create(
+            ticket_id=self.ticket_id,
+            defaults={"draft": draft, "findings": findings},
+        )
+
+    async def _sent_text(self) -> str:
+        """The reviewer's edit if they made one, otherwise the stored draft.
+
+        `reply_sent` carries a receipt and not the text, so before the draft was
+        persisted a plain approve recorded an empty event on the ticket.
+        """
+        if self.pending_reply:
+            return self.pending_reply
+        return str(await self._stored_draft(self.ticket_id))
+
+    @staticmethod
+    @database_sync_to_async
+    def _stored_draft(ticket_id: str) -> str:
+        pending = PendingReply.objects.filter(ticket_id=ticket_id).first()
+        return str(pending.draft) if pending else ""
+
+    @staticmethod
+    @database_sync_to_async
+    def forget_draft(ticket_id: str) -> None:
+        PendingReply.objects.filter(ticket_id=ticket_id).delete()
 
     @database_sync_to_async
     def _persist_answer(self, content: str) -> WireTicketEvent:
@@ -250,6 +278,9 @@ async def submit_approval(
         )
         client.pending_reply = content
         await client.handle()
+        # Decided either way, so the card is answered. Done after the run so a
+        # failure to reach the agent leaves it recoverable.
+        await TicketTriageClient.forget_draft(ticket_id)
     except Exception:
         logger.exception("triage.approval_failed", ticket_id=ticket_id)
         await broadcast(

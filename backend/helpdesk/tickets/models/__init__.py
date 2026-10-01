@@ -7,6 +7,7 @@ from .events import (
     StatusChangeEvent,
     TicketEvent,
 )
+from .pending_reply import PendingReply
 from .ticket import Ticket, TicketPriority, TicketStatus
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "StatusChangeEvent",
     "AssignmentEvent",
     "AIResponseEvent",
+    "PendingReply",
 ]

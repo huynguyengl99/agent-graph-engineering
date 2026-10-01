@@ -156,6 +156,13 @@ const ModelPreferenceRequest = z
   .passthrough();
 const TicketStatusEnum = z.enum(["open", "in_progress", "resolved", "closed"]);
 const PriorityEnum = z.enum(["low", "medium", "high", "urgent"]);
+const PendingReply = z
+  .object({
+    draft: z.string(),
+    findings: z.array(z.string()),
+    createdAt: z.string().datetime({ offset: true }),
+  })
+  .passthrough();
 const Ticket = z
   .object({
     id: z.string().uuid(),
@@ -165,6 +172,7 @@ const Ticket = z
     priority: PriorityEnum.optional(),
     createdBy: User,
     assignedTo: User.nullable(),
+    pendingReply: PendingReply.nullable(),
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
   })
@@ -306,6 +314,7 @@ export const schemas = {
   ModelPreferenceRequest,
   TicketStatusEnum,
   PriorityEnum,
+  PendingReply,
   Ticket,
   PaginatedTicketList,
   TicketCreateRequest,

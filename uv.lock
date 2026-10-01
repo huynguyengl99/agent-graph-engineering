@@ -49,7 +49,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "chanx", extras = ["fast-channels", "cli"], specifier = ">=2.11.4,<3" },
+    { name = "chanx", extras = ["fast-channels", "cli"], specifier = ">=2.11.5,<3" },
     { name = "environs", specifier = ">=11.2.2" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "langgraph", specifier = ">=1.2,<2" },
@@ -277,7 +277,7 @@ dev = [
 requires-dist = [
     { name = "channels", specifier = ">=4.2.2,<5" },
     { name = "channels-redis", specifier = ">=4.2.1,<5" },
-    { name = "chanx", extras = ["channels", "client"], specifier = ">=2.11.4,<3" },
+    { name = "chanx", extras = ["channels", "client"], specifier = ">=2.11.5,<3" },
     { name = "dj-database-url", specifier = ">=2.3.0" },
     { name = "django", specifier = ">=5.2,<6" },
     { name = "django-cors-headers", specifier = ">=4.7.0,<5" },
@@ -457,14 +457,14 @@ wheels = [
 
 [[package]]
 name = "chanx"
-version = "2.11.4"
+version = "2.11.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f8/ae/c70727a1ea865f68810d2c4cb4223ac78da824e80e98fb1510a1836efbd7/chanx-2.11.4.tar.gz", hash = "sha256:be8a3b14fb0879bd425344bcba42b4c295260aa6f949cb568e3fbe3df5d7ea27", size = 88224, upload-time = "2026-09-28T17:15:02.138Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ab/f8/d97854b8ff1470628b27227ade5c5b56d87caff418c2bc5216732e8966e1/chanx-2.11.5.tar.gz", hash = "sha256:ae3c4d06ab96e97c03e961355c22ce5bf156d3aa4b8683c8f0062a36484540a7", size = 88244, upload-time = "2026-10-01T05:24:57.381Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/ca/7de7668d430a99eb19be8a49233295bae0f3c5527b0d765b3e32366a7d55/chanx-2.11.4-py3-none-any.whl", hash = "sha256:83d84365b9ba346b5aa1a3fe86a9eb8fbb7f8789e3ccac17b2886901933089b8", size = 114552, upload-time = "2026-09-28T17:15:00.734Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/a3/16ac1166ffdb4167c41dcaa8aefbb0835a434d05abd89d4e8dfcf36d2bee/chanx-2.11.5-py3-none-any.whl", hash = "sha256:6fe5f2fa287bb8617ef746717f0a746ded40114a5f4a08b8a9a79402d783eaf6", size = 114572, upload-time = "2026-10-01T05:24:55.776Z" },
 ]
 
 [package.optional-dependencies]

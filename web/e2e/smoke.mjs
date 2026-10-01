@@ -338,6 +338,38 @@ const afterCancel = await nextAnswer(answersBefore + 1);
   ? ok('the assistant says the action was cancelled')
   : bad(`the run resumed but never mentioned the cancellation: ${afterCancel}`);
 
+console.log('== settings: models and contracts ==');
+await page.click('a[href="/settings"]');
+await page.waitForSelector('section:has-text("Models")', { timeout: 20000 });
+
+// Generated from the same schema the API publishes: purpose is a select because
+// the server declared it an enum.
+const purpose = page.locator('select[aria-label="Purpose"]');
+(await purpose.locator('option').allInnerTexts()).join(',') ===
+'decision,answer'
+  ? ok('the preference form offers the purposes the server declares')
+  : bad('the purpose options do not match the schema');
+
+// A bad value has to land on its own field, which is the whole point of
+// carrying the server's field errors into the form.
+await purpose.selectOption('decision');
+await page.fill('[aria-label="Model"]', 'gpt-4o');
+await page.click('section button:has-text("Use this model")');
+await page.waitForSelector('text=/provider:name/', { timeout: 20000 });
+ok('a rejected value reports the server\u2019s reason on its field');
+
+await page.fill('[aria-label="Model"]', 'openai:gpt-4o-mini');
+await page.click('section button:has-text("Use this model")');
+await page.waitForSelector('text=/decision now uses/', { timeout: 20000 });
+ok('a valid model is accepted and listed');
+
+const contractLinks = await page
+  .locator('section:has-text("Contracts") a')
+  .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('href')));
+contractLinks.length === 3
+  ? ok(`the generated contracts are reachable (${contractLinks.join(' ')})`)
+  : bad(`expected three contract links, got ${contractLinks.join(' ')}`);
+
 console.log('== graph diagrams ==');
 await page.click('a[href="/graphs"]');
 await page.waitForSelector('main svg', { state: 'attached', timeout: 30000 });

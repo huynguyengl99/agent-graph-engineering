@@ -14,7 +14,7 @@ import { NewTicketForm } from '@/components/NewTicketForm';
 import { ConversationList } from '@/components/ConversationList';
 import type { Conversation, Ticket } from '@/lib/types';
 
-type Pane = 'tickets' | 'chat' | 'graphs';
+type Pane = 'tickets' | 'chat' | 'graphs' | 'settings';
 
 export function RootLayout() {
   const { fetchUser, logout, isAuthenticated, user } = useAuthStore();
@@ -30,7 +30,9 @@ export function RootLayout() {
     ? 'chat'
     : path.startsWith('/graphs')
       ? 'graphs'
-      : 'tickets';
+      : path.startsWith('/settings')
+        ? 'settings'
+        : 'tickets';
 
   useEffect(() => {
     void fetchUser();
@@ -114,6 +116,16 @@ export function RootLayout() {
           >
             Graphs
           </Link>
+          <Link
+            to="/settings"
+            className={`rounded px-3 py-1 ${
+              pane === 'settings'
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'text-gray-600'
+            }`}
+          >
+            Settings
+          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="text-gray-600">{user?.fullName || user?.email}</span>
@@ -124,7 +136,8 @@ export function RootLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {pane !== 'graphs' && (
+        {/* Positive check: a new pane should not inherit a sidebar. */}
+        {(pane === 'tickets' || pane === 'chat') && (
           <aside className="w-80 shrink-0 overflow-y-auto border-r bg-white">
             {pane === 'chat' ? (
               <ConversationList

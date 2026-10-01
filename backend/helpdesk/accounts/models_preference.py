@@ -27,6 +27,8 @@ class ModelPreference(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        # Unordered, paginated queries can repeat or skip rows between pages.
+        ordering = ["purpose"]
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "purpose"], name="one_preference_per_purpose"

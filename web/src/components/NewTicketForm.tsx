@@ -6,6 +6,7 @@ import {
 } from '@/components/auto-form';
 import { schemas } from '@/schemas/backend';
 import { api } from '@/lib/api';
+import { errorBody, fieldErrors } from '@/lib/apiErrors';
 import type { Ticket } from '@/lib/types';
 
 /**
@@ -46,9 +47,7 @@ export function NewTicketForm({
             onCreated(await api.post('/api/tickets/', values));
           } catch (error) {
             // Field errors land on their fields; anything else is one line.
-            const data = (error as { response?: { data?: unknown } }).response
-              ?.data;
-            const fields = fieldErrors(data);
+            const fields = fieldErrors(errorBody(error));
             if (fields.length) setErrors(fields);
             else setFailed(true);
           }
@@ -65,15 +64,4 @@ export function NewTicketForm({
       </AutoForm>
     </div>
   );
-}
-
-/** DRF reports field errors as `{"title": ["..."]}`. */
-function fieldErrors(data: unknown): ApiFieldError[] {
-  if (!data || typeof data !== 'object') return [];
-  return Object.entries(data as Record<string, unknown>)
-    .filter(([, value]) => Array.isArray(value) || typeof value === 'string')
-    .map(([field, value]) => ({
-      field,
-      error: String(Array.isArray(value) ? value[0] : value),
-    }));
 }

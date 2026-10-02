@@ -12,6 +12,7 @@ from typing import Any
 
 from channels.db import database_sync_to_async
 from django.conf import settings
+from django.db import transaction
 
 import structlog
 from chanx.messages.base import BaseMessage
@@ -35,7 +36,11 @@ from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
     ToolDecisionMessage,
     ToolDecisionPayload,
 )
-from helpdesk.agent_client.shared.messages import ModelOverrides
+from helpdesk.agent_client.shared.messages import (
+    ModelOverrides,
+    ReplayRequestMessage,
+    ReplayRequestPayload,
+)
 from helpdesk.conversations.messages import (
     AssistantDoneMessage,
     AssistantDonePayload,
@@ -66,6 +71,7 @@ from helpdesk.conversations.models import (
 from helpdesk.conversations.serializers import serialize_message
 from helpdesk.conversations.topics.conversation_topic import ConversationTopic
 from helpdesk.core.agent_connection import agent_headers
+from helpdesk.core.services.cursors import advance, advance_sync, last_handled
 
 logger = structlog.get_logger(__name__)
 
@@ -94,6 +100,13 @@ OutgoingPayload = ChatRequestPayload | ToolDecisionPayload
 class _ConversationHandle(AgentHubConversationTopicClient):
     """Forwards the topic's events to the relay that opened it."""
 
+    async def dispatch_frame(self, py_object: dict[str, Any]) -> None:
+        """The sequence rides the envelope, not the message, so it is read here
+        and handed to the relay alongside what it addresses."""
+        relay: Any = self.connection
+        relay.incoming_seq = int(py_object.get("seq") or 0)
+        await super().dispatch_frame(py_object)
+
     async def handle_message(self, message: IncomingMessage) -> None:
         relay: Any = self.connection
         await relay.on_event(message)
@@ -113,11 +126,23 @@ class ConversationChatClient(AgentClient):
         self.payload = request
         self.group = conversation_topic(conversation_id)
         self.answer = ""
+        # The sequence of the event being handled, set by the handle before it
+        # forwards one.
+        self.incoming_seq = 0
 
     async def send_init_message(self) -> None:
         topic = self.topic(_ConversationHandle, conversation_id=self.conversation_id)
         # Subscribed before the request, or the run's events race it.
         await topic.subscribe()
+
+        # Anything this conversation said while nobody was subscribed - a turn
+        # that finished during a restart - arrives before the new request does.
+        # Normally there is nothing: the cursor keeps pace with the events.
+        await topic.send_message(
+            ReplayRequestMessage(
+                payload=ReplayRequestPayload(since=await last_handled(self.group))
+            )
+        )
 
         if isinstance(self.payload, ChatRequestPayload):
             await topic.send_message(ChatRequestMessage(payload=self.payload))
@@ -172,6 +197,11 @@ class ConversationChatClient(AgentClient):
                 # like an oversight.
                 pass
 
+        # Everything above is either idempotent or has already moved the cursor
+        # in its own transaction, so this is safe to repeat and only ever moves
+        # forward.
+        await advance(self.group, self.incoming_seq)
+
     @database_sync_to_async
     def _remember_proposal(self, payload: ToolApprovalPayload) -> None:
         """So a reload finds the card. The run is already durable in the agent;
@@ -194,7 +224,7 @@ class ConversationChatClient(AgentClient):
 
     async def _persist_answer(self, content: str) -> None:
         message = await self._create_message(
-            self.conversation_id, MessageRole.ASSISTANT, content
+            self.conversation_id, MessageRole.ASSISTANT, content, self.incoming_seq
         )
         await broadcast(
             self.group,
@@ -203,15 +233,21 @@ class ConversationChatClient(AgentClient):
 
     @database_sync_to_async
     def _create_message(
-        self, conversation_id: str, role: str, content: str
+        self, conversation_id: str, role: str, content: str, seq: int = 0
     ) -> ChatMessage:
         """Returns the wire shape, not the model: the payload carries the same
-        representation the REST endpoint would return for this row."""
-        return serialize_message(
-            Message.objects.create(
+        representation the REST endpoint would return for this row.
+
+        The cursor moves in the same transaction as the row. A turn is the one
+        replayable event that is not idempotent - a second insert is a duplicate
+        the rep can see - so "written" and "handled" have to commit together.
+        """
+        with transaction.atomic():
+            message = Message.objects.create(
                 conversation_id=conversation_id, role=role, content=content
             )
-        )
+            advance_sync(conversation_topic(conversation_id), seq)
+            return serialize_message(message)
 
 
 @database_sync_to_async

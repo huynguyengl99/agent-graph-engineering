@@ -12,6 +12,7 @@ from typing import Any
 
 from channels.db import database_sync_to_async
 from django.conf import settings
+from django.db import transaction
 
 import structlog
 from chanx.messages.base import BaseMessage
@@ -34,8 +35,13 @@ from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     TriageRequestMessage,
     TriageRequestPayload,
 )
-from helpdesk.agent_client.shared.messages import ModelOverrides
+from helpdesk.agent_client.shared.messages import (
+    ModelOverrides,
+    ReplayRequestMessage,
+    ReplayRequestPayload,
+)
 from helpdesk.core.agent_connection import agent_headers
+from helpdesk.core.services.cursors import advance, advance_sync, last_handled
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,
@@ -89,6 +95,12 @@ async def broadcast(topic: str, message: BaseMessage) -> None:
 class _TriageHandle(AgentHubTriageTopicClient):
     """Forwards the topic's events to the relay that opened it."""
 
+    async def dispatch_frame(self, py_object: dict[str, Any]) -> None:
+        """The sequence rides the envelope, not the message."""
+        relay: Any = self.connection
+        relay.incoming_seq = int(py_object.get("seq") or 0)
+        await super().dispatch_frame(py_object)
+
     async def handle_message(self, message: IncomingMessage) -> None:
         relay: Any = self.connection
         await relay.on_event(message)
@@ -107,6 +119,8 @@ class TicketTriageClient(AgentClient):
         self.ticket_id = ticket_id
         self.payload = request
         self.group = ticket_topic(ticket_id)
+        # The sequence of the event being handled, set by the handle.
+        self.incoming_seq = 0
         self.pending_reply: str | None = None
 
     async def send_init_message(self) -> None:
@@ -114,6 +128,14 @@ class TicketTriageClient(AgentClient):
         # Subscribed before the request, or the run's own events race the
         # subscription and the first ones are dropped.
         await topic.subscribe()
+
+        # Anything this ticket said while nobody was subscribed - a reply that
+        # went out during a restart - arrives before the new request does.
+        await topic.send_message(
+            ReplayRequestMessage(
+                payload=ReplayRequestPayload(since=await last_handled(self.group))
+            )
+        )
 
         if isinstance(self.payload, TriageRequestPayload):
             await topic.send_message(TriageRequestMessage(payload=self.payload))
@@ -201,6 +223,9 @@ class TicketTriageClient(AgentClient):
             case _:
                 pass
 
+        # Idempotent, or already moved in its own transaction. Only ever forward.
+        await advance(self.group, self.incoming_seq)
+
     @database_sync_to_async
     def _remember_draft(self, draft: str, findings: list[str]) -> None:
         PendingReply.objects.update_or_create(
@@ -231,12 +256,16 @@ class TicketTriageClient(AgentClient):
 
     @database_sync_to_async
     def _persist_answer(self, content: str) -> WireTicketEvent:
-        event = AIResponseEvent.objects.create(
-            ticket_id=self.ticket_id,
-            content=content,
-            model_name=settings.AGENT_ANSWER_MODEL,
-        )
-        return serialize_event(event)
+        """The cursor moves with the row. A sent reply is the one replayable event
+        that is not idempotent, so "recorded" and "handled" commit together."""
+        with transaction.atomic():
+            event = AIResponseEvent.objects.create(
+                ticket_id=self.ticket_id,
+                content=content,
+                model_name=settings.AGENT_ANSWER_MODEL,
+            )
+            advance_sync(self.group, self.incoming_seq)
+            return serialize_event(event)
 
 
 async def run_triage(

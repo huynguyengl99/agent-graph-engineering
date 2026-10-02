@@ -5,7 +5,9 @@ from typing import Any, cast
 
 from pydantic_ai import Agent
 from pydantic_ai.models import Model, infer_model
+from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.anthropic import AnthropicProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
@@ -59,8 +61,21 @@ def build_model(config: ModelConfig) -> Model:
             provider=OpenAIProvider(http_client=client) if client else "openai",
         )
 
+    if config.provider == "anthropic":
+        # The key is passed, not left to the environment. `infer_model` would
+        # read `ANTHROPIC_API_KEY` from `os.environ`, which this service does not
+        # populate: settings are read from its own .env and stay there.
+        return AnthropicModel(
+            config.name,
+            provider=AnthropicProvider(
+                api_key=settings.anthropic_api_key,
+                **({"http_client": client} if client else {}),
+            ),
+        )
+
     # Everything else resolves from "provider:name", which is what makes adding
-    # a provider a config change rather than a code change.
+    # a provider a config change rather than a code change. Only a provider with
+    # a key in PROVIDER_KEYS reaches here at all.
     return infer_model(config.slug)
 
 

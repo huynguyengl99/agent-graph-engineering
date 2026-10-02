@@ -19,7 +19,6 @@ version = "0.1.0"
 source = { editable = "agent" }
 dependencies = [
     { name = "chanx", extra = ["cli", "fast-channels"] },
-    { name = "environs" },
     { name = "fast-channels", extra = ["redis"] },
     { name = "fastapi" },
     { name = "langgraph" },
@@ -29,6 +28,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-ai" },
+    { name = "pydantic-settings" },
     { name = "structlog" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -52,7 +52,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "chanx", extras = ["fast-channels", "cli"], specifier = ">=2.11.7,<3" },
-    { name = "environs", specifier = ">=11.2.2" },
     { name = "fast-channels", extras = ["redis"], specifier = ">=1.0.2" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "langgraph", specifier = ">=1.2,<2" },
@@ -63,6 +62,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9,<4" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pydantic-ai", specifier = ">=2.52,<3" },
+    { name = "pydantic-settings", specifier = ">=2.13,<3" },
     { name = "structlog", specifier = ">=24.4.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.1" },
 ]

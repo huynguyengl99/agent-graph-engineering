@@ -1,67 +1,115 @@
-from typing import TYPE_CHECKING
+"""Everything this service reads from its environment.
 
-from environs import Env
+`.env` is this directory's own, and pydantic-settings reads it without putting it
+into `os.environ`: a variable another service needs cannot arrive here by being
+in a file this one happened to load.
+"""
 
-env = Env()
-# Resolves to agent/.env, the nearest one: this service's environment is its
-# own, and the backend's DJANGO_SETTINGS_MODULE is not in it.
-env.read_env()
+from typing import TYPE_CHECKING, Annotated, Any
 
-
-def _api_key(name: str) -> str:
-    """Treat an unedited placeholder as absent.
-
-    Copying .env.example and forgetting to fill this in should fall back to the
-    scripted model, not fail every run with a 401.
-    """
-    value = env.str(name, "").strip()
-    return "" if value.startswith("your-") else value
+from pydantic import AliasChoices, Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
-class Settings:
-    openai_api_key: str = _api_key("OPENAI_API_KEY")
-    anthropic_api_key: str = _api_key("ANTHROPIC_API_KEY")
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
+
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
+
     # The deployment's default for each purpose, as "provider:name". A user's
     # own choice overrides these one slot at a time.
-    decision_model: str = env.str("ASSISTANT_DECISION_MODEL", "openai:gpt-4o-mini")
-    answer_model: str = env.str("ASSISTANT_ANSWER_MODEL", "openai:gpt-4o")
+    decision_model: str = Field(
+        default="openai:gpt-4o-mini", validation_alias="ASSISTANT_DECISION_MODEL"
+    )
+    answer_model: str = Field(
+        default="openai:gpt-4o", validation_alias="ASSISTANT_ANSWER_MODEL"
+    )
 
     # The provider SDKs default to 600s, far too long for an interactive turn.
-    model_timeout: float = env.float("ASSISTANT_MODEL_TIMEOUT", 60.0)
+    model_timeout: float = Field(
+        default=60.0, validation_alias="ASSISTANT_MODEL_TIMEOUT"
+    )
     # A backstop against a routing cycle, not a tuning knob.
-    graph_recursion_limit: int = env.int("ASSISTANT_GRAPH_RECURSION_LIMIT", 150)
+    graph_recursion_limit: int = Field(
+        default=150, validation_alias="ASSISTANT_GRAPH_RECURSION_LIMIT"
+    )
 
     # Shared with the backend. Empty accepts every caller.
-    agent_token: str = env.str("ASSISTANT_AGENT_TOKEN", "")
+    agent_token: str = Field(default="", validation_alias="ASSISTANT_AGENT_TOKEN")
 
-    redis_url: str = env.str("REDIS_URL", "")
+    redis_url: str = ""
     # Where paused runs live. Unset falls back to memory, which loses every
     # approval waiting on a human when the process restarts.
-    checkpoint_database_url: str = env.str(
-        "CHECKPOINT_DATABASE_URL", env.str("DATABASE_URL", "")
+    checkpoint_database_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("CHECKPOINT_DATABASE_URL", "DATABASE_URL"),
     )
-    checkpoint_pool_size: int = env.int("CHECKPOINT_POOL_SIZE", 10)
-    cors_origins: list[str] = env.list(
-        "CORS_ALLOWED_ORIGINS",
-        ["http://localhost:5173", "http://127.0.0.1:5173"],
+    checkpoint_pool_size: int = 10
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default=["http://localhost:5173", "http://127.0.0.1:5173"],
+        validation_alias="CORS_ALLOWED_ORIGINS",
     )
-    debug: bool = env.bool("DEBUG", True)
+    debug: bool = True
     # Pacing for the keyless model, so streaming is visible without a provider.
-    scripted_stream_delay: float = env.float("SCRIPTED_STREAM_DELAY", 0.02)
+    scripted_stream_delay: float = 0.02
 
-    # Any OTLP-speaking backend: Langfuse, Jaeger, Grafana, an OTel collector.
-    # Unset means traces stay in memory and are readable at /traces/{ticket_id}.
     # Where finished spans are written. Empty keeps them in memory only, so a
     # restart loses them.
-    trace_dir: str = env.str("ASSISTANT_TRACE_DIR", ".traces")
-    # Off by default: the dashboard is where people look, and a trace is worth
-    # having because it shows what the model was sent. Turn it on when spans
-    # leave for a collector you do not control. Never applies to the local
-    # files.
-    trace_redact_exports: bool = env.bool("ASSISTANT_TRACE_REDACT_EXPORTS", False)
+    trace_dir: str = Field(default=".traces", validation_alias="ASSISTANT_TRACE_DIR")
+    # Off by default: a trace is worth having because it shows what the model was
+    # sent. Turn it on when spans leave for a collector you do not control. Never
+    # applies to the local files.
+    trace_redact_exports: bool = Field(
+        default=False, validation_alias="ASSISTANT_TRACE_REDACT_EXPORTS"
+    )
 
-    otlp_endpoint: str = env.str("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
-    otlp_headers: dict[str, str] = env.dict("OTEL_EXPORTER_OTLP_HEADERS", {})
+    # Any OTLP-speaking backend: Langfuse, Jaeger, Grafana, an OTel collector.
+    # Unset means traces stay local, readable at /traces/{run_id}.
+    otlp_endpoint: str = Field(
+        default="", validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
+    otlp_headers: Annotated[dict[str, str], NoDecode] = Field(
+        default_factory=dict, validation_alias="OTEL_EXPORTER_OTLP_HEADERS"
+    )
+
+    @field_validator("openai_api_key", "anthropic_api_key", mode="after")
+    @classmethod
+    def _placeholder_is_absent(cls, value: str) -> str:
+        """Copying .env.example and not filling this in should fall back to the
+        scripted model, not fail every run with a 401."""
+        value = value.strip()
+        return "" if value.startswith("your-") else value
+
+    @field_validator("otlp_endpoint", mode="after")
+    @classmethod
+    def _trimmed(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _comma_separated(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return [part.strip() for part in value.split(",") if part.strip()]
+        return value
+
+    @field_validator("otlp_headers", mode="before")
+    @classmethod
+    def _header_pairs(cls, value: Any) -> Any:
+        """`Authorization=Basic abc==,X-Other=1`, as OTel spells it.
+
+        Split on the first `=` only: a base64 credential ends in padding, and
+        splitting on every `=` would truncate it.
+        """
+        if not isinstance(value, str):
+            return value
+        pairs = (pair for pair in value.split(",") if pair.strip())
+        return {
+            name.strip(): rest.strip()
+            for name, _, rest in (pair.partition("=") for pair in pairs)
+        }
 
 
 settings = Settings()

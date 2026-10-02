@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.1",
     "pydantic>=2.10.0",
+    "pydantic-settings>=2.13,<3",
     "pydantic-ai>=2.52,<3",
     "langgraph>=1.2,<2",
     "chanx[fast-channels,cli]>=2.11.7,<3",
@@ -16,7 +17,6 @@ dependencies = [
     "fast-channels[redis]>=1.0.2",
     "openai>=1.57.0",
     "structlog>=24.4.0",
-    "environs>=11.2.2",
     "opentelemetry-sdk>=1.30,<2",
     "langgraph-checkpoint-postgres>=3.1,<4",
     # `[binary]` ships libpq in the wheel, so a slim runtime image needs no apt

@@ -6,7 +6,6 @@ from langgraph.types import interrupt
 
 import assistant.tools  # noqa: F401  # importing registers the tools
 from assistant.agents import AgentConfig
-from assistant.agents.deps import ChatContext
 from assistant.agents.planner import ToolPlannerAgent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import ToolState
@@ -21,12 +20,6 @@ from assistant.tools.core import (
 )
 from assistant.tools.core.ledger import execution_key, ledger
 from assistant.tracing.nodes import Node
-
-
-def _context_of(state: ToolState) -> ChatContext:
-    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
-    context = state["context"]
-    return context if isinstance(context, ChatContext) else ChatContext(**context)
 
 
 class ToolGraph(BaseGraph):
@@ -53,7 +46,7 @@ class ToolGraph(BaseGraph):
         self.planner = ToolPlannerAgent(self.config)
 
     async def plan(self, state: ToolState) -> ToolState:
-        context = _context_of(state)
+        context = state["context"]
         prompt = (
             f"{context.render(state['request'])}\n\n"
             f"Available tools:\n{render_tool_list()}"

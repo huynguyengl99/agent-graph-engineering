@@ -1,9 +1,7 @@
 """Every model a graph state holds has to survive the checkpoint.
 
-Deserialization is allow-listed. A model that is missing does not raise: the
-state loads without the key, so a router reads no route and takes its fallback
-branch. The chat path shipped like that - `route` was dropped on every
-round-trip - and the only symptom was the tool gate quietly never opening.
+A model missing from the allow-list does not raise: the state loads without the
+key, so a router reads no route and takes its fallback branch.
 """
 
 from typing import Any, get_args
@@ -63,6 +61,53 @@ class TestTheAllowlistCoversTheStates:
                         f"{state.__name__} can hold {model.__name__}, "
                         "which the checkpointer would drop"
                     )
+
+
+class TestAGraphGetsItsModelsBack:
+    """Why the nodes read `state["context"]` directly.
+
+    They used to re-validate it on the way in, because a resumed run was said to
+    hand back plain dicts. It does not, as long as the model is allow-listed, so
+    the checks were defending against the allow-list being wrong somewhere far
+    from where it would have been noticed. This is that check, in one place.
+    """
+
+    async def test_a_resumed_run_holds_models_not_dicts(self) -> None:
+        import uuid
+
+        from assistant.agents import AgentConfig, TicketContext
+        from assistant.graphs.triage_graph import build_triage_graph
+        from assistant.outputs.triage import AnswerDirectly
+
+        from tests.helpers.openai_mock import mock_openai, tool_call
+
+        thread = str(uuid.uuid4())
+        config = {"configurable": {"thread_id": thread}}
+        with mock_openai(
+            tool_call(
+                "final_result",
+                {"category": "billing", "priority": "low", "reasoning": "Invoice."},
+            ),
+            tool_call("final_result_AnswerDirectly", {"reasoning": "Known."}),
+            tool_call(
+                "final_result", {"content": "Proration.", "requires_approval": False}
+            ),
+        ):
+            graph = build_triage_graph(AgentConfig.resolve())
+            await graph.ainvoke(
+                {
+                    "context": TicketContext(
+                        ticket_id=thread, title="Charged twice", description="Two."
+                    )
+                },
+                config=config,  # type: ignore[arg-type]
+            )
+            values = (await graph.aget_state(config)).values  # type: ignore[arg-type]
+
+        assert isinstance(values["context"], TicketContext)
+        assert isinstance(values["answer"], TicketAnswer)
+        assert isinstance(values["classification"], Classification)
+        assert isinstance(values["decision"], AnswerDirectly)
 
 
 def _models_in(annotation: Any) -> list[type[BaseModel]]:

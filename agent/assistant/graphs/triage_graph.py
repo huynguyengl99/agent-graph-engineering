@@ -3,7 +3,6 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from assistant.agents import AgentConfig, AnswerAgent, ClassifierAgent, DecisionAgent
-from assistant.agents.deps import TicketContext
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.checkpointer import checkpointer
@@ -25,12 +24,6 @@ from assistant.outputs.triage import (
     TriageDecision,
 )
 from assistant.tracing.nodes import Node
-
-
-def _context_of(state: TriageState) -> TicketContext:
-    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
-    context = state["context"]
-    return context if isinstance(context, TicketContext) else TicketContext(**context)
 
 
 def _reasoning(decision: TriageDecision) -> str:
@@ -60,7 +53,7 @@ class TriageGraph(AnswerFeed, BaseGraph):
         self.answerer = AnswerAgent(self.config)
 
     async def classify(self, state: TriageState) -> TriageState:
-        context = _context_of(state)
+        context = state["context"]
         # Recorded, not refused: see assistant/guardrails/input.py.
         attempts = screen_input(context.untrusted_text())
         classification = await self.classifier.run(context.render(), context)
@@ -80,7 +73,7 @@ class TriageGraph(AnswerFeed, BaseGraph):
         }
 
     async def decide(self, state: TriageState) -> TriageState:
-        context = _context_of(state)
+        context = state["context"]
         decision = await self.decider.run(context.render(), context)
         await self.emit(
             DecidedMessage(
@@ -109,11 +102,11 @@ class TriageGraph(AnswerFeed, BaseGraph):
             ),
             requires_approval=False,
         )
-        await self.answered(_context_of(state).ticket_id, answer)
+        await self.answered(state["context"].ticket_id, answer)
         return {"escalation_reason": decision.reason, "answer": answer}
 
     async def respond(self, state: TriageState) -> TriageState:
-        context = _context_of(state)
+        context = state["context"]
         prompt = context.render()
 
         snippets = state.get("kb_snippets") or []

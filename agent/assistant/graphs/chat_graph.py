@@ -5,7 +5,6 @@ from langgraph.graph.state import CompiledStateGraph
 
 from assistant.agents import AgentConfig
 from assistant.agents.chat import ChatAgent, ChatRouterAgent
-from assistant.agents.deps import ChatContext
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.checkpointer import checkpointer
@@ -15,12 +14,6 @@ from assistant.graphs.tool_graph import build_tool_graph
 from assistant.messages.chat import ChatCompleteMessage, ChatCompletePayload
 from assistant.outputs.chat import ConsultKnowledgeBase, RunTool
 from assistant.tracing.nodes import Node
-
-
-def _context_of(state: ChatState) -> ChatContext:
-    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
-    context = state["context"]
-    return context if isinstance(context, ChatContext) else ChatContext(**context)
 
 
 class ChatGraph(BaseGraph):
@@ -41,7 +34,7 @@ class ChatGraph(BaseGraph):
         self.chat = ChatAgent(self.config)
 
     async def route(self, state: ChatState) -> ChatState:
-        context = _context_of(state)
+        context = state["context"]
         decision = await self.router.run(context.render(state["question"]), context)
 
         update: ChatState = {"route": decision}
@@ -54,7 +47,7 @@ class ChatGraph(BaseGraph):
         return update
 
     async def answer(self, state: ChatState) -> ChatState:
-        context = _context_of(state)
+        context = state["context"]
         prompt = context.render(state["question"])
 
         snippets = state.get("kb_snippets") or []

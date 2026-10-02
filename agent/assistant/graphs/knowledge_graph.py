@@ -2,7 +2,6 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from assistant.agents import AgentConfig
-from assistant.agents.deps import TicketContext
 from assistant.agents.refiner import RefinerAgent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import KnowledgeState
@@ -12,12 +11,6 @@ from assistant.tracing.nodes import Node
 # One retry. A second empty result means the article does not exist, and
 # looping on a model's guesses is how you turn a miss into a bill.
 MAX_ATTEMPTS = 2
-
-
-def _context_of(state: KnowledgeState) -> TicketContext:
-    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
-    context = state["context"]
-    return context if isinstance(context, TicketContext) else TicketContext(**context)
 
 
 class KnowledgeGraph(BaseGraph):
@@ -37,7 +30,7 @@ class KnowledgeGraph(BaseGraph):
     async def search(self, state: KnowledgeState) -> KnowledgeState:
         # The raw ticket text, not render(): that one is fenced, and the fence
         # boilerplate ("instructions", "customer", "data") matches articles.
-        query = state.get("kb_query") or _context_of(state).untrusted_text()
+        query = state.get("kb_query") or state["context"].untrusted_text()
         attempts = state.get("kb_attempts", 0) + 1
 
         output = await search_knowledge_base(query)
@@ -51,7 +44,7 @@ class KnowledgeGraph(BaseGraph):
 
     async def refine(self, state: KnowledgeState) -> KnowledgeState:
         """Ask for broader terms. Only reached when the last search was empty."""
-        context = _context_of(state)
+        context = state["context"]
         refined = await self.refiner.run(
             f"{context.render()}\n\nThese terms found nothing: "
             f"{state.get('kb_query') or '(the ticket text)'}",

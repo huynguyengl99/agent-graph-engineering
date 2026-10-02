@@ -3,7 +3,6 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
 from assistant.agents import AgentConfig
-from assistant.agents.deps import TicketContext
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.feed import AnswerFeed
@@ -15,26 +14,9 @@ from assistant.messages.triage import (
     ReplySentMessage,
     ReplySentPayload,
 )
-from assistant.outputs.triage import TicketAnswer
 from assistant.prompts import ANSWER_PROMPT
 from assistant.tools.reply import send_reply_to_customer
 from assistant.tracing.nodes import Node
-
-
-def _context_of(state: DeliveryState) -> TicketContext:
-    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
-    context = state["context"]
-    return context if isinstance(context, TicketContext) else TicketContext(**context)
-
-
-def _answer_of(state: DeliveryState) -> TicketAnswer:
-    """Re-validate after a checkpoint round-trip, which returns plain dicts."""
-    answer = state["answer"]
-    return (
-        answer
-        if isinstance(answer, TicketAnswer)
-        else TicketAnswer.model_validate(answer)
-    )
 
 
 class DeliveryGraph(AnswerFeed, BaseGraph):
@@ -53,8 +35,8 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         A reviewer should never be asked to approve something a regex could
         have caught, and a blocked draft never reaches the approval gate.
         """
-        answer = _answer_of(state)
-        ticket_id = _context_of(state).ticket_id
+        answer = state["answer"]
+        ticket_id = state["context"].ticket_id
         result = screen_reply(
             answer.content, ticket_id=ticket_id, instructions=ANSWER_PROMPT
         )
@@ -72,7 +54,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     async def await_approval(self, state: DeliveryState) -> DeliveryState:
         """Park the run until a human accepts, edits, or rejects the draft."""
-        answer = _answer_of(state)
+        answer = state["answer"]
         # Findings ride the interrupt rather than the state: a subgraph's
         # writes only merge into the parent when it returns, and the reviewer
         # needs them now.
@@ -93,7 +75,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
             rejected = answer.model_copy(
                 update={"content": "The draft reply was rejected by a reviewer."}
             )
-            await self.answered(_context_of(state).ticket_id, rejected)
+            await self.answered(state["context"].ticket_id, rejected)
             return {"approval_granted": False, "answer": rejected}
 
         edited = decision.get("content") if isinstance(decision, dict) else None
@@ -104,8 +86,8 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     async def send_reply(self, state: DeliveryState) -> DeliveryState:
         """The irreversible step, reachable only once approval is granted."""
-        answer = _answer_of(state)
-        ticket_id = _context_of(state).ticket_id
+        answer = state["answer"]
+        ticket_id = state["context"].ticket_id
         output = await send_reply_to_customer(ticket_id, answer.content, approved=True)
         if not output.ok:
             return {"tool_error": output.user_error or output.error or ""}

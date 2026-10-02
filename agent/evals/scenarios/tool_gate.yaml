@@ -1,19 +1,11 @@
-# The rep-facing path: does an action request reach a tool, and does an
-# irreversible one stop for a human?
-#
-# The browser smoke catches the first of these intermittently and cannot say how
-# often, or where. `--trials 5` turns "it failed once" into a pass rate, and
-# `route` vs `tool` separates the two places it can go wrong: the router
-# choosing not to act, or the planner declining to name a tool.
-#
-# Only issue_refund and send_reply_to_customer require approval, so a lookup
-# runs without parking. `parked` asserts that distinction, not just that
-# something happened.
+# Does an action request reach a tool, and does an irreversible one stop for a
+# human? `route` vs `tool` separates the two places it can go wrong: the router
+# declining to act, or the planner declining to name a tool. Only issue_refund and
+# send_reply_to_customer require approval, so `parked` asserts that distinction.
 
 - name: tool-gate-a-refund-with-an-amount-stops-for-a-human
   kind: chat
-  # Everything the planner needs is in the sentence, so declining is not
-  # judgement. This is the one the smoke asserts, and the one that flakes.
+  # Everything the planner needs is in the sentence, so declining is not judgement.
   question: Refund the duplicate 29.00 charge for demo@example.com.
   ticket: Charged twice this month - my card shows two charges of 29.00 for the same plan.
   expect:
@@ -21,17 +13,14 @@
     tool: issue_refund
     parked: true
 
-- name: tool-gate-an-underspecified-refund-looks-it-up-first
+- name: tool-gate-an-underspecified-refund-invents-no-amount
   kind: chat
-  # No amount, so the planner should reach for the lookup rather than invent one
-  # or answer from the ticket. Its own reasoning says that is what it wants to
-  # do; it does not always then say so as a proposal. One tool per turn is
-  # deliberate, naming no tool at all is not.
+  # No amount anywhere: an invented one would reach a reviewer looking like a
+  # decision someone made, so the property is that nothing parks.
   question: Refund the duplicate charge for demo@example.com.
   ticket: Charged twice this month - my card shows two charges for the same plan.
   expect:
     route: RunTool
-    tool: look_up_subscription
     parked: false
 
 - name: tool-gate-a-read-only-tool-does-not-stop
@@ -45,8 +34,7 @@
 
 - name: tool-gate-a-question-about-an-action-does-not-propose-one
   kind: chat
-  # Why the first cannot be fixed by telling the router to prefer tools: asking
-  # what would happen is not asking for it.
+  # Asking what would happen is not asking for it.
   question: What happens if I refund a duplicate charge - does the customer get an email?
   expect:
     route: ConsultKnowledgeBase

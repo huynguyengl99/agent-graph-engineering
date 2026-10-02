@@ -2,11 +2,13 @@
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Any
 
 from assistant.agents import AgentConfig, TicketContext
 from assistant.agents.deps import ChatContext
 from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.checkpointer import memory_checkpointer
+from assistant.graphs.states import ChatState, TriageState
 from assistant.graphs.triage_graph import TriageGraph
 from assistant.tracing import setup_tracing, trace_store
 from assistant.tracing.cost import RunCost
@@ -67,16 +69,24 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
     graph = ChatGraph(config).compile(memory_checkpointer())
     try:
         state = await graph.ainvoke(
-            {"context": context, "question": scenario.question}, config=runnable
+            ChatState(context=context, question=scenario.question), config=runnable
         )
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite
         return Observation(error=f"{type(exc).__name__}: {exc}")
 
+    # A subgraph's writes merge only when it returns, so while parked the parent
+    # knows nothing: the proposal is in the interrupt, where the UI reads it too.
+    snapshot = await graph.aget_state(runnable)
+    interrupts = [i for task in snapshot.tasks for i in task.interrupts]
+    proposal: dict[str, Any] = next(
+        (i.value for i in interrupts if isinstance(i.value, dict)), {}
+    )
+
     route = state.get("route")
     return Observation(
         route=type(route).__name__ if route is not None else None,
-        tool=str(state.get("tool") or "") or None,
-        parked=bool(state.get("__interrupt__")),
+        tool=str(proposal.get("tool") or state.get("tool") or "") or None,
+        parked=bool(interrupts),
         answer=str(state.get("answer") or ""),
         cost=trace_store.cost(conversation_id),
     )
@@ -94,7 +104,7 @@ async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
 
     graph = TriageGraph(config).build().compile()
     try:
-        state = await graph.ainvoke({"context": context}, config=runnable)
+        state = await graph.ainvoke(TriageState(context=context), config=runnable)
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite
         return Observation(error=f"{type(exc).__name__}: {exc}")
 

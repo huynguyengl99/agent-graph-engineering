@@ -11,6 +11,8 @@ from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import ToolState
 from assistant.outputs.tools import ToolProposal
 from assistant.tools.core import (
+    Failed,
+    Succeeded,
     all_tools,
     get_tool,
     metadata_for,
@@ -159,13 +161,16 @@ class ToolGraph(BaseGraph):
     async def _call(self, state: ToolState, arguments: dict[str, Any]) -> ToolState:
         tool = get_tool(state["tool"])
         try:
-            output = await tool(**arguments)
+            outcome = await tool(**arguments)
         except TypeError as error:
             # A made-up argument name or a bug, not something the caller did.
             return {"tool_error": f"{state['tool']} could not be called: {error}"}
-        if not output.ok:
-            return {"tool_error": output.user_error or output.error or ""}
-        return {"result": str(output.result)}
+
+        match outcome:
+            case Succeeded(result=result):
+                return {"result": str(result)}
+            case Failed(user_error=user_error):
+                return {"tool_error": user_error}
 
     def route_after_plan(self, state: ToolState) -> str:
         if state.get("tool_error") or not state.get("tool"):

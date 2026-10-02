@@ -15,6 +15,7 @@ from assistant.messages.triage import (
     ReplySentPayload,
 )
 from assistant.prompts import ANSWER_PROMPT
+from assistant.tools.core import Failed
 from assistant.tools.reply import send_reply_to_customer
 from assistant.tracing.nodes import Node
 
@@ -88,11 +89,11 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         """The irreversible step, reachable only once approval is granted."""
         answer = state["answer"]
         ticket_id = state["context"].ticket_id
-        output = await send_reply_to_customer(ticket_id, answer.content, approved=True)
-        if not output.ok:
-            return {"tool_error": output.user_error or output.error or ""}
+        outcome = await send_reply_to_customer(ticket_id, answer.content, approved=True)
+        if isinstance(outcome, Failed):
+            return {"tool_error": outcome.user_error}
 
-        receipt = str(output.result)
+        receipt = str(outcome.result)
         await self.emit(
             ReplySentMessage(
                 payload=ReplySentPayload(ticket_id=ticket_id, receipt=receipt)

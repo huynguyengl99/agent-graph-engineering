@@ -2,7 +2,9 @@ import asyncio
 
 import pytest
 from assistant.tools.core import (
+    Failed,
     InvalidInputError,
+    Succeeded,
     UpstreamServiceError,
     metadata_for,
     render_tool_list,
@@ -17,15 +19,14 @@ def isolated_registry(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(wrapper_module, "_REGISTRY", {})
 
 
-async def test_success_is_wrapped_in_a_tool_output() -> None:
+async def test_success_is_wrapped_in_an_outcome() -> None:
     @wrap_tool(description="Adds numbers.")
     async def add(a: int, b: int) -> int:
         return a + b
 
-    output = await add(2, 3)
-    assert output.ok
-    assert output.result == 5
-    assert output.error_type is None
+    outcome = await add(2, 3)
+    assert isinstance(outcome, Succeeded)
+    assert outcome.result == 5
 
 
 async def test_raised_tool_errors_become_structured_output() -> None:
@@ -36,13 +37,13 @@ async def test_raised_tool_errors_become_structured_output() -> None:
             user_message="Billing is temporarily unavailable.",
         )
 
-    output = await failing()
+    outcome = await failing()
 
     # The graph sees data, never an exception.
-    assert not output.ok
-    assert output.error_type == "upstream_error"
-    assert output.error == "billing API returned 503"
-    assert output.user_error == "Billing is temporarily unavailable."
+    assert isinstance(outcome, Failed)
+    assert outcome.kind == "upstream_error"
+    assert outcome.error == "billing API returned 503"
+    assert outcome.user_error == "Billing is temporarily unavailable."
 
 
 async def test_user_error_defaults_to_the_llm_message() -> None:
@@ -50,8 +51,9 @@ async def test_user_error_defaults_to_the_llm_message() -> None:
     async def failing() -> None:
         raise InvalidInputError("bad input")
 
-    output = await failing()
-    assert output.user_error == "bad input"
+    outcome = await failing()
+    assert isinstance(outcome, Failed)
+    assert outcome.user_error == "bad input"
 
 
 async def test_unexpected_exceptions_are_not_swallowed() -> None:
@@ -74,13 +76,13 @@ async def test_approval_gated_tools_refuse_to_run_unapproved() -> None:
         ran = True
         return "sent"
 
-    output = await dangerous()
+    outcome = await dangerous()
 
-    assert output.error_type == "approval_required"
+    assert isinstance(outcome, Failed) and outcome.kind == "approval_required"
     assert ran is False, "the body must not execute without approval"
 
     approved = await dangerous(approved=True)
-    assert approved.ok and ran is True
+    assert isinstance(approved, Succeeded) and ran is True
 
 
 async def test_timeout_is_reported_not_raised() -> None:
@@ -88,9 +90,10 @@ async def test_timeout_is_reported_not_raised() -> None:
     async def slow() -> None:
         await asyncio.sleep(1)
 
-    output = await slow()
-    assert output.error_type == "tool_error"
-    assert "timed out" in (output.error or "")
+    outcome = await slow()
+    assert isinstance(outcome, Failed)
+    assert outcome.kind == "tool_error"
+    assert "timed out" in outcome.error
 
 
 async def test_duplicate_ids_are_rejected_at_import_time() -> None:

@@ -47,20 +47,27 @@ class ToolMetadata:
         return f"{line} [{self.planner_hint}]" if self.planner_hint else line
 
 
-@dataclass
-class ToolOutput:
-    """A tool result, successful or not.
+@dataclass(frozen=True)
+class Succeeded:
+    """What the tool returned."""
 
-    `error` is LLM-facing; `user_error` is UI-facing. `error_type` is what the
-    caller branches on, so recovery never depends on matching error text.
+    result: Any
+
+
+@dataclass(frozen=True)
+class Failed:
+    """Why it did not work.
+
+    `kind` is what a caller branches on, so recovery never depends on matching
+    error text. `error` is LLM-facing and may carry technical detail; `user_error`
+    is what a person reads, and `ToolError` guarantees both are present.
     """
 
-    result: Any = None
-    error: str | None = None
-    user_error: str | None = None
-    error_type: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    kind: str
+    error: str
+    user_error: str
 
-    @property
-    def ok(self) -> bool:
-        return self.error_type is None
+
+# Two types rather than one with four optionals, which let `result` and `error`
+# both be set, or neither.
+ToolOutcome = Succeeded | Failed

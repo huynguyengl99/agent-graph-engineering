@@ -5,6 +5,7 @@ from assistant.agents import AgentConfig
 from assistant.agents.refiner import RefinerAgent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import KnowledgeState
+from assistant.tools.core import Failed, Succeeded
 from assistant.tools.knowledge_base import search_knowledge_base
 from assistant.tracing.nodes import Node
 
@@ -33,14 +34,16 @@ class KnowledgeGraph(BaseGraph):
         query = state.get("kb_query") or state["context"].untrusted_text()
         attempts = state.get("kb_attempts", 0) + 1
 
-        output = await search_knowledge_base(query)
-        if not output.ok:
-            return {"kb_snippets": [], "kb_attempts": attempts}
+        match await search_knowledge_base(query):
+            case Succeeded(result=articles):
+                snippets = [article.render() for article in articles]
+            case Failed():
+                # A retrieval failure reads as a miss: the loop decides whether
+                # to refine the query or give up, and it already handles nothing
+                # being found.
+                snippets = []
 
-        return {
-            "kb_snippets": [article.render() for article in output.result],
-            "kb_attempts": attempts,
-        }
+        return {"kb_snippets": snippets, "kb_attempts": attempts}
 
     async def refine(self, state: KnowledgeState) -> KnowledgeState:
         """Ask for broader terms. Only reached when the last search was empty."""

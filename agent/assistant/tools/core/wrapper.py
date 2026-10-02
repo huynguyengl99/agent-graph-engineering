@@ -2,7 +2,7 @@
 
 A tool is a plain async function plus metadata. The decorator does three things:
 registers it so it can be discovered rather than imported by hand, attaches the
-metadata the planner reads, and converts raised `ToolError`s into a `ToolOutput`
+metadata the planner reads, and converts raised `ToolError`s into a `Failed`
 so a failing tool never takes down the graph.
 """
 
@@ -12,10 +12,10 @@ from functools import wraps
 from typing import Any
 
 from assistant.tools.core.errors import ApprovalRequiredError, ToolError
-from assistant.tools.core.metadata import ToolMetadata, ToolOutput
+from assistant.tools.core.metadata import Failed, Succeeded, ToolMetadata, ToolOutcome
 from assistant.tools.core.schema import arguments_schema
 
-WrappedTool = Callable[..., Awaitable[ToolOutput]]
+WrappedTool = Callable[..., Awaitable[ToolOutcome]]
 
 _REGISTRY: dict[str, WrappedTool] = {}
 
@@ -61,7 +61,7 @@ def wrap_tool(
         @wraps(func)
         async def wrapper(
             *args: Any, approved: bool = False, **kwargs: Any
-        ) -> ToolOutput:
+        ) -> ToolOutcome:
             if metadata.requires_approval and not approved:
                 error = ApprovalRequiredError(
                     f"{tool_id} needs human approval before it can run.",
@@ -82,7 +82,7 @@ def wrap_tool(
                         user_message="That took too long. Please try again.",
                     )
                 )
-            return ToolOutput(result=result)
+            return Succeeded(result=result)
 
         wrapper.metadata = metadata  # type: ignore[attr-defined]
         _REGISTRY[tool_id] = wrapper
@@ -91,11 +91,11 @@ def wrap_tool(
     return decorator
 
 
-def _failure(error: ToolError) -> ToolOutput:
-    return ToolOutput(
+def _failure(error: ToolError) -> Failed:
+    return Failed(
+        kind=error.error_type,
         error=error.message,
         user_error=error.user_message,
-        error_type=error.error_type,
     )
 
 

@@ -6,7 +6,12 @@ from assistant.tools.core.errors import (
     ToolError,
     UpstreamServiceError,
 )
-from assistant.tools.core.metadata import ToolMetadata, ToolOutput
+from assistant.tools.core.metadata import (
+    Failed,
+    Succeeded,
+    ToolMetadata,
+    ToolOutcome,
+)
 from assistant.tools.core.schema import (
     arguments_schema,
     missing_arguments,
@@ -27,7 +32,9 @@ __all__ = [
     "RateLimitedError",
     "ToolError",
     "ToolMetadata",
-    "ToolOutput",
+    "Failed",
+    "Succeeded",
+    "ToolOutcome",
     "UpstreamServiceError",
     "arguments_schema",
     "missing_arguments",

@@ -1,9 +1,9 @@
 """Structured tool failures.
 
 Tools signal failure by *raising* one of these, never by returning an error
-string. `@wrap_tool` catches them and converts them into a `ToolOutput` carrying
-a machine-readable `error_type`, so a failure never escapes into the graph and
-the UI can react to the kind of failure rather than parsing prose.
+string. `@wrap_tool` catches them and converts them into a `Failed` carrying a
+machine-readable `kind`, so a failure never escapes into the graph and the UI can
+react to the kind of failure rather than parsing prose.
 """
 
 

@@ -1,5 +1,6 @@
 """Ranking is tested against the pure function; the wrapper is tested via the tool."""
 
+from assistant.tools.core import Failed, Succeeded
 from assistant.tools.knowledge_base import _search, search_knowledge_base
 
 
@@ -21,16 +22,16 @@ def test_respects_the_limit() -> None:
     assert len(_search("account plan billing api", limit=2)) <= 2
 
 
-async def test_tool_returns_articles_in_a_tool_output() -> None:
-    output = await search_knowledge_base("invoice billing refund")
-    assert output.ok
-    assert output.result
+async def test_tool_returns_articles_in_an_outcome() -> None:
+    outcome = await search_knowledge_base("invoice billing refund")
+    assert isinstance(outcome, Succeeded)
+    assert outcome.result
 
 
 async def test_tool_rejects_an_empty_query() -> None:
-    output = await search_knowledge_base("   ")
-    assert output.error_type == "invalid_input"
-    assert output.result is None
+    outcome = await search_knowledge_base("   ")
+    assert isinstance(outcome, Failed)
+    assert outcome.kind == "invalid_input"
 
 
 class TestRanking:

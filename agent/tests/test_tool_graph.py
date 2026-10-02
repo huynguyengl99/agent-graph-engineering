@@ -13,6 +13,7 @@ from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.tools.core import (
     ApprovalRequiredError,
+    Failed,
     all_tools,
     get_tool,
     metadata_for,
@@ -135,12 +136,12 @@ class TestFailingClosed:
     async def test_the_tool_itself_refuses_an_unapproved_call(self) -> None:
         """The graph is not the only thing standing between a model and the
         money: a wrongly wired graph fails closed."""
-        output = await get_tool("issue_refund")(
+        outcome = await get_tool("issue_refund")(
             email="demo@example.com", amount=10.0, reason="x"
         )
 
-        assert not output.ok
-        assert output.error_type == ApprovalRequiredError.error_type
+        assert isinstance(outcome, Failed)
+        assert outcome.kind == ApprovalRequiredError.error_type
 
     async def test_a_hallucinated_tool_never_reaches_a_human(self) -> None:
         _, done, _ = await propose(
@@ -157,11 +158,11 @@ class TestFailingClosed:
     @pytest.mark.parametrize("amount", [0, -5, 10_000])
     async def test_the_ceiling_holds_even_after_approval(self, amount: float) -> None:
         """Approval is a human saying yes, not a bypass."""
-        output = await get_tool("issue_refund")(
+        outcome = await get_tool("issue_refund")(
             email="demo@example.com", amount=amount, reason="x", approved=True
         )
 
-        assert not output.ok
+        assert isinstance(outcome, Failed)
 
 
 class TestMisnamedArguments:

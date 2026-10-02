@@ -4,11 +4,12 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 Category = Literal["technical", "billing", "account", "general"]
 Priority = Literal["low", "medium", "high", "urgent"]
 Decision = Literal["AnswerDirectly", "SearchKnowledgeBase", "Escalate", "DraftReply"]
+Route = Literal["AnswerFromContext", "ConsultKnowledgeBase", "RunTool"]
 
 
 class AnswerExpect(BaseModel):
@@ -29,13 +30,40 @@ class Expect(BaseModel):
     findings: list[str] = []
     answer: AnswerExpect | None = None
 
+    # Chat scenarios. `route` is the rep-facing router's choice; `tool` is what
+    # the planner named; `parked` is whether the run stopped for a human.
+    route: Route | None = None
+    tool: str | None = None
+    parked: bool | None = None
+
 
 class Scenario(BaseModel):
+    """A ticket for triage, or a rep's question for chat.
+
+    One golden set rather than two: the two graphs fail in the same ways and a
+    reader comparing runs wants one table.
+    """
+
     name: str
-    title: str
-    description: str
+    kind: Literal["triage", "chat"] = "triage"
+    # Triage: the ticket. Chat: unset, and `question` carries the rep's words.
+    title: str = ""
+    description: str = ""
+    question: str = ""
+    # Chat only: the ticket the rep has open, if any.
+    ticket: str = ""
     history: list[str] = []
     expect: Expect
+
+    @model_validator(mode="after")
+    def _needs_its_own_input(self) -> "Scenario":
+        if self.kind == "triage" and not (self.title and self.description):
+            raise ValueError(
+                f"{self.name}: a triage scenario needs title and description"
+            )
+        if self.kind == "chat" and not self.question:
+            raise ValueError(f"{self.name}: a chat scenario needs a question")
+        return self
 
 
 def load_scenarios(directory: Path) -> list[Scenario]:

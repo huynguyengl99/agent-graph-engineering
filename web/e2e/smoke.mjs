@@ -205,10 +205,14 @@ await page.fill(
 );
 await page.click('main button:has-text("Ask")');
 
-// The router decides whether this needs a tool at all, and it is a model. If it
-// routes elsewhere the gate never appears, so report that and carry on: a
-// 90-second Playwright timeout here used to abort the run and lose every check
-// after it, which is a worse outcome than one honest failure.
+// Two models stand between the question and the gate: the router decides this
+// needs a tool, then the planner names one. Either can decline, and the gate
+// never appears, so report that and carry on: a 90-second Playwright timeout
+// here used to abort the run and lose every check after it, which is a worse
+// outcome than one honest failure.
+//
+// Which of the two declined is not visible from here. `just evals tool-gate
+// --trials 5` separates them, and says how often.
 const parked = await page
   .waitForSelector('button:has-text("Approve and run")', { timeout: 90000 })
   .then(() => true)
@@ -216,8 +220,8 @@ const parked = await page
 
 if (!parked) {
   bad(
-    'the router did not propose a tool for an explicit refund request; ' +
-      'it answered from context instead, so the gate never opened',
+    'no tool proposal reached the gate for an explicit refund request, ' +
+      'so it answered without one and nothing was reviewed',
   );
 }
 

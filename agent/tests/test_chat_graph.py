@@ -148,7 +148,7 @@ async def test_the_answer_is_grounded_in_what_retrieval_found() -> None:
 
     class Capturing(ChatGraph):
         async def answer(self, state: Any) -> Any:
-            seen.append(str(state.get("kb_snippets")))
+            seen.append(str(state.kb_snippets))
             return await super().answer(state)
 
     with mock_openai(

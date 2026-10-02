@@ -97,7 +97,7 @@ class TestApprovalThroughASubgraph:
 
         assert state["__interrupt__"], "the run should be parked, not finished"
         assert state["__interrupt__"][0].value["kind"] == "reply_approval"
-        assert state.get("delivery_receipt") is None
+        assert not state.get("delivery_receipt")
 
     async def test_resume_reaches_the_interrupt_one_level_down(self) -> None:
         graph = await self.build()
@@ -126,7 +126,7 @@ class TestApprovalThroughASubgraph:
             Command(resume={"approved": False, "content": None}), config=config
         )
 
-        assert state.get("delivery_receipt") is None
+        assert not state.get("delivery_receipt")
         assert state["approval_granted"] is False
 
     async def test_an_edit_made_at_the_gate_is_what_gets_sent(self) -> None:

@@ -1,23 +1,22 @@
-from typing import Annotated, TypedDict
+from typing import Annotated
 
-from assistant.agents.deps import TicketContext
+from pydantic import BaseModel
+
+from assistant.agents.deps import ChatContext, TicketContext
+from assistant.graphs.states.reducers import last_wins
 
 
-def last_wins(_current: object, incoming: object) -> object:
-    return incoming
-
-
-class KnowledgeState(TypedDict, total=False):
+class KnowledgeState(BaseModel):
     """The retrieval loop's own state.
 
-    `context` and `kb_snippets` are shared with the parent, which is how a
-    compiled subgraph can be dropped in as a node. Everything else is private
-    to the loop: the parent never sees how many attempts it took.
+    `context` and `kb_snippets` are shared with the parent; the rest is private, so
+    the parent never sees how many attempts it took. `context` is either parent's,
+    which is why `knowledge_graph` reads it through helpers that match on type.
     """
 
-    context: TicketContext
-    kb_snippets: Annotated[list[str], last_wins]
+    context: TicketContext | ChatContext
+    kb_snippets: Annotated[list[str], last_wins] = []
 
-    kb_query: str
-    kb_attempts: int
-    kb_exhausted: bool
+    kb_query: str = ""
+    kb_attempts: int = 0
+    kb_exhausted: bool = False

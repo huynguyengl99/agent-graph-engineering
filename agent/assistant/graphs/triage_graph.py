@@ -9,7 +9,7 @@ from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.delivery_graph import build_delivery_graph
 from assistant.graphs.feed import AnswerFeed
 from assistant.graphs.knowledge_graph import build_knowledge_graph
-from assistant.graphs.states import TriageState
+from assistant.graphs.states import TriageState, Update
 from assistant.guardrails import screen_input
 from assistant.messages.triage import (
     ClassifiedMessage,
@@ -52,8 +52,8 @@ class TriageGraph(AnswerFeed, BaseGraph):
         self.decider = DecisionAgent(self.config)
         self.answerer = AnswerAgent(self.config)
 
-    async def classify(self, state: TriageState) -> TriageState:
-        context = state["context"]
+    async def classify(self, state: TriageState) -> Update:
+        context = state.context
         # Recorded, not refused: see assistant/guardrails/input.py.
         attempts = screen_input(context.untrusted_text())
         classification = await self.classifier.run(context.render(), context)
@@ -72,8 +72,8 @@ class TriageGraph(AnswerFeed, BaseGraph):
             "guardrail_findings": attempts.rendered(),
         }
 
-    async def decide(self, state: TriageState) -> TriageState:
-        context = state["context"]
+    async def decide(self, state: TriageState) -> Update:
+        context = state.context
         decision = await self.decider.run(context.render(), context)
         await self.emit(
             DecidedMessage(
@@ -85,15 +85,15 @@ class TriageGraph(AnswerFeed, BaseGraph):
             )
         )
 
-        update: TriageState = {"decision": decision}
+        update: Update = {"decision": decision}
         if isinstance(decision, SearchKnowledgeBase):
             # The handoff into the subgraph: it searches for what the decider
             # asked for, not for the whole ticket.
             update["kb_query"] = decision.query
         return update
 
-    async def escalate(self, state: TriageState) -> TriageState:
-        decision = state["decision"]
+    async def escalate(self, state: TriageState) -> Update:
+        decision = state.decision
         assert isinstance(decision, Escalate)
         answer = TicketAnswer(
             content=(
@@ -102,14 +102,14 @@ class TriageGraph(AnswerFeed, BaseGraph):
             ),
             requires_approval=False,
         )
-        await self.answered(state["context"].ticket_id, answer)
+        await self.answered(state.context.ticket_id, answer)
         return {"escalation_reason": decision.reason, "answer": answer}
 
-    async def respond(self, state: TriageState) -> TriageState:
-        context = state["context"]
+    async def respond(self, state: TriageState) -> Update:
+        context = state.context
         prompt = context.render()
 
-        snippets = state.get("kb_snippets") or []
+        snippets = state.kb_snippets
         if snippets:
             prompt += "\n\nKnowledge base articles:\n" + "\n\n".join(snippets)
 
@@ -120,7 +120,7 @@ class TriageGraph(AnswerFeed, BaseGraph):
         return {"answer": answer}
 
     def route_decision(self, state: TriageState) -> str:
-        match state["decision"]:
+        match state.decision:
             case SearchKnowledgeBase():
                 return "knowledge"
             case Escalate():

@@ -31,26 +31,6 @@ from assistant.ws.feed import emitter_for
 logger = structlog.get_logger(__name__)
 
 
-# The thread is the conversation, so a second question resumes a thread still
-# holding the last turn's tool result. `answer` prefers a result over a
-# cancellation, so without this a cancelled call is reported as the previous
-# call's success - which is the worst possible way to get that wrong.
-FRESH_TURN: ChatState = {
-    "route": None,  # type: ignore[typeddict-item]
-    "answer": "",
-    "kb_query": "",
-    "kb_snippets": [],
-    "request": "",
-    "tool": "",
-    "arguments": {},
-    "unknown_arguments": [],
-    "approved": False,
-    "cancelled": False,
-    "result": "",
-    "tool_error": "",
-}
-
-
 ChatFeedEvent = (
     ChatTokenMessage | ChatCompleteMessage | ToolApprovalMessage | ChatErrorMessage
 )
@@ -122,12 +102,17 @@ class ConversationTopic(Topic[ChatFeedEvent]):
         )
 
         with run_span("chat", self.params["conversation_id"]):
-            start: ChatState = {
-                "context": context,
-                "question": payload.question,
-                **FRESH_TURN,
-            }
-            await self._consume(graph, start, self.params["conversation_id"])
+            # A whole state, not an update: the thread is the conversation, so
+            # it still holds the last turn's tool result. `answer` prefers a
+            # result over a cancellation, so without the reset a cancelled call
+            # is reported as the previous call's success - the worst possible way
+            # to get that wrong. Every field but the context and the question
+            # takes its default.
+            await self._consume(
+                graph,
+                ChatState(context=context, question=payload.question),
+                self.params["conversation_id"],
+            )
 
     @ws_handler(
         summary="Approve, correct, or cancel a proposed tool call",

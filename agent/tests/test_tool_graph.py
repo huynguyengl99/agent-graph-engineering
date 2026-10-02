@@ -10,6 +10,7 @@ import pytest
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.deps import ChatContext
 from assistant.graphs.checkpointer import memory_checkpointer
+from assistant.graphs.states import ToolState
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.tools.core import (
     ApprovalRequiredError,
@@ -238,19 +239,20 @@ class TestMisnamedArguments:
         call `execute` with anything else must not take the turn down."""
         graph = ToolGraph(openai_config())
         done = await graph.execute(
-            {
-                "tool": "issue_refund",
-                "arguments": {
+            ToolState(
+                context=ChatContext(conversation_id="c-signature"),
+                tool="issue_refund",
+                arguments={
                     "email": "demo@example.com",
                     "amount": 29.0,
                     "reason": "x",
                     "nonsense": True,
                 },
-            }
+            )
         )
 
         assert "could not be called" in done["tool_error"]
-        assert done.get("result") is None
+        assert not done.get("result")
 
 
 class TestReviewableWithoutBespokeUi:

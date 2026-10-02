@@ -6,7 +6,7 @@ from assistant.agents import AgentConfig
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.feed import AnswerFeed
-from assistant.graphs.states import DeliveryState
+from assistant.graphs.states import DeliveryState, Update
 from assistant.guardrails import screen_reply
 from assistant.messages.triage import (
     ReplyBlockedMessage,
@@ -30,18 +30,18 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     name = "delivery"
 
-    async def screen(self, state: DeliveryState) -> DeliveryState:
+    async def screen(self, state: DeliveryState) -> Update:
         """The machine check that runs before the human one.
 
         A reviewer should never be asked to approve something a regex could
         have caught, and a blocked draft never reaches the approval gate.
         """
-        answer = state["answer"]
-        ticket_id = state["context"].ticket_id
+        answer = state.answer
+        ticket_id = state.context.ticket_id
         result = screen_reply(
             answer.content, ticket_id=ticket_id, instructions=ANSWER_PROMPT
         )
-        findings = list(state.get("guardrail_findings") or []) + result.rendered()
+        findings = list(state.guardrail_findings) + result.rendered()
         if result.blocked:
             # Nothing follows: say so here, because no interrupt will.
             await self.emit(
@@ -53,9 +53,9 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
             )
         return {"guardrail_findings": findings, "reply_blocked": result.blocked}
 
-    async def await_approval(self, state: DeliveryState) -> DeliveryState:
+    async def await_approval(self, state: DeliveryState) -> Update:
         """Park the run until a human accepts, edits, or rejects the draft."""
-        answer = state["answer"]
+        answer = state.answer
         # Findings ride the interrupt rather than the state: a subgraph's
         # writes only merge into the parent when it returns, and the reviewer
         # needs them now.
@@ -63,7 +63,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
             {
                 "kind": "reply_approval",
                 "draft": answer.content,
-                "findings": list(state.get("guardrail_findings") or []),
+                "findings": list(state.guardrail_findings),
             }
         )
 
@@ -76,7 +76,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
             rejected = answer.model_copy(
                 update={"content": "The draft reply was rejected by a reviewer."}
             )
-            await self.answered(state["context"].ticket_id, rejected)
+            await self.answered(state.context.ticket_id, rejected)
             return {"approval_granted": False, "answer": rejected}
 
         edited = decision.get("content") if isinstance(decision, dict) else None
@@ -85,10 +85,10 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
             "answer": answer.model_copy(update={"content": edited or answer.content}),
         }
 
-    async def send_reply(self, state: DeliveryState) -> DeliveryState:
+    async def send_reply(self, state: DeliveryState) -> Update:
         """The irreversible step, reachable only once approval is granted."""
-        answer = state["answer"]
-        ticket_id = state["context"].ticket_id
+        answer = state.answer
+        ticket_id = state.context.ticket_id
         outcome = await send_reply_to_customer(ticket_id, answer.content, approved=True)
         if isinstance(outcome, Failed):
             return {"tool_error": outcome.user_error}
@@ -102,10 +102,10 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         return {"delivery_receipt": receipt}
 
     def route_after_screen(self, state: DeliveryState) -> str:
-        return END if state.get("reply_blocked") else "await_approval"
+        return END if state.reply_blocked else "await_approval"
 
     def route_after_approval(self, state: DeliveryState) -> str:
-        return "send_reply" if state.get("approval_granted") else END
+        return "send_reply" if state.approval_granted else END
 
     def nodes(self) -> dict[str, Node]:
         return {

@@ -8,7 +8,7 @@ import assistant.tools  # noqa: F401  # importing registers the tools
 from assistant.agents import AgentConfig
 from assistant.agents.planner import ToolPlannerAgent
 from assistant.graphs.base import BaseGraph
-from assistant.graphs.states import ToolState
+from assistant.graphs.states import ToolState, Update
 from assistant.outputs.tools import ToolProposal
 from assistant.tools.core import (
     Failed,
@@ -47,15 +47,14 @@ class ToolGraph(BaseGraph):
         super().__init__(config)
         self.planner = ToolPlannerAgent(self.config)
 
-    async def plan(self, state: ToolState) -> ToolState:
-        context = state["context"]
+    async def plan(self, state: ToolState) -> Update:
+        context = state.context
         prompt = (
-            f"{context.render(state['request'])}\n\n"
-            f"Available tools:\n{render_tool_list()}"
+            f"{context.render(state.request)}\n\nAvailable tools:\n{render_tool_list()}"
         )
         decision = await self.planner.run(prompt, context)
 
-        update: ToolState = {"decision": decision}
+        update: Update = {"decision": decision}
         if isinstance(decision, ToolProposal):
             if decision.tool not in all_tools():
                 # A hallucinated tool id never reaches a human, let alone a
@@ -71,14 +70,14 @@ class ToolGraph(BaseGraph):
             update["unknown_arguments"] = unknown
         return update
 
-    async def gate(self, state: ToolState) -> ToolState:
+    async def gate(self, state: ToolState) -> Update:
         """Park until a human approves, corrects the arguments, or cancels."""
-        meta = metadata_for(state["tool"])
+        meta = metadata_for(state.tool)
         answer = interrupt(
             {
                 "kind": "tool_approval",
-                "tool": state["tool"],
-                "arguments": state["arguments"],
+                "tool": state.tool,
+                "arguments": state.arguments,
                 "description": meta.description,
                 # The reviewer's form is generated from this, so no tool needs
                 # a hand-written one and a new tool is reviewable on arrival.
@@ -87,7 +86,7 @@ class ToolGraph(BaseGraph):
                 "arguments_schema": meta.arguments,
                 # Named so the card can explain an empty required field rather
                 # than leaving the reviewer to guess why.
-                "unknown_arguments": state.get("unknown_arguments") or [],
+                "unknown_arguments": state.unknown_arguments,
             }
         )
 
@@ -99,26 +98,26 @@ class ToolGraph(BaseGraph):
         # Corrections replace the proposed arguments wholesale, so what a
         # reviewer saw is exactly what runs.
         corrected = answer.get("arguments")
-        update: ToolState = {
+        update: Update = {
             "approved": True,
             "cancelled": False,
             "corrected": False,
         }
         if isinstance(corrected, dict) and corrected:
             update["arguments"] = dict(corrected)
-            update["corrected"] = corrected != state["arguments"]
+            update["corrected"] = corrected != state.arguments
         return update
 
-    async def execute(self, state: ToolState) -> ToolState:
-        meta = metadata_for(state["tool"])
-        arguments: dict[str, Any] = dict(state.get("arguments") or {})
+    async def execute(self, state: ToolState) -> Update:
+        meta = metadata_for(state.tool)
+        arguments: dict[str, Any] = dict(state.arguments)
 
         # Checked here rather than trusted from the gate: a read-only tool
         # skips the gate entirely, and a reviewer can clear a field.
         if missing := missing_arguments(meta.arguments, arguments):
             return {
                 "tool_error": (
-                    f"{state['tool']} needs {', '.join(missing)}, which is missing."
+                    f"{state.tool} needs {', '.join(missing)}, which is missing."
                 )
             }
 
@@ -129,23 +128,23 @@ class ToolGraph(BaseGraph):
 
     async def _execute_once(
         self, state: ToolState, arguments: dict[str, Any]
-    ) -> ToolState:
+    ) -> Update:
         """At-most-once for a tool that cannot be undone.
 
         A crash inside this node re-runs it on resume, so without the ledger an
         interrupted refund refunds twice.
         """
-        key = execution_key(state["tool"])
+        key = execution_key(state.tool)
         if key is None:
             return await self._call(state, arguments)
 
-        claim = await ledger().claim(key, state["tool"], arguments)
+        claim = await ledger().claim(key, state.tool, arguments)
         if claim.settled:
             return {"result": str(claim.result)}
         if claim.unknown:
             return {
                 "tool_error": (
-                    f"A previous attempt to run {state['tool']} was interrupted and "
+                    f"A previous attempt to run {state.tool} was interrupted and "
                     "its outcome is unknown. Check before running it again."
                 )
             }
@@ -158,13 +157,13 @@ class ToolGraph(BaseGraph):
             await ledger().release(key)
         return update
 
-    async def _call(self, state: ToolState, arguments: dict[str, Any]) -> ToolState:
-        tool = get_tool(state["tool"])
+    async def _call(self, state: ToolState, arguments: dict[str, Any]) -> Update:
+        tool = get_tool(state.tool)
         try:
             outcome = await tool(**arguments)
         except TypeError as error:
             # A made-up argument name or a bug, not something the caller did.
-            return {"tool_error": f"{state['tool']} could not be called: {error}"}
+            return {"tool_error": f"{state.tool} could not be called: {error}"}
 
         match outcome:
             case Succeeded(result=result):
@@ -173,12 +172,12 @@ class ToolGraph(BaseGraph):
                 return {"tool_error": user_error}
 
     def route_after_plan(self, state: ToolState) -> str:
-        if state.get("tool_error") or not state.get("tool"):
+        if state.tool_error or not state.tool:
             return END
-        return "gate" if metadata_for(state["tool"]).requires_approval else "execute"
+        return "gate" if metadata_for(state.tool).requires_approval else "execute"
 
     def route_after_gate(self, state: ToolState) -> str:
-        return "execute" if state.get("approved") else END
+        return "execute" if state.approved else END
 
     def nodes(self) -> dict[str, Node]:
         return {"plan": self.plan, "gate": self.gate, "execute": self.execute}

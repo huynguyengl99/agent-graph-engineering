@@ -2,9 +2,10 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from assistant.agents import AgentConfig
+from assistant.agents.deps import ChatContext, TicketContext
 from assistant.agents.refiner import RefinerAgent
 from assistant.graphs.base import BaseGraph
-from assistant.graphs.states import KnowledgeState
+from assistant.graphs.states import KnowledgeState, Update
 from assistant.tools.core import Failed, Succeeded
 from assistant.tools.knowledge_base import search_knowledge_base
 from assistant.tracing.nodes import Node
@@ -12,6 +13,25 @@ from assistant.tracing.nodes import Node
 # One retry. A second empty result means the article does not exist, and
 # looping on a model's guesses is how you turn a miss into a bill.
 MAX_ATTEMPTS = 2
+
+
+def _searchable(context: TicketContext | ChatContext) -> str:
+    """Raw text to search when no query was asked for. Unfenced on purpose: the
+    fence boilerplate matches articles."""
+    match context:
+        case TicketContext():
+            return context.untrusted_text()
+        case ChatContext():
+            return context.ticket.untrusted_text() if context.ticket else ""
+
+
+def _described(context: TicketContext | ChatContext) -> str:
+    """Fenced context for the refiner, which reads it as data."""
+    match context:
+        case TicketContext():
+            return context.render()
+        case ChatContext():
+            return context.ticket.render() if context.ticket else ""
 
 
 class KnowledgeGraph(BaseGraph):
@@ -28,38 +48,32 @@ class KnowledgeGraph(BaseGraph):
         super().__init__(config)
         self.refiner = RefinerAgent(self.config)
 
-    async def search(self, state: KnowledgeState) -> KnowledgeState:
-        # The raw ticket text, not render(): that one is fenced, and the fence
-        # boilerplate ("instructions", "customer", "data") matches articles.
-        query = state.get("kb_query") or state["context"].untrusted_text()
-        attempts = state.get("kb_attempts", 0) + 1
+    async def search(self, state: KnowledgeState) -> Update:
+        query = state.kb_query or _searchable(state.context)
+        attempts = state.kb_attempts + 1
 
         match await search_knowledge_base(query):
             case Succeeded(result=articles):
                 snippets = [article.render() for article in articles]
             case Failed():
-                # A retrieval failure reads as a miss: the loop decides whether
-                # to refine the query or give up, and it already handles nothing
-                # being found.
+                # A failure reads as a miss; the loop already handles finding
+                # nothing.
                 snippets = []
 
         return {"kb_snippets": snippets, "kb_attempts": attempts}
 
-    async def refine(self, state: KnowledgeState) -> KnowledgeState:
+    async def refine(self, state: KnowledgeState) -> Update:
         """Ask for broader terms. Only reached when the last search was empty."""
-        context = state["context"]
         refined = await self.refiner.run(
-            f"{context.render()}\n\nThese terms found nothing: "
-            f"{state.get('kb_query') or '(the ticket text)'}",
-            context,
+            f"{_described(state.context)}\n\nThese terms found nothing: "
+            f"{state.kb_query or '(the ticket text)'}",
+            state.context,
         )
         # A model that returns nothing usable must not restart the same search.
         return {"kb_query": refined.query}
 
     def route_after_search(self, state: KnowledgeState) -> str:
-        if state.get("kb_snippets"):
-            return END
-        if state.get("kb_attempts", 0) >= MAX_ATTEMPTS:
+        if state.kb_snippets or state.kb_attempts >= MAX_ATTEMPTS:
             return END
         return "refine"
 

@@ -32,25 +32,6 @@ from assistant.ws.feed import emitter_for
 logger = structlog.get_logger(__name__)
 
 
-# The thread is the ticket, so a second comment resumes a thread that already
-# holds the last run's answer, receipt and approval. Left alone the stale
-# receipt re-emits as a "reply sent" the moment the new run starts, and the
-# reviewer's panel disappears under it.
-FRESH_RUN: TriageState = {
-    "classification": None,  # type: ignore[typeddict-item]
-    "decision": None,  # type: ignore[typeddict-item]
-    "kb_query": "",
-    "kb_snippets": [],
-    "answer": None,  # type: ignore[typeddict-item]
-    "escalation_reason": "",
-    "tool_error": "",
-    "approval_granted": False,
-    "delivery_receipt": "",
-    "guardrail_findings": [],
-    "reply_blocked": False,
-}
-
-
 def _slugs(overrides: Any) -> dict[str, str | None] | None:
     """A user's model choices as `{purpose: slug}`, or None when unset."""
     return overrides.model_dump() if overrides is not None else None
@@ -160,12 +141,13 @@ class TriageTopic(Topic[TriageFeedEvent]):
     async def _run_graph(
         self, context: TicketContext, agent_config: AgentConfig | None = None
     ) -> None:
-        # The thread is the ticket, so a second comment resumes a thread that
-        # already holds the last run's answer, receipt and approval. Left
-        # alone, the stale receipt re-emits as a "reply sent" the moment the
-        # new run starts, and the reviewer's panel disappears under it.
-        initial: TriageState = {"context": context, **FRESH_RUN}
-        await self._drive(context.ticket_id, initial, agent_config)
+        # A whole state, not an update: the thread is the ticket, so a second
+        # comment resumes one that still holds the last run's answer, receipt and
+        # approval. Every field but the ticket takes its default, which is what
+        # clears them - left alone the stale receipt re-emits as a "reply sent"
+        # the moment the new run starts, and the reviewer's panel disappears
+        # under it.
+        await self._drive(context.ticket_id, TriageState(context=context), agent_config)
 
     async def _drive(
         self,

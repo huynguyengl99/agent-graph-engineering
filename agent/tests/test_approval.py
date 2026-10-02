@@ -44,7 +44,7 @@ async def test_run_pauses_and_surfaces_the_draft() -> None:
     assert payload["kind"] == "reply_approval"
     assert payload["draft"] == DRAFT
     # Nothing was sent while the graph is parked.
-    assert state.get("delivery_receipt") is None
+    assert not state.get("delivery_receipt")
 
 
 async def test_approval_sends_the_reply() -> None:
@@ -69,7 +69,7 @@ async def test_rejection_leaves_the_customer_untouched() -> None:
 
     assert state["approval_granted"] is False
     # The irreversible node never ran.
-    assert state.get("delivery_receipt") is None
+    assert not state.get("delivery_receipt")
 
 
 async def test_reviewer_can_edit_before_sending() -> None:

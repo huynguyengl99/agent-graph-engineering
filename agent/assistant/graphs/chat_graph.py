@@ -9,7 +9,7 @@ from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.knowledge_graph import build_knowledge_graph
-from assistant.graphs.states import ChatState
+from assistant.graphs.states import ChatState, Update
 from assistant.graphs.tool_graph import build_tool_graph
 from assistant.messages.chat import ChatCompleteMessage, ChatCompletePayload
 from assistant.outputs.chat import ConsultKnowledgeBase, RunTool
@@ -33,30 +33,30 @@ class ChatGraph(BaseGraph):
         self.router = ChatRouterAgent(self.config)
         self.chat = ChatAgent(self.config)
 
-    async def route(self, state: ChatState) -> ChatState:
-        context = state["context"]
-        decision = await self.router.run(context.render(state["question"]), context)
+    async def route(self, state: ChatState) -> Update:
+        context = state.context
+        decision = await self.router.run(context.render(state.question), context)
 
-        update: ChatState = {"route": decision}
+        update: Update = {"route": decision}
         if isinstance(decision, ConsultKnowledgeBase):
             # Hand the subgraph what to search for, as triage does.
             update["kb_query"] = decision.query
         elif isinstance(decision, RunTool):
             # The tool subgraph plans against the rep's own words.
-            update["request"] = state["question"]
+            update["request"] = state.question
         return update
 
-    async def answer(self, state: ChatState) -> ChatState:
-        context = state["context"]
-        prompt = context.render(state["question"])
+    async def answer(self, state: ChatState) -> Update:
+        context = state.context
+        prompt = context.render(state.question)
 
-        snippets = state.get("kb_snippets") or []
+        snippets = state.kb_snippets
         if snippets:
             prompt += "\n\nKnowledge base articles:\n" + "\n\n".join(snippets)
 
-        if result := state.get("result"):
+        if result := state.result:
             prompt += f"\n\nA tool was run and returned:\n{result}"
-            if state.get("corrected"):
+            if state.corrected:
                 # Without this the model reads a corrected amount as an error
                 # and tells the rep to make up the difference, which is the
                 # reviewer's decision being undone by the summary of it.
@@ -64,9 +64,9 @@ class ChatGraph(BaseGraph):
                     "\nA reviewer changed the arguments before approving. That "
                     "is the decision, not a mistake: report what ran."
                 )
-        elif state.get("cancelled"):
+        elif state.cancelled:
             prompt += "\n\nThe action was cancelled by a reviewer. Say so plainly."
-        elif error := state.get("tool_error"):
+        elif error := state.tool_error:
             prompt += f"\n\nA tool failed:\n{error}"
 
         # LangGraph's custom stream channel: deltas leave the node as they are
@@ -89,7 +89,7 @@ class ChatGraph(BaseGraph):
         return {"answer": answer}
 
     def route_after_routing(self, state: ChatState) -> str:
-        match state["route"]:
+        match state.route:
             case ConsultKnowledgeBase():
                 return "knowledge"
             case RunTool():

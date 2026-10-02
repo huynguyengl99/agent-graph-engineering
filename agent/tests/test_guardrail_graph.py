@@ -59,7 +59,7 @@ async def test_a_clean_draft_reaches_the_approval_gate() -> None:
     parked = interrupt_value(state)
     assert parked["kind"] == "reply_approval"
     assert parked["findings"] == [], "a clean draft has nothing to warn about"
-    assert state.get("delivery_receipt") is None, "nothing sends without approval"
+    assert not state.get("delivery_receipt"), "nothing sends without approval"
 
 
 async def test_a_draft_leaking_a_credential_never_reaches_a_human() -> None:
@@ -68,8 +68,8 @@ async def test_a_draft_leaking_a_credential_never_reaches_a_human() -> None:
     assert state["reply_blocked"] is True
     assert any("openai_key" in f for f in state["guardrail_findings"])
     # The run stopped at `screen`: no approval was granted, nothing was sent.
-    assert state.get("approval_granted") is None
-    assert state.get("delivery_receipt") is None
+    assert not state.get("approval_granted")
+    assert not state.get("delivery_receipt")
 
 
 async def test_an_injection_attempt_is_recorded_but_does_not_stop_the_run() -> None:

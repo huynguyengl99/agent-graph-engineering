@@ -15,12 +15,12 @@ class Node(Protocol):
 
 
 def _run_key(state: Any) -> str:
-    """What this run is filed under: a ticket for triage, a conversation for
-    chat. A resumed run reloads the context as a plain dict."""
-    context = state["context"]
-    if isinstance(context, dict):
-        return str(context.get("ticket_id") or context.get("conversation_id") or "")
-    return str(getattr(context, "trace_key", ""))
+    """What this run is filed under: a ticket for triage, a conversation for chat.
+
+    Read off the state model LangGraph validated on the way in, so both contexts
+    answer through `trace_key` and neither has to be unpacked here.
+    """
+    return str(getattr(getattr(state, "context", None), "trace_key", ""))
 
 
 # What a node decided, not what it wrote. A draft reply or a prompt in a span

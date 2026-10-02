@@ -72,12 +72,14 @@ Two consequences worth knowing:
 - **The record is derived, so it can lag but not diverge.** A terminal event
   persists the turn; a parked run persists the card. A tool proposal is
   deliberately not a turn, because it only becomes one if it runs.
-- **Nothing replays.** A broadcast reaches whoever is subscribed at the time. If
-  the backend is restarted mid-run, the agent finishes and its checkpoint is
-  intact, but the completion was published to no one and never reaches the
-  record. The run is recoverable, the message is not. Closing that needs the
-  events stored on the agent's side and replayed by sequence on reconnect, which
-  is not built.
+- **A missed event is asked for again.** A broadcast reaches whoever is subscribed
+  at the time, so a restart mid-run used to leave a recoverable run and a message
+  that never arrived. The agent now appends every event before publishing it and
+  publishes the sequence it was stored at; the backend remembers the last sequence
+  whose effect is durable, and asks for the rest when it subscribes. A replay
+  starts *after* the cursor, which is what stops an event being applied twice, and
+  the cursor moves in the same transaction as the row it records so a crash
+  between the two cannot duplicate a reply.
 
 ## Everything is a generated contract
 

@@ -12,6 +12,7 @@ and the in-memory saver is opt-in, announced loudly when it happens.
 """
 
 from dataclasses import dataclass
+from typing import Any, get_args
 
 import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -20,26 +21,30 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from psycopg_pool import AsyncConnectionPool
 
+from assistant.agents.deps import ChatContext, TicketContext
 from assistant.core.config import settings
+from assistant.outputs.chat import ChatRoute
+from assistant.outputs.tools import ToolDecision
+from assistant.outputs.triage import Classification, TicketAnswer, TriageDecision
 
 logger = structlog.get_logger(__name__)
 
-# Checkpoints carry our own models, so their modules must be allow-listed.
+# Every model a graph state can hold. A missing one comes back as nothing rather
+# than an error, so a router reads no route and takes its fallback branch.
+# Derived from the unions, because listing it by hand is what went wrong.
+CHECKPOINTED: tuple[Any, ...] = (
+    TicketContext,
+    ChatContext,
+    Classification,
+    TicketAnswer,
+    *get_args(TriageDecision),
+    *get_args(ChatRoute),
+    *get_args(ToolDecision),
+)
+
 serde = JsonPlusSerializer(
     allowed_msgpack_modules=[
-        ("assistant.outputs.triage", name)
-        for name in (
-            "Classification",
-            "AnswerDirectly",
-            "SearchKnowledgeBase",
-            "Escalate",
-            "DraftReply",
-            "TicketAnswer",
-        )
-    ]
-    + [
-        ("assistant.agents.deps", "TicketContext"),
-        ("assistant.agents.deps", "ChatContext"),
+        (model.__module__, model.__name__) for model in CHECKPOINTED
     ]
 )
 

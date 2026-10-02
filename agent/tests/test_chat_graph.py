@@ -68,15 +68,20 @@ async def test_a_standalone_conversation_needs_no_ticket() -> None:
     assert updates["answer"]["answer"]
 
 
-async def test_history_is_carried_into_the_prompt() -> None:
+async def test_history_is_not_flattened_into_the_prompt() -> None:
+    """It reaches the model as its own message history instead.
+
+    Repeating it here would send every earlier turn twice, and would turn a tool
+    call the model made into a line of prose about it.
+    """
     context = ChatContext(
         conversation_id="c-4",
         history=[("user", "Is this refundable?"), ("assistant", "Within 14 days.")],
     )
     prompt = context.render(QUESTION)
 
-    assert "Within 14 days." in prompt
-    assert prompt.index("Within 14 days.") < prompt.index(QUESTION)
+    assert "Within 14 days." not in prompt
+    assert QUESTION in prompt
 
 
 class TestRouting:

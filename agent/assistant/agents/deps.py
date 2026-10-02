@@ -46,12 +46,16 @@ class ChatContext:
         return self.conversation_id
 
     def render(self, question: str) -> str:
+        """The ticket and the question, and deliberately not the history.
+
+        Earlier turns reach the model as its own message history, so repeating
+        them here as "user: ... assistant: ..." would send each one twice and
+        flatten a tool call into a line of prose. `history` survives to seed that
+        store for a conversation the agent has not answered before.
+        """
         parts: list[str] = []
         if self.ticket is not None:
             parts.append("The agent is looking at this ticket:")
             parts.append(self.ticket.render())
-        if self.history:
-            parts.append("Earlier in this conversation:")
-            parts.extend(f"{role}: {content}" for role, content in self.history)
         parts.append(f"Their question: {question}")
         return "\n\n".join(parts)

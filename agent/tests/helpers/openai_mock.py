@@ -129,8 +129,21 @@ class Recorder:
 
     @property
     def prompts(self) -> str:
-        """Every message of every call, flattened, for substring assertions."""
+        """Every message of every call, flattened, for substring assertions.
+
+        Includes the model's own history, so it answers "was this ever said"
+        rather than "did this turn say it". Use `last_user_prompt` for the latter.
+        """
         return json.dumps(self.bodies, ensure_ascii=False)
+
+    @property
+    def last_user_prompt(self) -> str:
+        """What the final call actually asked, with earlier turns excluded."""
+        for body in reversed(self.bodies):
+            spoken = [m for m in body.get("messages", []) if m.get("role") == "user"]
+            if spoken:
+                return str(spoken[-1].get("content") or "")
+        return ""
 
 
 @contextmanager

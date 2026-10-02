@@ -168,10 +168,12 @@ class TestOneTurnDoesNotLeakIntoTheNext:
         await park(consumer)
         recorder = await decide(consumer, approved=False, arguments={})
 
-        assert "Refunded" not in recorder.prompts, (
+        # This turn's prompt, not the whole exchange: history legitimately holds
+        # the earlier refund.
+        assert "Refunded" not in recorder.last_user_prompt, (
             "the previous turn's result was still in state"
         )
-        assert "cancelled" in recorder.prompts
+        assert "cancelled" in recorder.last_user_prompt
 
     async def test_a_plain_question_does_not_inherit_a_tool_result(
         self, consumer: DetachedTopic
@@ -185,7 +187,7 @@ class TestOneTurnDoesNotLeakIntoTheNext:
         with mock_openai(answer_directly, text_stream("Here you go.")) as recorder:
             await consumer.handle_chat_request(request())
 
-        assert "A tool was run" not in recorder.prompts
+        assert "A tool was run" not in recorder.last_user_prompt
 
 
 class TestMisnamedArguments:

@@ -13,20 +13,30 @@ os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-respx")
 
 
 import pytest
+from assistant.conversations import MemoryHistoryStore, install_history
+from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.checkpointer import install_checkpointer, memory_checkpointer
+from assistant.runs import MemoryEventStore, install_run_events
 from assistant.tools.core.ledger import MemoryLedger, install_ledger
 from assistant.tracing import trace_store
+from fast_channels.layers import InMemoryChannelLayer, register_channel_layer
 
 
 @pytest.fixture(autouse=True)
-def _checkpointer() -> None:
-    """A fresh in-memory saver and tool ledger per test.
+def _per_test_state() -> None:
+    """Fresh stores and a layer of this process's own, per test.
 
-    The service uses Postgres; a unit test should not need a database to prove
-    that a run resumes, and a saver shared between tests leaks threads.
+    The service uses Postgres and Redis; a unit test should not need either to
+    prove that a run resumes. Each of these is a process-wide singleton, so one
+    shared between tests leaks: a conversation's model history carried a previous
+    test's tool call into the next one's prompt, which read as the graph leaking
+    state when it was the fixture.
     """
     install_checkpointer(memory_checkpointer())
     install_ledger(MemoryLedger())
+    install_run_events(MemoryEventStore())
+    install_history(MemoryHistoryStore())
+    register_channel_layer(LAYER_ALIAS, InMemoryChannelLayer())
     # No trace files: these tests are about the in-memory ring, and a suite that
     # writes spans into the repo leaks state between runs. The file store has
     # its own test with its own directory.

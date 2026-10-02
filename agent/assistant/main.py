@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 
+from assistant.conversations import setup_history
 from assistant.core.auth import SharedTokenMiddleware
 from assistant.core.config import settings
 from assistant.core.layers import setup_layers
@@ -40,6 +41,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await setup_checkpointer()
     await setup_ledger(checkpoint_pool())
     await setup_run_events(checkpoint_pool())
+    await setup_history(checkpoint_pool())
     yield
     await close_checkpointer()
 

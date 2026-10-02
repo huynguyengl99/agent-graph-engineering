@@ -5,6 +5,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from assistant.agents import AgentConfig
 from assistant.agents.chat import ChatAgent, ChatRouterAgent
+from assistant.conversations import history
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.checkpointer import checkpointer
@@ -35,7 +36,13 @@ class ChatGraph(BaseGraph):
 
     async def route(self, state: ChatState) -> Update:
         context = state.context
-        decision = await self.router.run(context.render(state.question), context)
+        # The router needs what came before to resolve "refund it", and it reads
+        # the same history the answer will: not a summary of it.
+        decision = await self.router.run(
+            context.render(state.question),
+            context,
+            await history().load(context.conversation_id),
+        )
 
         update: Update = {"route": decision}
         if isinstance(decision, ConsultKnowledgeBase):
@@ -74,11 +81,16 @@ class ChatGraph(BaseGraph):
         writer = get_stream_writer()
 
         parts: list[str] = []
-        async for delta in self.chat.stream(prompt, context):
+        async for delta in self.chat.stream(
+            prompt, context, await history().load(context.conversation_id)
+        ):
             parts.append(delta)
             writer({"delta": delta})
 
         answer = "".join(parts)
+        # Everything this turn saw, the model's own reply included, so the next
+        # turn reads its actions as the calls they were rather than as prose.
+        await history().replace(context.conversation_id, self.chat.messages)
         await self.emit(
             ChatCompleteMessage(
                 payload=ChatCompletePayload(

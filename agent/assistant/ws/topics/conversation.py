@@ -9,6 +9,7 @@ from langgraph.types import Command
 
 from assistant.agents.config import AgentConfig
 from assistant.agents.deps import ChatContext, TicketContext
+from assistant.conversations import history
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.chat_graph import build_chat_graph
@@ -102,13 +103,12 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
             emitter=emitter_for(self),
         )
 
+        # Only used when this service has no history of its own yet.
+        await history().seed(self.params["conversation_id"], context.history)
+
         with run_span("chat", self.params["conversation_id"]):
-            # A whole state, not an update: the thread is the conversation, so
-            # it still holds the last turn's tool result. `answer` prefers a
-            # result over a cancellation, so without the reset a cancelled call
-            # is reported as the previous call's success - the worst possible way
-            # to get that wrong. Every field but the context and the question
-            # takes its default.
+            # A whole state, not an update: the thread holds the last turn's
+            # tool result, and a cancelled call must not report it as a success.
             await self._consume(
                 graph,
                 ChatState(context=context, question=payload.question),

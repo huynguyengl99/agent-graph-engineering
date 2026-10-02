@@ -33,7 +33,7 @@ The domain was chosen so that the graph earns its place (real routing, not a two
 | `agent/`   | FastAPI, LangGraph, Pydantic AI, chanx            | 8001 |
 | `web/`     | React 19, Vite, Zodios, chanx-js, Tailwind        | 5173 |
 
-The backend owns users, tickets, conversations, and history. The agent service owns the graphs, the tools, and the checkpoints.
+The backend owns users, tickets, and the conversation as a person reads it. The agent service owns the graphs, the tools, the checkpoints, and the conversation as the *model* remembers it - Pydantic AI's own message history, which is not the same thing as a list of rows and is why both exist.
 
 Every browser tab holds **one** WebSocket at `/ws/`. Tickets and conversations are *topics* on it, addressed per frame, so watching four resources is one connection rather than four. Publishing needs no consumer instance: `Topic.broadcast` is a classmethod, which is what a background task driving the agent requires.
 

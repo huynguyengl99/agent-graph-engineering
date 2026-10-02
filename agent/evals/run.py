@@ -18,6 +18,9 @@ import asyncio
 import sys
 from pathlib import Path
 
+from assistant.agents.config import ModelPurpose
+from assistant.agents.factory import has_provider_key
+
 from evals.core.config import EvalConfig
 from evals.core.judge import CascadeJudge
 from evals.core.results import (
@@ -51,6 +54,18 @@ def _usage(observations: list[Observation]) -> Usage:
 async def run_scenario(
     scenario: Scenario, config: EvalConfig, judge: CascadeJudge
 ) -> ScenarioResult:
+    if scenario.needs_provider and not has_provider_key(
+        config.agent_config.models[ModelPurpose.DECISION]
+    ):
+        return ScenarioResult(
+            scenario=scenario.name,
+            trials=0,
+            pass_rate=0.0,
+            skipped=True,
+            passed=True,
+            usage=Usage(),
+        )
+
     observations = [
         await run_trial(scenario, config.agent_config) for _ in range(config.trials)
     ]
@@ -123,9 +138,10 @@ async def main(
         models={k: config.resolved(k) for k in config.models},
         trials=config.trials,
         total=len(results),
-        passed=sum(r.passed for r in results),
+        passed=sum(r.passed and not r.skipped for r in results),
         failed=sum(not r.passed for r in results),
         flaky=sum(r.flaky for r in results),
+        skipped=sum(r.skipped for r in results),
         usage=total_usage,
         results=results,
     )
@@ -137,7 +153,10 @@ async def main(
 
 def _report(summary: RunSummary, run_dir: Path) -> None:
     for r in summary.results:
-        mark = "FLAKY" if r.flaky else ("PASS" if r.passed else "FAIL")
+        if r.skipped:
+            mark = "SKIP"
+        else:
+            mark = "FLAKY" if r.flaky else ("PASS" if r.passed else "FAIL")
         print(f"  {mark:5} {r.scenario}")
         if not r.passed:
             for name, check in r.deterministic.items():
@@ -156,7 +175,7 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
         else f"unpriced (no price table for {', '.join(summary.usage.unpriced_models)})"
     )
     print(
-        f"\n{summary.passed}/{summary.total} passed  "
+        f"\n{summary.passed}/{summary.total - summary.skipped} passed  "
         f"({summary.usage.calls} model calls, "
         f"{summary.usage.input_tokens + summary.usage.output_tokens} tokens, {cost})"
     )
@@ -169,6 +188,12 @@ def _report(summary: RunSummary, run_dir: Path) -> None:
     elif summary.trials == 1:
         print(
             "trials=1, so a single bad sample fails a scenario. --trials 3 to settle one."
+        )
+
+    if summary.skipped:
+        print(
+            f"{summary.skipped} scenario(s) skipped: they assert a model's routing "
+            "choice, which needs a provider key."
         )
 
     skipped = [r.scenario for r in summary.results if r.judged and not r.judged.judged]

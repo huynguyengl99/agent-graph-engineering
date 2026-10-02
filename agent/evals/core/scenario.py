@@ -38,11 +38,8 @@ class Expect(BaseModel):
 
 
 class Scenario(BaseModel):
-    """A ticket for triage, or a rep's question for chat.
-
-    One golden set rather than two: the two graphs fail in the same ways and a
-    reader comparing runs wants one table.
-    """
+    """A ticket for triage, or a rep's question for chat. One golden set, because
+    a reader comparing runs wants one table."""
 
     name: str
     kind: Literal["triage", "chat"] = "triage"
@@ -53,7 +50,17 @@ class Scenario(BaseModel):
     # Chat only: the ticket the rep has open, if any.
     ticket: str = ""
     history: list[str] = []
+    # Unset means "every chat scenario".
+    provider_required: bool | None = None
     expect: Expect
+
+    @property
+    def needs_provider(self) -> bool:
+        """Whether the expectation means anything without a real model. The
+        scripted one answers by keyword, so some of these pass by accident."""
+        if self.provider_required is not None:
+            return self.provider_required
+        return self.kind == "chat"
 
     @model_validator(mode="after")
     def _needs_its_own_input(self) -> "Scenario":

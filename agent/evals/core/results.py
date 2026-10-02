@@ -30,6 +30,8 @@ class ScenarioResult(BaseModel):
     # time. Invisible at trials=1, which is why that is not the default to
     # trust a decision on.
     flaky: bool = False
+    # Not run: it needs a provider and there is no key. Neither passed nor failed.
+    skipped: bool = False
     deterministic: dict[str, Check] = {}
     judged: Verdict | None = None
     passed: bool
@@ -46,6 +48,7 @@ class RunSummary(BaseModel):
     passed: int
     failed: int
     flaky: int = 0
+    skipped: int = 0
     usage: Usage
     results: list[ScenarioResult]
 

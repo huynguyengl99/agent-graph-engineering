@@ -61,5 +61,7 @@
 - name: routing-a-request-for-a-decision-still-escalates
   title: Refund my annual plan
   description: I want a refund for my annual plan, please process it now.
+  # A judgement about authority, not a keyword: the scripted model cannot make it.
+  provider_required: true
   expect:
     decision: Escalate

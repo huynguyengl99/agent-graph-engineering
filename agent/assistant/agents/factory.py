@@ -16,7 +16,8 @@ from assistant.agents.scripted import ScriptedModel
 from assistant.core.config import settings
 
 # A provider is usable only if its key is set. Without one the scripted model
-# stands in, so a fresh clone runs instead of 401-ing on every step.
+# stands in, so a fresh clone runs instead of 401-ing on every step. Each is
+# handed its key: pydantic-ai would read `os.environ`, which nothing populates.
 PROVIDER_KEYS = {
     "openai": lambda: settings.openai_api_key,
     "anthropic": lambda: settings.anthropic_api_key,
@@ -58,13 +59,13 @@ def build_model(config: ModelConfig) -> Model:
         # shape the rest of this code was written against.
         return OpenAIChatModel(
             config.name,
-            provider=OpenAIProvider(http_client=client) if client else "openai",
+            provider=OpenAIProvider(
+                api_key=settings.openai_api_key,
+                **({"http_client": client} if client else {}),
+            ),
         )
 
     if config.provider == "anthropic":
-        # The key is passed, not left to the environment. `infer_model` would
-        # read `ANTHROPIC_API_KEY` from `os.environ`, which this service does not
-        # populate: settings are read from its own .env and stay there.
         return AnthropicModel(
             config.name,
             provider=AnthropicProvider(

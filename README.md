@@ -40,10 +40,44 @@ Every browser tab holds **one** WebSocket at `/ws/`. Tickets and conversations a
 ## A note on the agent's boundary
 
 The agent is internal: only the backend connects to it, never a browser. The
-approval gate lives inside the graph, so anything that can open `/ws/chat` can
-propose a tool call *and* approve it - network isolation is the primary control
+approval gate lives inside the graph, so anything that can open `/ws/` on the
+agent can propose a tool call *and* approve it - network isolation is the primary control
 and `ASSISTANT_AGENT_TOKEN` is the second. Unset means the agent accepts every
 caller, which is why a fresh clone runs without one.
+
+## How the two services stay in sync
+
+Neither service mirrors the other. They hold different things, and only one
+direction carries updates.
+
+The agent owns **execution** state: which node runs next, the channel values, the
+pending interrupt payload. That is a LangGraph checkpoint in Postgres, and it is
+the only reason a resume works - rebuilding it by hand would mean reimplementing
+the execution model.
+
+The backend owns the **record**: messages, ticket events, and the two things a
+reload needs to find - a drafted reply waiting for approval, and a proposed tool
+call. Neither is a copy of graph state. They exist because the browser cannot ask
+the agent what is waiting, and because a `PendingApproval` row is what rebuilds
+the approval card after a refresh.
+
+Updates travel one way. A node broadcasts an event on its topic, the backend is
+subscribed, and its relay does two things with each one: writes what belongs in
+the record, and fans it out to the browser group. So the backend learns what
+happened by being told, not by reading the agent's tables, and the agent never
+writes to the backend's.
+
+Two consequences worth knowing:
+
+- **The record is derived, so it can lag but not diverge.** A terminal event
+  persists the turn; a parked run persists the card. A tool proposal is
+  deliberately not a turn, because it only becomes one if it runs.
+- **Nothing replays.** A broadcast reaches whoever is subscribed at the time. If
+  the backend is restarted mid-run, the agent finishes and its checkpoint is
+  intact, but the completion was published to no one and never reaches the
+  record. The run is recoverable, the message is not. Closing that needs the
+  events stored on the agent's side and replayed by sequence on reconnect, which
+  is not built.
 
 ## Everything is a generated contract
 
@@ -217,9 +251,9 @@ Working end to end, with nothing mocked in `just e2e`:
 - Postgres checkpointing, at-most-once execution for irreversible tools,
   guardrails on both sides of the model, evals, and per-run tracing.
 
-Not built yet: a trace viewer in the product (the tree is `GET /traces/{run_id}`
-and nothing renders it), context budgeting for long conversations, and spend
-caps - cost is measured, not enforced.
+Not built yet: context budgeting for long conversations, and spend caps - cost is
+measured, not enforced. The span tree is rendered for staff in the Django admin
+rather than in the product, which is deliberate: see **Observability**.
 
 ## Graphs and subgraphs
 

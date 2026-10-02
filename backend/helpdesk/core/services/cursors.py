@@ -15,11 +15,10 @@ def last_handled(run_key: str) -> int:
 def advance_sync(run_key: str, seq: int) -> None:
     """Move the cursor forward, never back.
 
-    Synchronous so it can share a transaction with the write it is recording: a
-    cursor advanced in a separate one would let a crash in between replay an
-    effect that already happened.
+    Synchronous so it can share a transaction with the write it records: advanced
+    separately, a crash in between would replay an effect that already happened.
     """
-    if seq <= 0:
+    if not run_key or seq <= 0:
         return
     with transaction.atomic():
         cursor, _ = AgentRunCursor.objects.select_for_update().get_or_create(

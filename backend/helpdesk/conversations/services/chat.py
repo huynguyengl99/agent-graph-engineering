@@ -101,10 +101,10 @@ class _ConversationHandle(AgentHubConversationTopicClient):
     """Forwards the topic's events to the relay that opened it."""
 
     async def dispatch_frame(self, py_object: dict[str, Any]) -> None:
-        """The sequence rides the envelope, not the message, so it is read here
-        and handed to the relay alongside what it addresses."""
+        """The sequence and the agent's topic ride the envelope, not the message."""
         relay: Any = self.connection
         relay.incoming_seq = int(py_object.get("seq") or 0)
+        relay.agent_topic = self.topic
         await super().dispatch_frame(py_object)
 
     async def handle_message(self, message: IncomingMessage) -> None:
@@ -126,21 +126,19 @@ class ConversationChatClient(AgentClient):
         self.payload = request
         self.group = conversation_topic(conversation_id)
         self.answer = ""
-        # The sequence of the event being handled, set by the handle before it
-        # forwards one.
+        # Both set by the handle before it forwards an event.
         self.incoming_seq = 0
+        self.agent_topic = ""
 
     async def send_init_message(self) -> None:
         topic = self.topic(_ConversationHandle, conversation_id=self.conversation_id)
         # Subscribed before the request, or the run's events race it.
         await topic.subscribe()
 
-        # Anything this conversation said while nobody was subscribed - a turn
-        # that finished during a restart - arrives before the new request does.
-        # Normally there is nothing: the cursor keeps pace with the events.
+        # Whatever finished while nobody was subscribed, before the new request.
         await topic.send_message(
             ReplayRequestMessage(
-                payload=ReplayRequestPayload(since=await last_handled(self.group))
+                payload=ReplayRequestPayload(since=await last_handled(topic.topic))
             )
         )
 
@@ -197,10 +195,7 @@ class ConversationChatClient(AgentClient):
                 # like an oversight.
                 pass
 
-        # Everything above is either idempotent or has already moved the cursor
-        # in its own transaction, so this is safe to repeat and only ever moves
-        # forward.
-        await advance(self.group, self.incoming_seq)
+        await advance(self.agent_topic, self.incoming_seq)
 
     @database_sync_to_async
     def _remember_proposal(self, payload: ToolApprovalPayload) -> None:
@@ -246,7 +241,7 @@ class ConversationChatClient(AgentClient):
             message = Message.objects.create(
                 conversation_id=conversation_id, role=role, content=content
             )
-            advance_sync(conversation_topic(conversation_id), seq)
+            advance_sync(self.agent_topic, seq)
             return serialize_message(message)
 
 

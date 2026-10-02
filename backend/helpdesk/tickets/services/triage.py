@@ -96,9 +96,15 @@ class _TriageHandle(AgentHubTriageTopicClient):
     """Forwards the topic's events to the relay that opened it."""
 
     async def dispatch_frame(self, py_object: dict[str, Any]) -> None:
-        """The sequence rides the envelope, not the message."""
+        """The sequence and the agent's topic ride the envelope, not the message.
+
+        The topic comes from the handle because `self.group` is a different
+        string: this service fans out to `ticket:<id>`, the agent files under
+        `triage:<id>`.
+        """
         relay: Any = self.connection
         relay.incoming_seq = int(py_object.get("seq") or 0)
+        relay.agent_topic = self.topic
         await super().dispatch_frame(py_object)
 
     async def handle_message(self, message: IncomingMessage) -> None:
@@ -119,8 +125,9 @@ class TicketTriageClient(AgentClient):
         self.ticket_id = ticket_id
         self.payload = request
         self.group = ticket_topic(ticket_id)
-        # The sequence of the event being handled, set by the handle.
+        # Both set by the handle before it forwards an event.
         self.incoming_seq = 0
+        self.agent_topic = ""
         self.pending_reply: str | None = None
 
     async def send_init_message(self) -> None:
@@ -129,11 +136,10 @@ class TicketTriageClient(AgentClient):
         # subscription and the first ones are dropped.
         await topic.subscribe()
 
-        # Anything this ticket said while nobody was subscribed - a reply that
-        # went out during a restart - arrives before the new request does.
+        # Whatever finished while nobody was subscribed, before the new request.
         await topic.send_message(
             ReplayRequestMessage(
-                payload=ReplayRequestPayload(since=await last_handled(self.group))
+                payload=ReplayRequestPayload(since=await last_handled(topic.topic))
             )
         )
 
@@ -223,8 +229,7 @@ class TicketTriageClient(AgentClient):
             case _:
                 pass
 
-        # Idempotent, or already moved in its own transaction. Only ever forward.
-        await advance(self.group, self.incoming_seq)
+        await advance(self.agent_topic, self.incoming_seq)
 
     @database_sync_to_async
     def _remember_draft(self, draft: str, findings: list[str]) -> None:
@@ -256,15 +261,15 @@ class TicketTriageClient(AgentClient):
 
     @database_sync_to_async
     def _persist_answer(self, content: str) -> WireTicketEvent:
-        """The cursor moves with the row. A sent reply is the one replayable event
-        that is not idempotent, so "recorded" and "handled" commit together."""
+        """A sent reply is the one replayable event that is not idempotent, so the
+        cursor commits with the row."""
         with transaction.atomic():
             event = AIResponseEvent.objects.create(
                 ticket_id=self.ticket_id,
                 content=content,
                 model_name=settings.AGENT_ANSWER_MODEL,
             )
-            advance_sync(self.group, self.incoming_seq)
+            advance_sync(self.agent_topic, self.incoming_seq)
             return serialize_event(event)
 
 

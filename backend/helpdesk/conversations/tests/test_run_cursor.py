@@ -1,10 +1,6 @@
 """Catching up on a run whose events nobody heard.
 
-A broadcast reaches whoever is subscribed at the time. If this service restarts
-mid-turn the agent still finishes, but the message saying so was published to
-nobody: the run stays recoverable while the record silently does not exist. The
-agent keeps its events and will send them again; these cover this side of that -
-remembering how far it got, and not doing the same work twice when it asks.
+This side of it: remembering how far it got, and not redoing work when it asks.
 """
 
 from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
@@ -31,12 +27,16 @@ class TestTheCursorFollowsTheRecord(WebsocketTestCase):
         self.topic = f"conversation:{self.conversation.id}"
 
     def _client(self) -> ConversationChatClient:
-        return ConversationChatClient(
+        client = ConversationChatClient(
             str(self.conversation.id),
             ChatRequestPayload(
                 conversation_id=str(self.conversation.id), question="Refund it."
             ),
         )
+        # What the handle sets from the contract's pattern before forwarding an
+        # event. Without it there is no key, and nothing is recorded.
+        client.agent_topic = self.topic
+        return client
 
     def _complete(self) -> ChatCompleteMessage:
         return ChatCompleteMessage(

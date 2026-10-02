@@ -1,10 +1,11 @@
-"""Covers the consumer's streaming path.
+"""Covers the topic's streaming path.
 
 The graph tests call `ainvoke`, which never touches `astream`. A wrong
 unpacking of the stream shape slipped through that gap and only showed up when
 two live services talked to each other, so it gets its own test.
 """
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -12,27 +13,32 @@ from assistant.agents import TicketContext
 from assistant.messages.triage import TriageRequestMessage, TriageRequestPayload
 from assistant.ws.topics import TriageTopic
 
+from tests.helpers.events import Recorded, recording
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 
-class RecordingConsumer(TriageTopic):
-    """Captures what would go on the wire, without a socket."""
+class DetachedTopic(TriageTopic):
+    """Drives a run without a socket. Everything it and its graph emit is
+    published on the topic, which the `events` fixture records."""
 
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
-        self.sent: list[Any] = []
         self.params = {"ticket_id": "t-1"}
-
-    async def send_message(self, message: Any, **kwargs: Any) -> None:
-        self.sent.append(message)
+        self.topic = "triage:t-1"
 
 
 @pytest.fixture
-def consumer() -> RecordingConsumer:
-    return RecordingConsumer()
+def consumer() -> DetachedTopic:
+    return DetachedTopic()
+
+
+@pytest.fixture
+def events() -> Iterator[Recorded]:
+    with recording(TriageTopic) as recorded:
+        yield recorded
 
 
 async def test_every_graph_step_is_emitted_in_order(
-    consumer: RecordingConsumer,
+    consumer: DetachedTopic, events: Recorded
 ) -> None:
     with mock_openai(
         tool_call(
@@ -57,17 +63,19 @@ async def test_every_graph_step_is_emitted_in_order(
             )
         )
 
-    actions = [m.action for m in consumer.sent]
+    actions = events.actions()
     assert actions[0] == "classified"
     assert "decided" in actions
     assert "answer" in actions
     # The run ends parked at the approval gate, not at the answer.
     assert actions[-1] == "approval_required"
-    assert consumer.sent[-1].payload.draft == "Two charges means proration."
+    assert events.last("approval_required").payload.draft == (
+        "Two charges means proration."
+    )
 
 
 async def test_handler_reports_failure_instead_of_raising(
-    consumer: RecordingConsumer, monkeypatch: pytest.MonkeyPatch
+    consumer: DetachedTopic, monkeypatch: pytest.MonkeyPatch, events: Recorded
 ) -> None:
     async def boom(*_args: Any, **_kwargs: Any) -> None:
         raise RuntimeError("graph exploded")
@@ -80,4 +88,4 @@ async def test_handler_reports_failure_instead_of_raising(
         )
     )
 
-    assert [m.action for m in consumer.sent] == ["triage_error"]
+    assert events.actions() == ["triage_error"]

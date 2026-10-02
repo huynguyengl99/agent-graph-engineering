@@ -6,11 +6,13 @@ from langgraph.graph.state import CompiledStateGraph
 from assistant.agents import AgentConfig
 from assistant.agents.chat import ChatAgent, ChatRouterAgent
 from assistant.agents.deps import ChatContext
+from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.knowledge_graph import build_knowledge_graph
 from assistant.graphs.states import ChatState
 from assistant.graphs.tool_graph import build_tool_graph
+from assistant.messages.chat import ChatCompleteMessage, ChatCompletePayload
 from assistant.outputs.chat import ConsultKnowledgeBase, RunTool
 from assistant.tracing.nodes import Node
 
@@ -31,8 +33,10 @@ class ChatGraph(BaseGraph):
 
     name = "chat"
 
-    def __init__(self, config: AgentConfig | None = None) -> None:
-        super().__init__(config)
+    def __init__(
+        self, config: AgentConfig | None = None, emitter: Emitter = silent
+    ) -> None:
+        super().__init__(config, emitter)
         self.router = ChatRouterAgent(self.config)
         self.chat = ChatAgent(self.config)
 
@@ -81,7 +85,15 @@ class ChatGraph(BaseGraph):
             parts.append(delta)
             writer({"delta": delta})
 
-        return {"answer": "".join(parts)}
+        answer = "".join(parts)
+        await self.emit(
+            ChatCompleteMessage(
+                payload=ChatCompletePayload(
+                    conversation_id=context.conversation_id, content=answer
+                )
+            )
+        )
+        return {"answer": answer}
 
     def route_after_routing(self, state: ChatState) -> str:
         match state["route"]:
@@ -121,5 +133,6 @@ class ChatGraph(BaseGraph):
 def build_chat_graph(
     config: AgentConfig | None = None,
     saver: BaseCheckpointSaver[str] | None = None,
+    emitter: Emitter = silent,
 ) -> CompiledStateGraph[ChatState, None, ChatState, ChatState]:
-    return ChatGraph(config).compile(saver or checkpointer())
+    return ChatGraph(config, emitter).compile(saver or checkpointer())

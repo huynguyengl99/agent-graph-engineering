@@ -1,8 +1,9 @@
-from typing import Any
+from typing import Any, ClassVar, get_args
 
 import structlog
 from chanx.core.decorators import ws_handler
 from chanx.core.topic import Topic
+from chanx.messages.base import BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
@@ -14,24 +15,19 @@ from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import build_triage_graph
 from assistant.messages.triage import (
     AnswerMessage,
-    AnswerPayload,
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     ClassifiedMessage,
-    ClassifiedPayload,
     DecidedMessage,
-    DecidedPayload,
     ReplyBlockedMessage,
-    ReplyBlockedPayload,
     ReplySentMessage,
-    ReplySentPayload,
     TriageErrorMessage,
     TriageErrorPayload,
     TriageRequestMessage,
 )
-from assistant.outputs.triage import TicketAnswer
 from assistant.tracing import run_span
+from assistant.ws.feed import emitter_for
 
 logger = structlog.get_logger(__name__)
 
@@ -82,6 +78,11 @@ class TriageTopic(Topic[TriageFeedEvent]):
 
     pattern = "triage:{ticket_id}"
     channel_layer_alias = LAYER_ALIAS
+    # The nodes broadcast, and an event with no handler is dropped with a log
+    # line. Derived from the feed so the two cannot drift.
+    passthrough_events: ClassVar[list[type[BaseMessage]]] = list(
+        get_args(TriageFeedEvent)
+    )
 
     async def authorize(self, **params: str) -> bool:
         """The socket is already authenticated: only the backend can reach this
@@ -146,13 +147,14 @@ class TriageTopic(Topic[TriageFeedEvent]):
             await self._fail(self.params["ticket_id"])
 
     async def _fail(self, ticket_id: str) -> None:
-        await self.send_message(
+        await self.broadcast(
+            self.topic,
             TriageErrorMessage(
                 payload=TriageErrorPayload(
                     ticket_id=ticket_id,
                     message="The triage agent could not complete this ticket.",
                 )
-            )
+            ),
         )
 
     async def _run_graph(
@@ -164,11 +166,6 @@ class TriageTopic(Topic[TriageFeedEvent]):
         # new run starts, and the reviewer's panel disappears under it.
         initial: TriageState = {"context": context, **FRESH_RUN}
         await self._drive(context.ticket_id, initial, agent_config)
-
-    def _findings(self, update: object) -> list[str]:
-        if isinstance(update, dict):
-            return [str(f) for f in update.get("guardrail_findings") or []]
-        return []
 
     async def _drive(
         self,
@@ -188,126 +185,41 @@ class TriageTopic(Topic[TriageFeedEvent]):
 
         # Built per run: the topology is fixed, but which model fills each
         # purpose comes from the requesting user.
-        graph = build_triage_graph(agent_config or AgentConfig.resolve())
+        graph = build_triage_graph(
+            agent_config or AgentConfig.resolve(), emitter=emitter_for(self)
+        )
 
-        # `stream_mode="updates"` yields one {node_name: update} dict per step,
-        # not a (name, update) pair.
-        # StateT is invariant in the astream signature, so a declared
-        # `TriageState | Command` argument cannot satisfy it even though that is
-        # exactly what the graph accepts.
-        findings: list[str] = []
         with run_span("triage", ticket_id):
-            await self._stream(graph, payload, config, ticket_id, findings)
+            await self._stream(graph, payload, config, ticket_id)
 
     async def _stream(
-        self,
-        graph: Any,
-        payload: Any,
-        config: RunnableConfig,
-        ticket_id: str,
-        findings: list[str],
+        self, graph: Any, payload: Any, config: RunnableConfig, ticket_id: str
     ) -> None:
+        """Drained for its side effects: the nodes emit their own events, and
+        the park is the one thing no node is running to report."""
+        # `stream_mode="updates"` yields one {node_name: update} dict per step.
+        # StateT is invariant in astream, so a declared `TriageState | Command`
+        # cannot satisfy it even though that is exactly what the graph accepts.
         async for step in graph.astream(
             payload,  # type: ignore[arg-type]
             config=config,
             stream_mode="updates",
         ):
-            for node_name, update in step.items():
-                if node_name == "__interrupt__":
-                    await self._emit_interrupt(ticket_id, update, findings)
-                    continue
-                findings = self._findings(update) or findings
-                if node_name == "screen":
-                    await self._emit_screen(ticket_id, update, findings)
-                await self._emit(ticket_id, node_name, update)
+            if (interrupted := step.get("__interrupt__")) is not None:
+                await self._emit_interrupt(ticket_id, interrupted)
 
-    async def _emit_screen(
-        self, ticket_id: str, update: object, findings: list[str]
-    ) -> None:
-        """A blocked draft ends the run here, so say so: no interrupt follows."""
-        if not isinstance(update, dict) or not update.get("reply_blocked"):
-            return
-        await self.send_message(
-            ReplyBlockedMessage(
-                payload=ReplyBlockedPayload(
-                    ticket_id=ticket_id,
-                    draft="",
-                    findings=findings,
-                )
-            )
-        )
-
-    async def _emit_interrupt(
-        self, ticket_id: str, update: object, findings: list[str]
-    ) -> None:
+    async def _emit_interrupt(self, ticket_id: str, update: object) -> None:
         interrupts = update if isinstance(update, (list, tuple)) else [update]
         for item in interrupts:
             value = getattr(item, "value", item)
             if isinstance(value, dict) and value.get("kind") == "reply_approval":
-                await self.send_message(
+                await self.broadcast(
+                    self.topic,
                     ApprovalRequiredMessage(
                         payload=ApprovalRequiredPayload(
                             ticket_id=ticket_id,
                             draft=str(value.get("draft", "")),
-                            findings=[str(f) for f in value.get("findings") or []]
-                            or findings,
+                            findings=[str(f) for f in value.get("findings") or []],
                         )
-                    )
+                    ),
                 )
-
-    async def _emit(self, ticket_id: str, node_name: str, update: object) -> None:
-        if not isinstance(update, dict):
-            return
-
-        if (classification := update.get("classification")) is not None:
-            await self.send_message(
-                ClassifiedMessage(
-                    payload=ClassifiedPayload(
-                        ticket_id=ticket_id,
-                        category=classification.category,
-                        priority=classification.priority,
-                        reasoning=classification.reasoning,
-                    )
-                )
-            )
-
-        if (decision := update.get("decision")) is not None:
-            await self.send_message(
-                DecidedMessage(
-                    payload=DecidedPayload(
-                        ticket_id=ticket_id,
-                        decision=type(decision).__name__,
-                        # The decision union spells its justification either
-                        # `reasoning` or `reason` depending on the member.
-                        reasoning=str(
-                            getattr(decision, "reasoning", None)
-                            or getattr(decision, "reason", "")
-                        ),
-                    )
-                )
-            )
-
-        if receipt := update.get("delivery_receipt"):
-            await self.send_message(
-                ReplySentMessage(
-                    payload=ReplySentPayload(ticket_id=ticket_id, receipt=str(receipt))
-                )
-            )
-
-        if (answer := update.get("answer")) is not None:
-            # Resumed runs reload state through the serializer, which can hand
-            # the model back as a plain dict.
-            answer = (
-                answer
-                if isinstance(answer, TicketAnswer)
-                else TicketAnswer.model_validate(answer)
-            )
-            await self.send_message(
-                AnswerMessage(
-                    payload=AnswerPayload(
-                        ticket_id=ticket_id,
-                        content=answer.content,
-                        requires_approval=answer.requires_approval,
-                    )
-                )
-            )

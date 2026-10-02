@@ -1,8 +1,9 @@
-from typing import Any
+from typing import Any, ClassVar, get_args
 
 import structlog
 from chanx.core.decorators import ws_handler
 from chanx.core.topic import Topic
+from chanx.messages.base import BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
@@ -14,7 +15,6 @@ from assistant.graphs.chat_graph import build_chat_graph
 from assistant.graphs.states import ChatState
 from assistant.messages.chat import (
     ChatCompleteMessage,
-    ChatCompletePayload,
     ChatErrorMessage,
     ChatErrorPayload,
     ChatRequestMessage,
@@ -26,6 +26,7 @@ from assistant.messages.chat import (
     ToolDecisionMessage,
 )
 from assistant.tracing import run_span
+from assistant.ws.feed import emitter_for
 
 logger = structlog.get_logger(__name__)
 
@@ -64,12 +65,16 @@ class ConversationTopic(Topic[ChatFeedEvent]):
 
     pattern = "conversation:{conversation_id}"
     channel_layer_alias = LAYER_ALIAS
+    # The nodes broadcast, and an event with no handler is dropped with a log
+    # line. Derived from the feed so the two cannot drift.
+    passthrough_events: ClassVar[list[type[BaseMessage]]] = list(
+        get_args(ChatFeedEvent)
+    )
 
     async def authorize(self, **params: str) -> bool:
+        """Rep-facing, so nothing here is gated. Only a reply leaving for a
+        ticket needs approval, and that happens on the triage topic."""
         return True
-
-    """Rep-facing, so nothing here is gated. Only a reply leaving for a ticket
-    needs approval, and that happens on the tickets channel."""
 
     @ws_handler(
         summary="Ask the assistant",
@@ -112,7 +117,8 @@ class ConversationTopic(Topic[ChatFeedEvent]):
         graph = build_chat_graph(
             AgentConfig.from_slugs(
                 payload.models.model_dump() if payload.models else None
-            )
+            ),
+            emitter=emitter_for(self),
         )
 
         with run_span("chat", self.params["conversation_id"]):
@@ -133,7 +139,7 @@ class ConversationTopic(Topic[ChatFeedEvent]):
     )
     async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
         payload = message.payload
-        graph = build_chat_graph(AgentConfig.resolve())
+        graph = build_chat_graph(AgentConfig.resolve(), emitter=emitter_for(self))
         resume = {
             "decision": "approve" if payload.approved else "cancel",
             "arguments": payload.arguments,
@@ -150,13 +156,14 @@ class ConversationTopic(Topic[ChatFeedEvent]):
             await self._fail(self.params["conversation_id"])
 
     async def _fail(self, conversation_id: str) -> None:
-        await self.send_message(
+        await self.broadcast(
+            self.topic,
             ChatErrorMessage(
                 payload=ChatErrorPayload(
                     conversation_id=conversation_id,
                     message="The assistant could not finish that.",
                 )
-            )
+            ),
         )
 
     async def _consume(self, graph: Any, start: Any, conversation_id: str) -> None:
@@ -164,8 +171,6 @@ class ConversationTopic(Topic[ChatFeedEvent]):
             "configurable": {"thread_id": conversation_id},
             "recursion_limit": settings.graph_recursion_limit,
         }
-        answer = ""
-        parked = False
         stream: Any = graph.astream(
             start,
             config=config,
@@ -173,6 +178,9 @@ class ConversationTopic(Topic[ChatFeedEvent]):
         )
         async for mode, chunk in stream:
             if mode == "custom":
+                # Deltas stay on the writer and on this socket: the iteration
+                # producing them is already their order, which a fan-out would
+                # have to rebuild with a sequence number.
                 await self.send_message(
                     ChatTokenMessage(
                         payload=ChatTokenPayload(
@@ -181,33 +189,16 @@ class ConversationTopic(Topic[ChatFeedEvent]):
                         )
                     )
                 )
-                continue
+            elif isinstance(chunk, dict) and "__interrupt__" in chunk:
+                await self._emit_tool_approval(conversation_id, chunk["__interrupt__"])
 
-            if isinstance(chunk, dict) and "__interrupt__" in chunk:
-                parked = await self._emit_tool_approval(
-                    conversation_id, chunk["__interrupt__"]
-                )
-                continue
-            answer = self._answer_of(chunk) or answer
-
-        if parked:
-            # The run is waiting on a person; there is no answer to complete.
-            return
-
-        await self.send_message(
-            ChatCompleteMessage(
-                payload=ChatCompletePayload(
-                    conversation_id=conversation_id, content=answer
-                )
-            )
-        )
-
-    async def _emit_tool_approval(self, conversation_id: str, update: Any) -> bool:
+    async def _emit_tool_approval(self, conversation_id: str, update: Any) -> None:
         interrupts = update if isinstance(update, list | tuple) else [update]
         for item in interrupts:
             value = getattr(item, "value", item)
             if isinstance(value, dict) and value.get("kind") == "tool_approval":
-                await self.send_message(
+                await self.broadcast(
+                    self.topic,
                     ToolApprovalMessage(
                         payload=ToolApprovalPayload(
                             conversation_id=conversation_id,
@@ -220,13 +211,5 @@ class ConversationTopic(Topic[ChatFeedEvent]):
                                 for name in value.get("unknown_arguments") or []
                             ],
                         )
-                    )
+                    ),
                 )
-                return True
-        return False
-
-    def _answer_of(self, update: Any) -> str:
-        if not isinstance(update, dict):
-            return ""
-        node = update.get("answer")
-        return str(node.get("answer", "")) if isinstance(node, dict) else ""

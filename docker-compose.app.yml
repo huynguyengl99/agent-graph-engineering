@@ -15,16 +15,17 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    # The service's own file, as in development. `environment:` below wins over
+    # it, which is how the hostnames become container names.
+    env_file: [backend/.env]
     environment:
       DJANGO_SETTINGS_MODULE: helpdesk.config.settings.base
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-compose-only-not-a-secret}
       DJANGO_DEBUG: "False"
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,web
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/triage_dev
       REDIS_URL: redis://redis:6379/0
       AGENT_WS_URL: ws://agent:8001
       AGENT_HTTP_URL: http://agent:8001
-      ASSISTANT_AGENT_TOKEN: ${ASSISTANT_AGENT_TOKEN:-}
       CORS_ALLOWED_ORIGINS: http://localhost:8080
       CSRF_TRUSTED_ORIGINS: http://localhost:8080
     depends_on:
@@ -37,13 +38,11 @@ services:
     build:
       context: .
       dockerfile: agent/Dockerfile
+    env_file: [agent/.env]
     environment:
       CHECKPOINT_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/triage_dev
       REDIS_URL: redis://redis:6379/0
-      ASSISTANT_AGENT_TOKEN: ${ASSISTANT_AGENT_TOKEN:-}
       ASSISTANT_TRACE_DIR: /traces
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       postgres: {condition: service_healthy}
     volumes:
@@ -56,10 +55,9 @@ services:
     build:
       context: .
       dockerfile: web/Dockerfile
-    environment:
-      # nginx holds the token so the browser does not, and proxies only the
-      # agent's read-only documentation paths.
-      ASSISTANT_AGENT_TOKEN: ${ASSISTANT_AGENT_TOKEN:-}
+    # nginx holds the token so the browser does not, and proxies only the
+    # agent's read-only documentation paths.
+    env_file: [web/.env]
     depends_on: [backend, agent]
     ports: ["8080:80"]
 

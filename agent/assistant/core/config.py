@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 from environs import Env
 
 env = Env()
+# Resolves to agent/.env, the nearest one: this service's environment is its
+# own, and the backend's DJANGO_SETTINGS_MODULE is not in it.
 env.read_env()
 
 

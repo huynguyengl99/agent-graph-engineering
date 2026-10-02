@@ -50,11 +50,6 @@ include = ["assistant*"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-# The workspace shares one venv, so pytest-django is importable here and
-# activates off DJANGO_SETTINGS_MODULE in the root .env. This service has no
-# Django; without this it tries to boot the backend's settings and every test
-# errors during setup.
-addopts = "-p no:django"
 
 [tool.ruff]
 line-length = 100

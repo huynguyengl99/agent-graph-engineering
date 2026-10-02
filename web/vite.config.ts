@@ -3,10 +3,10 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  // The repo root holds the .env both services read. Loaded with no prefix, so
-  // the agent token is available here and still never shipped to the browser:
-  // it is used only by the dev proxy below, which runs in Node.
-  const env = loadEnv(mode, path.resolve(__dirname, '..'), '');
+  // This directory's own .env, loaded with no prefix so the agent token is
+  // available here and still never shipped to the browser: it is used only by
+  // the dev proxy below, which runs in Node.
+  const env = loadEnv(mode, __dirname, '');
   const agentToken = env.ASSISTANT_AGENT_TOKEN ?? '';
 
   return {

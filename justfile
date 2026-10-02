@@ -220,24 +220,29 @@ pre-commit:
     @echo "🪝 Running pre-commit..."
     cd backend && uv run pre-commit run --all-files
 
-# Everything a fresh clone needs: .env, dependencies, infrastructure, schema, clients
+# Everything a fresh clone needs: env files, dependencies, infrastructure, schema, clients
 setup: env install infra-up migrate gen
     @echo ""
     @echo "✅ Setup complete. Next:"
     @echo "     just createsuperuser   # someone to log in as"
     @echo "     just up                # all three services"
     @echo ""
-    @echo "   The agent runs on a scripted model until OPENAI_API_KEY is set in .env."
+    @echo "   The agent runs on a scripted model until OPENAI_API_KEY is set in agent/.env."
 
-# Create .env from the example, if it is not there yet
+# Give each service the .env next to it, from its own example
 env:
     #!/usr/bin/env bash
-    if [ -f .env ]; then
-      echo "🔑 .env already exists, leaving it alone"
-    else
-      cp .env.example .env
-      echo "🔑 wrote .env from .env.example"
-    fi
+    # One file per service, so no variable belongs to two of them. The token
+    # has to agree across all three; the examples ship it empty, which is the
+    # one value where that works.
+    for dir in backend agent web; do
+      if [ -f "$dir/.env" ]; then
+        echo "🔑 $dir/.env already exists, leaving it alone"
+      else
+        cp "$dir/.env.example" "$dir/.env"
+        echo "🔑 wrote $dir/.env from $dir/.env.example"
+      fi
+    done
 
 # Development workflow: start all services
 dev:

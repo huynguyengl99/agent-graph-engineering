@@ -22,6 +22,7 @@ from assistant.graphs.checkpointer import (
     setup_checkpointer,
 )
 from assistant.graphs.registry import GRAPHS, describe, mermaid
+from assistant.runs import setup_run_events
 from assistant.tools.core.ledger import setup_ledger
 from assistant.tracing import setup_tracing, trace_store
 from assistant.tracing.views import STATIC_DIR, prepare, templates
@@ -38,6 +39,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Opens the pool and creates the checkpoint tables before the first socket.
     await setup_checkpointer()
     await setup_ledger(checkpoint_pool())
+    await setup_run_events(checkpoint_pool())
     yield
     await close_checkpointer()
 

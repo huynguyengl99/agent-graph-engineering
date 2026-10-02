@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from ..shared.messages import ModelOverrides
+from ..shared.messages import ModelOverrides, ReplayRequestMessage
 
 
 class AnswerPayload(BaseModel):
@@ -151,4 +151,4 @@ IncomingMessage = (
     | ApprovalRequiredMessage
     | ReplyBlockedMessage
 )
-OutgoingMessage = ApprovalDecisionMessage | TriageRequestMessage
+OutgoingMessage = ApprovalDecisionMessage | ReplayRequestMessage | TriageRequestMessage

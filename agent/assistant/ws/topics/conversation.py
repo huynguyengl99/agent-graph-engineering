@@ -27,6 +27,7 @@ from assistant.messages.chat import (
 )
 from assistant.tracing import run_span
 from assistant.ws.feed import emitter_for
+from assistant.ws.replay import Replays
 
 logger = structlog.get_logger(__name__)
 
@@ -36,7 +37,7 @@ ChatFeedEvent = (
 )
 
 
-class ConversationTopic(Topic[ChatFeedEvent]):
+class ConversationTopic(Replays, Topic[ChatFeedEvent]):
     """A rep's thread with the assistant, addressed as `conversation:<id>`.
 
     Nothing here reaches a customer. A reply only becomes irreversible when it

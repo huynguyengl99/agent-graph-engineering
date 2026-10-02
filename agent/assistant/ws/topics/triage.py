@@ -28,6 +28,7 @@ from assistant.messages.triage import (
 )
 from assistant.tracing import run_span
 from assistant.ws.feed import emitter_for
+from assistant.ws.replay import Replays
 
 logger = structlog.get_logger(__name__)
 
@@ -48,7 +49,7 @@ TriageFeedEvent = (
 )
 
 
-class TriageTopic(Topic[TriageFeedEvent]):
+class TriageTopic(Replays, Topic[TriageFeedEvent]):
     """One ticket's triage run, addressed as `triage:<ticket_id>`.
 
     A topic rather than a channel so the run belongs to the ticket instead of to
@@ -141,12 +142,8 @@ class TriageTopic(Topic[TriageFeedEvent]):
     async def _run_graph(
         self, context: TicketContext, agent_config: AgentConfig | None = None
     ) -> None:
-        # A whole state, not an update: the thread is the ticket, so a second
-        # comment resumes one that still holds the last run's answer, receipt and
-        # approval. Every field but the ticket takes its default, which is what
-        # clears them - left alone the stale receipt re-emits as a "reply sent"
-        # the moment the new run starts, and the reviewer's panel disappears
-        # under it.
+        # A whole state, not an update: the thread is the ticket, and every
+        # field but it defaults, which is what clears the last run's receipt.
         await self._drive(context.ticket_id, TriageState(context=context), agent_config)
 
     async def _drive(

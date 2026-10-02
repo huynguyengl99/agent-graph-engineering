@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from ..shared.messages import ModelOverrides
+from ..shared.messages import ModelOverrides, ReplayRequestMessage
 
 
 class ChatCompletePayload(BaseModel):
@@ -115,4 +115,4 @@ class ToolDecisionMessage(BaseModel):
 IncomingMessage = (
     ChatTokenMessage | ChatCompleteMessage | ToolApprovalMessage | ChatErrorMessage
 )
-OutgoingMessage = ChatRequestMessage | ToolDecisionMessage
+OutgoingMessage = ChatRequestMessage | ReplayRequestMessage | ToolDecisionMessage

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -10,3 +12,20 @@ class ModelOverrides(BaseModel):
 
     decision: str | None = None
     answer: str | None = None
+
+
+class ReplayRequestPayload(BaseModel):
+    """ReplayRequestPayload"""
+
+    since: int = 0
+
+
+class ReplayRequestMessage(BaseModel):
+    """Subscriber reconnected and wants the events it was not there for.
+
+    Answered on the asking connection only, in order, each carrying its original
+    sequence - so a caller that applies them cannot tell a replay from the first
+    time, except that it asked."""
+
+    action: Literal["replay_request"] = "replay_request"
+    payload: ReplayRequestPayload

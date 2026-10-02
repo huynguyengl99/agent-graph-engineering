@@ -10,13 +10,12 @@ nobody approved.
 from typing import Any
 from unittest.mock import patch
 
-from helpdesk.agent_client.chat.messages import (
+from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
     ChatCompleteMessage,
     ChatCompletePayload,
     ChatRequestPayload,
     ToolApprovalMessage,
     ToolApprovalPayload,
-    ToolDecisionMessage,
     ToolDecisionPayload,
 )
 from helpdesk.conversations.factories import ConversationFactory
@@ -61,7 +60,7 @@ class TestRelayingTheProposal(WebsocketTestCase):
                 conversation_id=str(self.conversation.id), question="Refund it."
             ),
         )
-        await client.handle_message(ToolApprovalMessage(payload=REFUND))
+        await client.on_event(ToolApprovalMessage(payload=REFUND))
 
         return await self.auth_communicator.receive_all_json()
 
@@ -137,14 +136,27 @@ class TestRelayingTheProposal(WebsocketTestCase):
             ),
         )
 
-        async def capture(message: Any) -> None:
-            sent.append(message)
+        async def capture(topic: str, data: dict[str, Any], ref: Any = None) -> None:
+            sent.append(data)
 
-        with patch.object(client, "send_message", capture):
+        async def subscribed(self: Any) -> Any:
+            """Subscribing is a round trip, and there is no server here. The
+            frame under test is the one that follows it."""
+            return None
+
+        # Patched at the frame level: the decision leaves on a topic handle, so
+        # there is no connection-level send_message to intercept.
+        with (
+            patch.object(client, "send_topic", capture),
+            patch(
+                "helpdesk.agent_client.base.topic_client.BaseTopicHandle.subscribe",
+                subscribed,
+            ),
+        ):
             await client.send_init_message()
 
-        assert isinstance(sent[0], ToolDecisionMessage)
-        assert sent[0].payload.arguments == {"amount": 9.0}
+        decision = next(f for f in sent if f.get("action") == "tool_decision")
+        assert decision["payload"]["arguments"] == {"amount": 9.0}
 
 
 class TestPersistingTheAnswer(WebsocketTestCase):
@@ -173,7 +185,7 @@ class TestPersistingTheAnswer(WebsocketTestCase):
                 conversation_id=str(self.conversation.id), question="Anything?"
             ),
         )
-        await client.handle_message(
+        await client.on_event(
             ChatCompleteMessage(
                 payload=ChatCompletePayload(
                     conversation_id=str(self.conversation.id), content=content

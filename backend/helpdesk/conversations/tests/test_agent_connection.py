@@ -1,7 +1,9 @@
 from django.test import TestCase, override_settings
 
-from helpdesk.agent_client.chat.messages import ChatRequestPayload
-from helpdesk.agent_client.triage.messages import TriageRequestPayload
+from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
+    ChatRequestPayload,
+)
+from helpdesk.agent_client.agent_hub_triage_topic.messages import TriageRequestPayload
 from helpdesk.conversations.services.chat import ConversationChatClient
 from helpdesk.core.agent_connection import TOKEN_HEADER, agent_headers
 from helpdesk.tickets.services.triage import TicketTriageClient
@@ -31,10 +33,12 @@ class TestTokenIsSent(TestCase):
         assert chat_client().headers[TOKEN_HEADER] == "s3cret"
         assert triage_client().headers[TOKEN_HEADER] == "s3cret"
 
-    def test_it_stays_out_of_the_url(self) -> None:
+    def test_one_connection_serves_every_run(self) -> None:
+        """A topic per ticket or conversation on one socket, rather than a path
+        per channel and a socket per run."""
         # It rode on the query string until chanx 2.11.5 started sending headers,
         # which put the token in the agent's access log.
-        assert chat_client().url == "ws://agent:8001/ws/chat"
+        assert chat_client().url == "ws://agent:8001/ws/"
         assert "s3cret" not in triage_client().url
 
 

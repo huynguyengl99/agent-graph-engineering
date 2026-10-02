@@ -21,9 +21,9 @@ Extend the generated client classes and override `handle_message` to process inc
 ```python
 import asyncio
 from typing import assert_never
-from agent_client.triage import TriageClient, IncomingMessage
+from agent_client.agent import AgentClient, IncomingMessage
 
-class MyTriageClient(TriageClient):
+class MyAgentClient(AgentClient):
     async def handle_message(self, message: IncomingMessage) -> None:
         # Handle incoming messages using pattern matching
         match message:
@@ -42,7 +42,7 @@ class MyTriageClient(TriageClient):
 
 async def main():
     # Create client instance
-    client = MyTriageClient(        "ws://localhost:8000"
+    client = MyAgentClient(        "ws://localhost:8000"
     )
 
     # Start the client (connects and listens for messages)
@@ -62,7 +62,7 @@ Each channel module exports:
 
 Import from channel modules:
 ```python
-from agent_client.triage import TriageClient, IncomingMessage, OutgoingMessage
+from agent_client.agent import AgentClient, IncomingMessage, OutgoingMessage
 ```
 
 ### Shared Messages
@@ -77,9 +77,9 @@ from agent_client.shared.messages import *
 Use `send_message()` to send messages to the server:
 
 ```python
-from agent_client.triage import TriageClient, OutgoingMessage
+from agent_client.agent import AgentClient, OutgoingMessage
 
-class MyTriageClient(TriageClient):
+class MyAgentClient(AgentClient):
     async def handle_message(self, message):
         # Echo back the message
         response = OutgoingMessage(...)  # Create your message

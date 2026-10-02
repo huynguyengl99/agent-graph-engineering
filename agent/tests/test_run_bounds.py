@@ -9,7 +9,7 @@ import pytest
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.factory import model_settings
 from assistant.core.config import settings
-from assistant.ws.chat_consumer import ChatConsumer
+from assistant.ws.topics import ConversationTopic
 
 
 def openai_model() -> ModelConfig:
@@ -52,9 +52,10 @@ class TestRecursionLimit:
                 return
                 yield
 
-        class Consumer(ChatConsumer):
+        class Consumer(ConversationTopic):
             def __init__(self) -> None:  # noqa: D107
                 self.sent: list[Any] = []
+                self.params = {"conversation_id": "c-1"}
 
             async def send_message(self, message: Any, **_kwargs: Any) -> None:
                 self.sent.append(message)

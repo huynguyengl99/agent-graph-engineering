@@ -10,14 +10,14 @@ a completion sent while parked would have the client close the card early.
 from typing import Any
 
 import pytest
-from assistant.ws.chat_consumer import ChatConsumer
-from assistant.ws.chat_messages import (
+from assistant.messages.chat import (
     ChatRequestMessage,
     ChatRequestPayload,
     ToolDecisionMessage,
     ToolDecisionPayload,
 )
-from assistant.ws.messages import ModelOverrides
+from assistant.messages.triage import ModelOverrides
+from assistant.ws.topics import ConversationTopic
 
 from tests.helpers.openai_mock import Recorder, mock_openai, text_stream, tool_call
 
@@ -40,11 +40,12 @@ PROPOSE_REFUND = tool_call(
 )
 
 
-class RecordingConsumer(ChatConsumer):
+class RecordingConsumer(ConversationTopic):
     """Captures what would go on the wire, without a socket."""
 
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
         self.sent: list[Any] = []
+        self.params = {"conversation_id": CONVERSATION}
 
     async def send_message(self, message: Any, **kwargs: Any) -> None:
         self.sent.append(message)

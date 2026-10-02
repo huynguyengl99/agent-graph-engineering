@@ -3,7 +3,7 @@ sent. Both used to depend on state that did not outlive the socket."""
 
 from unittest.mock import patch
 
-from helpdesk.agent_client.triage.messages import (
+from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     ReplySentMessage,
@@ -38,7 +38,7 @@ class TestPendingReply(WebsocketTestCase):
 
     async def park(self) -> None:
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
-        await self.client_for_ticket().handle_message(
+        await self.client_for_ticket().on_event(
             ApprovalRequiredMessage(
                 payload=ApprovalRequiredPayload(
                     ticket_id=str(self.ticket.id),
@@ -51,7 +51,7 @@ class TestPendingReply(WebsocketTestCase):
 
     async def _resume(self, content: str | None) -> None:
         async def fake_handle(client: TicketTriageClient) -> None:
-            await client.handle_message(
+            await client.on_event(
                 ReplySentMessage(
                     payload=ReplySentPayload(
                         ticket_id=str(self.ticket.id), receipt="sent"

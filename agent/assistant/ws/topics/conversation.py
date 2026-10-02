@@ -1,20 +1,18 @@
 from typing import Any
 
 import structlog
-from chanx.core.decorators import channel, ws_handler
-from chanx.fast_channels.websocket import AsyncJsonWebsocketConsumer
-from chanx.messages.incoming import PingMessage
-from chanx.messages.outgoing import PongMessage
+from chanx.core.decorators import ws_handler
+from chanx.core.topic import Topic
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from assistant.agents.config import AgentConfig
 from assistant.agents.deps import ChatContext, TicketContext
 from assistant.core.config import settings
+from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.chat_graph import build_chat_graph
 from assistant.graphs.states import ChatState
-from assistant.tracing import run_span
-from assistant.ws.chat_messages import (
+from assistant.messages.chat import (
     ChatCompleteMessage,
     ChatCompletePayload,
     ChatErrorMessage,
@@ -27,6 +25,7 @@ from assistant.ws.chat_messages import (
     ToolApprovalPayload,
     ToolDecisionMessage,
 )
+from assistant.tracing import run_span
 
 logger = structlog.get_logger(__name__)
 
@@ -51,18 +50,26 @@ FRESH_TURN: ChatState = {
 }
 
 
-@channel(
-    name="chat",
-    description="The support agent's own conversation with the assistant",
-    tags=["agent", "chat"],
+ChatFeedEvent = (
+    ChatTokenMessage | ChatCompleteMessage | ToolApprovalMessage | ChatErrorMessage
 )
-class ChatConsumer(AsyncJsonWebsocketConsumer):
+
+
+class ConversationTopic(Topic[ChatFeedEvent]):
+    """A rep's thread with the assistant, addressed as `conversation:<id>`.
+
+    Nothing here reaches a customer. A reply only becomes irreversible when it
+    leaves for a ticket, which is the tickets topic and its own gate.
+    """
+
+    pattern = "conversation:{conversation_id}"
+    channel_layer_alias = LAYER_ALIAS
+
+    async def authorize(self, **params: str) -> bool:
+        return True
+
     """Rep-facing, so nothing here is gated. Only a reply leaving for a ticket
     needs approval, and that happens on the tickets channel."""
-
-    @ws_handler
-    async def handle_ping(self, _message: PingMessage) -> PongMessage:
-        return PongMessage()
 
     @ws_handler(
         summary="Ask the assistant",
@@ -82,12 +89,14 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         try:
             await self._answer(payload)
         except Exception:
-            logger.exception("chat.failed", conversation_id=payload.conversation_id)
-            await self._fail(payload.conversation_id)
+            logger.exception(
+                "chat.failed", conversation_id=self.params["conversation_id"]
+            )
+            await self._fail(self.params["conversation_id"])
 
     async def _answer(self, payload: ChatRequestPayload) -> None:
         context = ChatContext(
-            conversation_id=payload.conversation_id,
+            conversation_id=self.params["conversation_id"],
             history=[(turn.role, turn.content) for turn in payload.history],
             ticket=(
                 TicketContext(
@@ -106,13 +115,13 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             )
         )
 
-        with run_span("chat", payload.conversation_id):
+        with run_span("chat", self.params["conversation_id"]):
             start: ChatState = {
                 "context": context,
                 "question": payload.question,
                 **FRESH_TURN,
             }
-            await self._consume(graph, start, payload.conversation_id)
+            await self._consume(graph, start, self.params["conversation_id"])
 
     @ws_handler(
         summary="Approve, correct, or cancel a proposed tool call",
@@ -130,15 +139,15 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             "arguments": payload.arguments,
         }
         try:
-            with run_span("chat", payload.conversation_id):
+            with run_span("chat", self.params["conversation_id"]):
                 await self._consume(
-                    graph, Command(resume=resume), payload.conversation_id
+                    graph, Command(resume=resume), self.params["conversation_id"]
                 )
         except Exception:
             logger.exception(
-                "chat.resume_failed", conversation_id=payload.conversation_id
+                "chat.resume_failed", conversation_id=self.params["conversation_id"]
             )
-            await self._fail(payload.conversation_id)
+            await self._fail(self.params["conversation_id"])
 
     async def _fail(self, conversation_id: str) -> None:
         await self.send_message(

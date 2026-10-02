@@ -1,6 +1,6 @@
-"""Channel module for chat."""
+"""Channel module for agent_hub_conversation_topic."""
 
-from .client import ChatClient
+from .client import AgentHubConversationTopicClient
 from .messages import (
     ChatCompleteMessage,
     ChatCompletePayload,
@@ -21,7 +21,7 @@ from .messages import (
 )
 
 __all__ = [
-    "ChatClient",
+    "AgentHubConversationTopicClient",
     "ChatCompleteMessage",
     "ChatCompletePayload",
     "ChatErrorMessage",

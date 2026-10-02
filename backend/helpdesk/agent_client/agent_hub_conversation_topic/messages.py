@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from ..shared.messages import ModelOverrides, PingMessage, PongMessage
+from ..shared.messages import ModelOverrides
 
 
 class ChatCompletePayload(BaseModel):
@@ -113,10 +113,6 @@ class ToolDecisionMessage(BaseModel):
 
 
 IncomingMessage = (
-    ChatTokenMessage
-    | ChatCompleteMessage
-    | ToolApprovalMessage
-    | ChatErrorMessage
-    | PongMessage
+    ChatTokenMessage | ChatCompleteMessage | ToolApprovalMessage | ChatErrorMessage
 )
-OutgoingMessage = ChatRequestMessage | PingMessage | ToolDecisionMessage
+OutgoingMessage = ChatRequestMessage | ToolDecisionMessage

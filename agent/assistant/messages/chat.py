@@ -3,7 +3,7 @@ from typing import Any, Literal
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
 
-from assistant.ws.messages import ModelOverrides
+from assistant.messages.triage import ModelOverrides
 
 
 class ChatTicket(BaseModel):

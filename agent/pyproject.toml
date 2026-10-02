@@ -9,7 +9,7 @@ dependencies = [
     "pydantic>=2.10.0",
     "pydantic-ai>=2.52,<3",
     "langgraph>=1.2,<2",
-    "chanx[fast-channels,cli]>=2.11.5,<3",
+    "chanx[fast-channels,cli]>=2.11.7,<3",
     # The Redis channel layer. `chanx[fast-channels]` brings fast-channels
     # without its redis extra, and the import only worked because the backend's
     # channels-redis put `redis` in the shared venv.

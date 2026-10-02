@@ -7,7 +7,7 @@ real message models, the real group envelope, and real persistence.
 
 from channels.db import database_sync_to_async
 
-from helpdesk.agent_client.triage.messages import (
+from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     AnswerMessage,
     AnswerPayload,
     ApprovalRequiredMessage,
@@ -54,7 +54,7 @@ class TestTriageService(WebsocketTestCase):
         await self.subscribe_ready(self.topic)
         client = self.client_for_ticket()
 
-        await client.handle_message(
+        await client.on_event(
             AnswerMessage(
                 payload=AnswerPayload(
                     ticket_id=str(self.ticket.id),
@@ -70,7 +70,7 @@ class TestTriageService(WebsocketTestCase):
         await self.subscribe_ready(self.topic)
         client = self.client_for_ticket()
 
-        await client.handle_message(
+        await client.on_event(
             ApprovalRequiredMessage(
                 payload=ApprovalRequiredPayload(
                     ticket_id=str(self.ticket.id), draft="Draft reply."
@@ -88,7 +88,7 @@ class TestTriageService(WebsocketTestCase):
         client = self.client_for_ticket()
         client.pending_reply = "Per [kb-002], the extra line is proration."
 
-        await client.handle_message(
+        await client.on_event(
             ReplySentMessage(
                 payload=ReplySentPayload(
                     ticket_id=str(self.ticket.id), receipt="queued"
@@ -107,7 +107,7 @@ class TestTriageService(WebsocketTestCase):
 
         # Each broadcast terminates with its own `group_complete`, so drain
         # one fan-out at a time rather than expecting them in a single read.
-        await client.handle_message(
+        await client.on_event(
             ClassifiedMessage(
                 payload=ClassifiedPayload(
                     ticket_id=str(self.ticket.id),
@@ -119,7 +119,7 @@ class TestTriageService(WebsocketTestCase):
         )
         classified = await self.receive_topic_messages(TicketFeedEvent)
 
-        await client.handle_message(
+        await client.on_event(
             DecidedMessage(
                 payload=DecidedPayload(
                     ticket_id=str(self.ticket.id),
@@ -144,7 +144,7 @@ class TestTriageService(WebsocketTestCase):
         await self.subscribe_ready(self.topic)
         client = self.client_for_ticket()
 
-        await client.handle_message(
+        await client.on_event(
             TriageErrorMessage(
                 payload=TriageErrorPayload(
                     ticket_id=str(self.ticket.id),

@@ -17,9 +17,11 @@ import structlog
 from chanx.messages.base import BaseMessage
 
 from helpdesk.accounts.services.preferences import model_overrides
-from helpdesk.agent_client.shared.messages import ModelOverrides
-from helpdesk.agent_client.triage.client import TriageClient
-from helpdesk.agent_client.triage.messages import (
+from helpdesk.agent_client.agent.client import AgentClient
+from helpdesk.agent_client.agent_hub_triage_topic.client import (
+    AgentHubTriageTopicClient,
+)
+from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     AnswerMessage,
     ApprovalDecisionMessage,
     ApprovalDecisionPayload,
@@ -32,6 +34,7 @@ from helpdesk.agent_client.triage.messages import (
     TriageRequestMessage,
     TriageRequestPayload,
 )
+from helpdesk.agent_client.shared.messages import ModelOverrides
 from helpdesk.core.agent_connection import agent_headers
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
@@ -83,21 +86,39 @@ async def broadcast(topic: str, message: BaseMessage) -> None:
     await TicketTopic.broadcast(topic, message)
 
 
-class TicketTriageClient(TriageClient):
-    """Runs one triage request, then disconnects."""
+class _TriageHandle(AgentHubTriageTopicClient):
+    """Forwards the topic's events to the relay that opened it."""
+
+    async def handle_message(self, message: IncomingMessage) -> None:
+        relay: Any = self.connection
+        await relay.on_event(message)
+
+
+class TicketTriageClient(AgentClient):
+    """Runs one triage request, then disconnects.
+
+    One connection with a subscription per ticket, rather than a socket per
+    channel: the run belongs to `triage:<ticket_id>`, so a resume arrives on a
+    subscription that is already open and a node can emit to it directly.
+    """
 
     def __init__(self, ticket_id: str, request: OutgoingPayload) -> None:
         super().__init__(settings.AGENT_WS_URL, headers=agent_headers())
         self.ticket_id = ticket_id
-        self.request = request
+        self.payload = request
         self.group = ticket_topic(ticket_id)
         self.pending_reply: str | None = None
 
     async def send_init_message(self) -> None:
-        if isinstance(self.request, TriageRequestPayload):
-            await self.send_message(TriageRequestMessage(payload=self.request))
+        topic = self.topic(_TriageHandle, ticket_id=self.ticket_id)
+        # Subscribed before the request, or the run's own events race the
+        # subscription and the first ones are dropped.
+        await topic.subscribe()
+
+        if isinstance(self.payload, TriageRequestPayload):
+            await topic.send_message(TriageRequestMessage(payload=self.payload))
         else:
-            await self.send_message(ApprovalDecisionMessage(payload=self.request))
+            await topic.send_message(ApprovalDecisionMessage(payload=self.payload))
 
     async def disconnect(self, code: int = 1000, reason: str = "") -> None:
         """Closing a run that never opened a socket is not an error.
@@ -109,7 +130,7 @@ class TicketTriageClient(TriageClient):
             return
         await super().disconnect(code, reason)
 
-    async def handle_message(self, message: IncomingMessage) -> None:
+    async def on_event(self, message: IncomingMessage) -> None:
         match message:
             case ClassifiedMessage(payload=payload):
                 await broadcast(

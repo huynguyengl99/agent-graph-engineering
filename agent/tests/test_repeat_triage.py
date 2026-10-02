@@ -10,7 +10,7 @@ from typing import Any
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose, TicketContext
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.triage_graph import build_triage_graph
-from assistant.ws.consumer import FRESH_RUN
+from assistant.ws.topics.triage import FRESH_RUN
 from langgraph.types import Command
 
 TICKET = "aaaaaaaa-1111-2222-3333-444444444444"

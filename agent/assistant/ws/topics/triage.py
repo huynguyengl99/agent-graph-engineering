@@ -1,10 +1,8 @@
 from typing import Any
 
 import structlog
-from chanx.core.decorators import channel, ws_handler
-from chanx.fast_channels.websocket import AsyncJsonWebsocketConsumer
-from chanx.messages.incoming import PingMessage
-from chanx.messages.outgoing import PongMessage
+from chanx.core.decorators import ws_handler
+from chanx.core.topic import Topic
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
@@ -14,9 +12,7 @@ from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import build_triage_graph
-from assistant.outputs.triage import TicketAnswer
-from assistant.tracing import run_span
-from assistant.ws.messages import (
+from assistant.messages.triage import (
     AnswerMessage,
     AnswerPayload,
     ApprovalDecisionMessage,
@@ -34,6 +30,8 @@ from assistant.ws.messages import (
     TriageErrorPayload,
     TriageRequestMessage,
 )
+from assistant.outputs.triage import TicketAnswer
+from assistant.tracing import run_span
 
 logger = structlog.get_logger(__name__)
 
@@ -62,19 +60,33 @@ def _slugs(overrides: Any) -> dict[str, str | None] | None:
     return overrides.model_dump() if overrides is not None else None
 
 
-@channel(
-    name="triage",
-    description="Runs the ticket triage graph and streams its decisions back",
-    tags=["agent", "triage"],
+TriageFeedEvent = (
+    ClassifiedMessage
+    | DecidedMessage
+    | AnswerMessage
+    | ApprovalRequiredMessage
+    | ReplySentMessage
+    | ReplyBlockedMessage
+    | TriageErrorMessage
 )
-class TriageConsumer(AsyncJsonWebsocketConsumer):
-    """The backend's single connection into the agent service."""
 
+
+class TriageTopic(Topic[TriageFeedEvent]):
+    """One ticket's triage run, addressed as `triage:<ticket_id>`.
+
+    A topic rather than a channel so the run belongs to the ticket instead of to
+    the socket that asked for it: a node can emit from inside a subgraph, a
+    resume arrives on the connection that is already subscribed, and a second
+    subscriber sees the same run.
+    """
+
+    pattern = "triage:{ticket_id}"
     channel_layer_alias = LAYER_ALIAS
 
-    @ws_handler
-    async def handle_ping(self, _message: PingMessage) -> PongMessage:
-        return PongMessage()
+    async def authorize(self, **params: str) -> bool:
+        """The socket is already authenticated: only the backend can reach this
+        service, and the shared token is checked before the handshake."""
+        return True
 
     @ws_handler(
         summary="Triage a ticket",
@@ -95,7 +107,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
     async def handle_triage_request(self, message: TriageRequestMessage) -> None:
         payload = message.payload
         context = TicketContext(
-            ticket_id=payload.ticket_id,
+            ticket_id=self.params["ticket_id"],
             title=payload.title,
             description=payload.description,
             history=payload.history,
@@ -106,8 +118,8 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                 context, AgentConfig.from_slugs(_slugs(payload.models))
             )
         except Exception:
-            logger.exception("assistant.run_failed", ticket_id=payload.ticket_id)
-            await self._fail(payload.ticket_id)
+            logger.exception("assistant.run_failed", ticket_id=self.params["ticket_id"])
+            await self._fail(self.params["ticket_id"])
 
     @ws_handler(
         summary="Approve or reject a drafted reply",
@@ -118,7 +130,7 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
         payload = message.payload
         try:
             await self._drive(
-                payload.ticket_id,
+                self.params["ticket_id"],
                 Command(
                     resume={
                         "approved": payload.approved,
@@ -128,8 +140,10 @@ class TriageConsumer(AsyncJsonWebsocketConsumer):
                 AgentConfig.from_slugs(_slugs(payload.models)),
             )
         except Exception:
-            logger.exception("assistant.resume_failed", ticket_id=payload.ticket_id)
-            await self._fail(payload.ticket_id)
+            logger.exception(
+                "assistant.resume_failed", ticket_id=self.params["ticket_id"]
+            )
+            await self._fail(self.params["ticket_id"])
 
     async def _fail(self, ticket_id: str) -> None:
         await self.send_message(

@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from ..shared.messages import ModelOverrides, PingMessage, PongMessage
+from ..shared.messages import ModelOverrides
 
 
 class AnswerPayload(BaseModel):
@@ -146,10 +146,9 @@ IncomingMessage = (
     ReplySentMessage
     | AnswerMessage
     | TriageErrorMessage
-    | PongMessage
     | ClassifiedMessage
     | DecidedMessage
     | ApprovalRequiredMessage
     | ReplyBlockedMessage
 )
-OutgoingMessage = ApprovalDecisionMessage | PingMessage | TriageRequestMessage
+OutgoingMessage = ApprovalDecisionMessage | TriageRequestMessage

@@ -9,17 +9,18 @@ from typing import Any
 
 import pytest
 from assistant.agents import TicketContext
-from assistant.ws.consumer import TriageConsumer
-from assistant.ws.messages import TriageRequestMessage, TriageRequestPayload
+from assistant.messages.triage import TriageRequestMessage, TriageRequestPayload
+from assistant.ws.topics import TriageTopic
 
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 
-class RecordingConsumer(TriageConsumer):
+class RecordingConsumer(TriageTopic):
     """Captures what would go on the wire, without a socket."""
 
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
         self.sent: list[Any] = []
+        self.params = {"ticket_id": "t-1"}
 
     async def send_message(self, message: Any, **kwargs: Any) -> None:
         self.sent.append(message)

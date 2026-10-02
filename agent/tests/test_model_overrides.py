@@ -8,23 +8,24 @@ from typing import Any
 
 import pytest
 from assistant.agents import AgentConfig, ModelPurpose
-from assistant.ws.chat_messages import ChatRequestMessage, ChatRequestPayload
-from assistant.ws.consumer import TriageConsumer
-from assistant.ws.messages import (
+from assistant.messages.chat import ChatRequestMessage, ChatRequestPayload
+from assistant.messages.triage import (
     ModelOverrides,
     TriageRequestMessage,
     TriageRequestPayload,
 )
+from assistant.ws.topics import TriageTopic
 
 HAIKU = "anthropic:claude-haiku-4-5"
 
 
-class RecordingConsumer(TriageConsumer):
+class RecordingConsumer(TriageTopic):
     """Captures the config the graph was built with, without a socket."""
 
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
         self.sent: list[Any] = []
         self.configs: list[AgentConfig] = []
+        self.params = {"ticket_id": "t-1", "conversation_id": "c-1"}
 
     async def send_message(self, message: Any, **kwargs: Any) -> None:
         self.sent.append(message)

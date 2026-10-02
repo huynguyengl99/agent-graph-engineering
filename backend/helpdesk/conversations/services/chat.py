@@ -17,8 +17,11 @@ import structlog
 from chanx.messages.base import BaseMessage
 
 from helpdesk.accounts.services.preferences import model_overrides
-from helpdesk.agent_client.chat.client import ChatClient
-from helpdesk.agent_client.chat.messages import (
+from helpdesk.agent_client.agent.client import AgentClient
+from helpdesk.agent_client.agent_hub_conversation_topic.client import (
+    AgentHubConversationTopicClient,
+)
+from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
     ChatCompleteMessage,
     ChatErrorMessage,
     ChatRequestMessage,
@@ -88,33 +91,45 @@ async def broadcast(topic: str, message: BaseMessage) -> None:
 OutgoingPayload = ChatRequestPayload | ToolDecisionPayload
 
 
-class ConversationChatClient(ChatClient):
+class _ConversationHandle(AgentHubConversationTopicClient):
+    """Forwards the topic's events to the relay that opened it."""
+
+    async def handle_message(self, message: IncomingMessage) -> None:
+        relay: Any = self.connection
+        await relay.on_event(message)
+
+
+class ConversationChatClient(AgentClient):
     """One turn, then disconnect.
 
     A turn may end parked at a tool gate instead of at an answer, in which case
-    the socket closes with the run still checkpointed in the agent. The
-    reviewer's decision opens a fresh one, exactly as triage does.
+    the connection closes with the run still checkpointed in the agent. The
+    reviewer's decision subscribes again, exactly as triage does.
     """
 
     def __init__(self, conversation_id: str, request: OutgoingPayload) -> None:
         super().__init__(settings.AGENT_WS_URL, headers=agent_headers())
         self.conversation_id = conversation_id
-        self.request = request
+        self.payload = request
         self.group = conversation_topic(conversation_id)
         self.answer = ""
 
     async def send_init_message(self) -> None:
-        if isinstance(self.request, ChatRequestPayload):
-            await self.send_message(ChatRequestMessage(payload=self.request))
+        topic = self.topic(_ConversationHandle, conversation_id=self.conversation_id)
+        # Subscribed before the request, or the run's events race it.
+        await topic.subscribe()
+
+        if isinstance(self.payload, ChatRequestPayload):
+            await topic.send_message(ChatRequestMessage(payload=self.payload))
         else:
-            await self.send_message(ToolDecisionMessage(payload=self.request))
+            await topic.send_message(ToolDecisionMessage(payload=self.payload))
 
     async def disconnect(self, code: int = 1000, reason: str = "") -> None:
         if getattr(self, "websocket", None) is None:
             return
         await super().disconnect(code, reason)
 
-    async def handle_message(self, message: IncomingMessage) -> None:
+    async def on_event(self, message: IncomingMessage) -> None:
         match message:
             case ChatTokenMessage(payload=payload):
                 await broadcast(

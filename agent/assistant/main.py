@@ -25,8 +25,7 @@ from assistant.graphs.registry import GRAPHS, describe, mermaid
 from assistant.tools.core.ledger import setup_ledger
 from assistant.tracing import setup_tracing, trace_store
 from assistant.tracing.views import STATIC_DIR, prepare, templates
-from assistant.ws.chat_consumer import ChatConsumer
-from assistant.ws.consumer import TriageConsumer
+from assistant.ws.hub import AgentHubConsumer
 
 setup_logging()
 logger = structlog.get_logger(__name__)
@@ -161,10 +160,5 @@ async def run_trace(run_id: str) -> dict[str, object]:
 
 app.mount("/traces/static", StaticFiles(directory=str(STATIC_DIR)), name="trace-static")
 
-ws_app = Starlette(
-    routes=[
-        WebSocketRoute("/triage", TriageConsumer.as_asgi()),
-        WebSocketRoute("/chat", ChatConsumer.as_asgi()),
-    ]
-)
+ws_app = Starlette(routes=[WebSocketRoute("/", AgentHubConsumer.as_asgi())])
 app.mount("/ws", ws_app)

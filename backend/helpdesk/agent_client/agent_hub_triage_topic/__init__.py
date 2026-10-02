@@ -1,6 +1,6 @@
-"""Channel module for triage."""
+"""Channel module for agent_hub_triage_topic."""
 
-from .client import TriageClient
+from .client import AgentHubTriageTopicClient
 from .messages import (
     AnswerMessage,
     AnswerPayload,
@@ -25,7 +25,7 @@ from .messages import (
 )
 
 __all__ = [
-    "TriageClient",
+    "AgentHubTriageTopicClient",
     "AnswerMessage",
     "AnswerPayload",
     "ApprovalDecisionMessage",

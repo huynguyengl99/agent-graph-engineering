@@ -220,11 +220,13 @@ const PatchedTicketUpdateRequest = z
   })
   .partial()
   .passthrough();
+const VisibilityEnum = z.enum(["internal", "public"]);
 const CommentEventTyped = z
   .object({
     id: z.number().int(),
     eventType: z.literal("comment"),
     createdBy: User.nullable(),
+    visibility: VisibilityEnum.optional(),
     createdAt: z.string().datetime({ offset: true }),
     content: z.string(),
   })
@@ -234,6 +236,7 @@ const StatusChangeEventTyped = z
     id: z.number().int(),
     eventType: z.literal("status_change"),
     createdBy: User.nullable(),
+    visibility: VisibilityEnum.optional(),
     createdAt: z.string().datetime({ offset: true }),
     oldStatus: TicketStatusEnum,
     newStatus: TicketStatusEnum,
@@ -244,6 +247,7 @@ const AssignmentEventTyped = z
     id: z.number().int(),
     eventType: z.literal("assignment"),
     createdBy: User.nullable(),
+    visibility: VisibilityEnum.optional(),
     createdAt: z.string().datetime({ offset: true }),
     oldAssignee: User.nullable(),
     newAssignee: User.nullable(),
@@ -254,6 +258,7 @@ const AIResponseEventTyped = z
     id: z.number().int(),
     eventType: z.literal("ai_response"),
     createdBy: User.nullable(),
+    visibility: VisibilityEnum.optional(),
     createdAt: z.string().datetime({ offset: true }),
     content: z.string(),
     modelName: z.string().max(100).optional(),
@@ -321,6 +326,7 @@ export const schemas = {
   TicketUpdateRequest,
   TicketUpdate,
   PatchedTicketUpdateRequest,
+  VisibilityEnum,
   CommentEventTyped,
   StatusChangeEventTyped,
   AssignmentEventTyped,

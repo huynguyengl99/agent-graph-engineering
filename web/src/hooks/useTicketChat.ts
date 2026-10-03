@@ -44,8 +44,8 @@ export function useTicketChat({
     },
   );
 
-  const sendMessage = (content: string) => {
-    send({ action: 'send_message', payload: { content } });
+  const sendMessage = (content: string, isPublic = false) => {
+    send({ action: 'send_message', payload: { content, public: isPublic } });
   };
 
   const submitApproval = (approved: boolean, content?: string) => {

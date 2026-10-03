@@ -24,7 +24,7 @@ class TicketEventBaseSerializer(serializers.ModelSerializer[TicketEvent]):
 
     class Meta:
         model = TicketEvent
-        fields = ["id", "event_type", "created_by", "created_at"]
+        fields = ["id", "event_type", "created_by", "visibility", "created_at"]
         read_only_fields = ["id", "created_at"]
 
     def get_event_type(self, obj: TicketEvent) -> str:

@@ -24,6 +24,8 @@ class EventUser(BaseModel):
 class BaseEvent(BaseModel):
     id: int
     created_by: EventUser | None = None
+    # Who the event is for. The composer and the badge read this.
+    visibility: Literal["internal", "public"] = "internal"
     created_at: str
 
 

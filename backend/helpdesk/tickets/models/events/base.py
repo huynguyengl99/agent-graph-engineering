@@ -8,6 +8,17 @@ from polymorphic.models import PolymorphicModel
 from helpdesk.tickets.models.ticket import Ticket
 
 
+class Visibility(models.TextChoices):
+    """Who an event is for.
+
+    Internal by default, so reaching the customer is the deliberate act. A
+    requester's own message is public because they wrote it.
+    """
+
+    INTERNAL = "internal", "Internal"
+    PUBLIC = "public", "Public"
+
+
 class TicketEvent(PolymorphicModel):
     """
     Polymorphic base model for ticket events.
@@ -31,6 +42,9 @@ class TicketEvent(PolymorphicModel):
         null=True,
         blank=True,
         related_name="ticket_events",
+    )
+    visibility = models.CharField(
+        max_length=10, choices=Visibility.choices, default=Visibility.INTERNAL
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

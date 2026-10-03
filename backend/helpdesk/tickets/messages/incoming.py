@@ -6,6 +6,8 @@ from pydantic import BaseModel
 
 class SendMessagePayload(BaseModel):
     content: str
+    # Staff choose; the requester's own message is public whatever this says.
+    public: bool = False
 
 
 class SendMessageMessage(BaseMessage):

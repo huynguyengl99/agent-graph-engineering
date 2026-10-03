@@ -6,6 +6,7 @@ from .events import (
     CommentEvent,
     StatusChangeEvent,
     TicketEvent,
+    Visibility,
 )
 from .pending_reply import PendingReply
 from .ticket import Ticket, TicketPriority, TicketStatus
@@ -15,6 +16,7 @@ __all__ = [
     "TicketStatus",
     "TicketPriority",
     "TicketEvent",
+    "Visibility",
     "CommentEvent",
     "StatusChangeEvent",
     "AssignmentEvent",

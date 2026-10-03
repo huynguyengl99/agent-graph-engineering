@@ -10,6 +10,10 @@ from helpdesk.tickets.models import Ticket
 EMAIL = "demo@example.com"
 PASSWORD = "demo-pass-123"  # noqa: S105 - a dev fixture, never a real secret
 
+# The tickets belong to someone else, so "who sees this" is a real question on
+# screen rather than one the fixture answers by making both people the same.
+CUSTOMER_EMAIL = "customer@example.com"
+
 TICKETS = [
     ("Charged twice this month", "My card shows two charges for the same plan."),
     ("Cannot log in at all", "My password reset email never arrives."),
@@ -27,18 +31,25 @@ class Command(BaseCommand):
         user.set_password(PASSWORD)
         user.save()
 
+        customer, _ = user_model.objects.get_or_create(email=CUSTOMER_EMAIL)
+        customer.set_password(PASSWORD)
+        customer.save()
+
         for title, description in TICKETS:
             # Not get_or_create: the smoke itself creates a ticket per run with
             # one of these titles, so after a few runs the lookup matches
             # several and seeding fails on a database it only wanted to read.
-            if not Ticket.objects.filter(title=title).exists():
+            # Scoped to the customer: on a database seeded before they existed,
+            # the titles are already there under someone else and the demo would
+            # have no ticket where "who sees this" is a real question.
+            if not Ticket.objects.filter(title=title, created_by=customer).exists():
                 Ticket.objects.create(
-                    title=title, description=description, created_by=user
+                    title=title, description=description, created_by=customer
                 )
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"{'created' if created else 'updated'} {EMAIL}; "
-                f"{Ticket.objects.count()} tickets"
+                f"{'created' if created else 'updated'} {EMAIL} (staff) and "
+                f"{CUSTOMER_EMAIL}; {Ticket.objects.count()} tickets"
             )
         )

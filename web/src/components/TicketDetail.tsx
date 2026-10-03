@@ -15,6 +15,8 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const [events, setEvents] = useState<TicketEvent[]>([]);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [draft, setDraft] = useState('');
+  // Internal by default: reaching the customer should be the deliberate click.
+  const [isPublic, setIsPublic] = useState(false);
   // Seeded from the ticket, so a reload finds a draft still waiting at the gate
   // instead of stranding a run nobody can reach.
   const [pendingApproval, setPendingApproval] = useState<string | null>(
@@ -113,7 +115,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     e.preventDefault();
     const content = draft.trim();
     if (!content) return;
-    sendMessage(content);
+    sendMessage(content, isPublic);
     setDraft('');
   };
 
@@ -184,21 +186,50 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
       <form
         onSubmit={submit}
-        className="flex gap-2 border-t bg-white px-6 py-4"
+        className={`flex flex-col gap-2 border-t px-6 py-4 ${
+          isPublic ? 'bg-white' : 'bg-amber-50'
+        }`}
       >
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Reply to this ticket…"
-          className="flex-1 rounded border px-3 py-2"
-        />
-        <button
-          type="submit"
-          disabled={!isConnected || !draft.trim()}
-          className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-40"
-        >
-          Send
-        </button>
+        <div className="flex items-center gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              checked={!isPublic}
+              onChange={() => setIsPublic(false)}
+            />
+            Internal note
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              checked={isPublic}
+              onChange={() => setIsPublic(true)}
+            />
+            Reply to customer
+          </label>
+          <span className="text-xs text-gray-600">
+            {isPublic
+              ? 'The customer will see this.'
+              : 'Only your team will see this.'}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={
+              isPublic ? 'Reply to the customer…' : 'Note for your team…'
+            }
+            className="flex-1 rounded border px-3 py-2"
+          />
+          <button
+            type="submit"
+            disabled={!isConnected || !draft.trim()}
+            className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-40"
+          >
+            Send
+          </button>
+        </div>
       </form>
     </section>
   );

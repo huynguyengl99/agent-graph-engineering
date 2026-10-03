@@ -8,6 +8,7 @@ export interface AIResponseEvent {
   id: number;
   eventType: string;
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   content: string;
   modelName?: string;
@@ -18,6 +19,7 @@ export interface AIResponseEventTyped {
   id: number;
   eventType: "ai_response";
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   content: string;
   modelName?: string;
@@ -28,6 +30,7 @@ export interface AssignmentEvent {
   id: number;
   eventType: string;
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   oldAssignee: User;
   newAssignee: User;
@@ -37,6 +40,7 @@ export interface AssignmentEventTyped {
   id: number;
   eventType: "assignment";
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   oldAssignee: User;
   newAssignee: User;
@@ -46,6 +50,7 @@ export interface CommentEvent {
   id: number;
   eventType: string;
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   content: string;
 }
@@ -58,6 +63,7 @@ export interface CommentEventTyped {
   id: number;
   eventType: "comment";
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   content: string;
 }
@@ -269,6 +275,7 @@ export interface StatusChangeEvent {
   id: number;
   eventType: string;
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   oldStatus: TicketStatusEnum;
   newStatus: TicketStatusEnum;
@@ -278,6 +285,7 @@ export interface StatusChangeEventTyped {
   id: number;
   eventType: "status_change";
   createdBy: User;
+  visibility?: VisibilityEnum;
   createdAt: string;
   oldStatus: TicketStatusEnum;
   newStatus: TicketStatusEnum;
@@ -362,3 +370,6 @@ export interface VerifyEmail {
 export interface VerifyEmailRequest {
   key: string;
 }
+
+/** * `internal` - Internal * `public` - Public */
+export type VisibilityEnum = "internal" | "public";

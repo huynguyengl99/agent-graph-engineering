@@ -4,6 +4,7 @@
 export interface AIResponseEvent {
   id: number;
   createdBy?: EventUser | null;
+  visibility?: 'internal' | 'public';
   createdAt: string;
   eventType: 'ai_response';
   content: string;
@@ -57,6 +58,7 @@ export interface AskPayload {
 export interface AssignmentEvent {
   id: number;
   createdBy?: EventUser | null;
+  visibility?: 'internal' | 'public';
   createdAt: string;
   eventType: 'assignment';
   oldAssignee?: EventUser | null;
@@ -105,6 +107,7 @@ export interface ChatMessagePayload {
 export interface CommentEvent {
   id: number;
   createdBy?: EventUser | null;
+  visibility?: 'internal' | 'public';
   createdAt: string;
   eventType: 'comment';
   content: string;
@@ -160,11 +163,13 @@ export interface SendMessageMessage {
 
 export interface SendMessagePayload {
   content: string;
+  public?: boolean;
 }
 
 export interface StatusChangeEvent {
   id: number;
   createdBy?: EventUser | null;
+  visibility?: 'internal' | 'public';
   createdAt: string;
   eventType: 'status_change';
   oldStatus: string;

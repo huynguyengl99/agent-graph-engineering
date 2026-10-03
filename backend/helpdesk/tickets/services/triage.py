@@ -55,7 +55,7 @@ from helpdesk.tickets.messages import (
     ApprovalRequiredPayload as FEApprovalRequiredPayload,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
-from helpdesk.tickets.models import AIResponseEvent, PendingReply
+from helpdesk.tickets.models import AIResponseEvent, PendingReply, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
@@ -353,15 +353,19 @@ def _ticket_context(ticket_id: str) -> dict[str, Any]:
     from helpdesk.tickets.models import CommentEvent, Ticket
 
     ticket = Ticket.objects.get(id=ticket_id)
-    comments = (
-        CommentEvent.objects.filter(ticket_id=ticket_id)
-        .order_by("created_at")
-        .values_list("content", flat=True)
-    )
+    # Internal notes go too: a staff note is often the reason a reply should say
+    # something different. Labelled, because the agent must not quote one back.
+    comments = CommentEvent.objects.filter(ticket_id=ticket_id).order_by("created_at")
+    history = [
+        c.content
+        if c.visibility == Visibility.PUBLIC
+        else f"[internal note, not for the customer] {c.content}"
+        for c in comments
+    ]
     return {
         "title": ticket.title,
         "description": ticket.description,
-        "history": list(comments),
+        "history": history,
     }
 
 

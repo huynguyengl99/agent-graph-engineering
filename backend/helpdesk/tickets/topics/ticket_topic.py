@@ -15,7 +15,7 @@ from helpdesk.tickets.messages import (
     SendMessageMessage,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
-from helpdesk.tickets.models import CommentEvent, Ticket
+from helpdesk.tickets.models import CommentEvent, Ticket, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 
 TicketFeedEvent = NewEventMessage | AgentProgressMessage | ApprovalRequiredMessage
@@ -44,6 +44,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
             ticket_id=ticket_id,
             content=message.payload.content,
             user=self.scope.get("user"),
+            public=message.payload.public,
         )
         await self.broadcast(
             f"ticket:{ticket_id}",
@@ -53,6 +54,13 @@ class TicketTopic(Topic[TicketFeedEvent]):
         )
 
         if not settings.TRIAGE_ON_COMMENT:
+            return
+
+        # Only the requester saying something new asks for a reply. A staff note
+        # is for colleagues, and a staff reply has already answered.
+        if event.visibility != Visibility.PUBLIC or not await self._from_requester(
+            ticket_id, self.scope.get("user")
+        ):
             return
 
         from helpdesk.tickets.services.triage import start_triage
@@ -101,13 +109,25 @@ class TicketTopic(Topic[TicketFeedEvent]):
 
     @database_sync_to_async
     def _create_comment_event(
-        self, ticket_id: str, content: str, user: Any
+        self, ticket_id: str, content: str, user: Any, public: bool
     ) -> CommentEvent:
+        author = user if user is not None and user.is_authenticated else None
+        ticket = Ticket.objects.get(id=ticket_id)
+        # The requester cannot write a note to themselves; everyone else chooses,
+        # and the default is internal.
+        theirs = author is not None and author.pk == ticket.created_by_id
         return CommentEvent.objects.create(
             ticket_id=ticket_id,
             content=content,
-            created_by=user if user is not None and user.is_authenticated else None,
+            created_by=author,
+            visibility=(Visibility.PUBLIC if theirs or public else Visibility.INTERNAL),
         )
+
+    @database_sync_to_async
+    def _from_requester(self, ticket_id: str, user: Any) -> bool:
+        if user is None or not user.is_authenticated:
+            return False
+        return Ticket.objects.filter(id=ticket_id, created_by_id=user.pk).exists()
 
     @database_sync_to_async
     def _serialize(self, event: Any) -> WireTicketEvent:

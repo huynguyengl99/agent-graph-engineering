@@ -13,8 +13,8 @@ from helpdesk.tickets.messages import (
     AskAgentMessage,
     NewEventMessage,
     NewEventPayload,
-    ReturnToAgentMessage,
     SendMessageMessage,
+    SetAgentMessage,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import CommentEvent, Handling, Ticket, Visibility
@@ -102,29 +102,49 @@ class TicketTopic(Topic[TicketFeedEvent]):
         output_type=NewEventMessage | AgentProgressMessage,
     )
     async def handle_ask_agent(self, message: AskAgentMessage) -> None:
+        from helpdesk.tickets.services.consult import start_consult
         from helpdesk.tickets.services.triage import start_triage
 
+        ticket_id = self.params["ticket_id"]
         user = self.scope.get("user")
+        user_id = user.pk if user is not None and user.is_authenticated else None
+        question = message.payload.question.strip()
+
+        # A question asked privately is asked of the agent, so it answers that
+        # rather than drafting another reply to the customer.
+        if question and not message.payload.public:
+            event = await self._create_comment_event(
+                ticket_id=ticket_id, content=question, user=user, public=False
+            )
+            await self.broadcast(
+                f"ticket:{ticket_id}",
+                NewEventMessage(
+                    payload=NewEventPayload(event=await self._serialize(event))
+                ),
+            )
+            await start_consult(ticket_id, question, user_id)
+            return
+
         await start_triage(
-            self.params["ticket_id"],
-            user.pk if user is not None and user.is_authenticated else None,
+            ticket_id,
+            user_id,
             visibility=(
                 Visibility.PUBLIC if message.payload.public else Visibility.INTERNAL
             ),
         )
 
     @ws_handler(
-        summary="Hand the ticket back to the agent",
-        description="The agent answers new customer messages again.",
+        summary="Turn the agent on this ticket on or off",
+        description="On, it answers new customer messages; off, the team does.",
         output_type=NewEventMessage,
     )
-    async def handle_return_to_agent(self, message: ReturnToAgentMessage) -> None:
+    async def handle_set_agent(self, message: SetAgentMessage) -> None:
         ticket_id = self.params["ticket_id"]
         await self._announce(
             ticket_id,
             await hand_off(
                 ticket_id,
-                Handling.AGENT,
+                Handling.AGENT if message.payload.on else Handling.WITH_STAFF,
                 reason=message.payload.reason,
                 user=self.scope.get("user"),
             ),
@@ -137,22 +157,32 @@ class TicketTopic(Topic[TicketFeedEvent]):
             f"ticket:{ticket_id}", NewEventMessage(payload=NewEventPayload(event=event))
         )
 
-    # Relays: an event published to this topic goes straight to the client.
+    # Relays: an event published to this topic goes to the clients allowed it.
+    # One group carries the whole ticket, so the fan-out is where the customer's
+    # half is separated from the team's - the REST list already does the same.
     @event_handler
-    async def handle_new_event(self, event: NewEventMessage) -> NewEventMessage:
-        return event
+    async def handle_new_event(self, event: NewEventMessage) -> NewEventMessage | None:
+        internal = event.payload.event.visibility != "public"
+        return None if internal and not self._staff else event
 
     @event_handler
     async def handle_progress(
         self, event: AgentProgressMessage
-    ) -> AgentProgressMessage:
-        return event
+    ) -> AgentProgressMessage | None:
+        """What the agent decided is the team's business."""
+        return event if self._staff else None
 
     @event_handler
     async def handle_approval_required(
         self, event: ApprovalRequiredMessage
-    ) -> ApprovalRequiredMessage:
-        return event
+    ) -> ApprovalRequiredMessage | None:
+        """A draft that has not been approved has not been sent."""
+        return event if self._staff else None
+
+    @property
+    def _staff(self) -> bool:
+        user = self.scope.get("user")
+        return bool(user is not None and getattr(user, "is_staff", False))
 
     @database_sync_to_async
     def _ticket_exists(self, ticket_id: str) -> bool:

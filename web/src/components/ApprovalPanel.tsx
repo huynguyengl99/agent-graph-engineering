@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PlaceholderForm } from './PlaceholderForm';
+import { fillPlaceholders, placeholdersIn } from '@/lib/placeholders';
 
 interface Props {
   draft: string;
@@ -12,7 +14,10 @@ interface Props {
  */
 export function ApprovalPanel({ draft, findings = [], onDecide }: Props) {
   const [content, setContent] = useState(draft);
-  const edited = content.trim() !== draft.trim();
+  const [values, setValues] = useState<Record<string, string>>({});
+  const filled = fillPlaceholders(content, values);
+  const missing = placeholdersIn(filled);
+  const edited = filled.trim() !== draft.trim();
 
   return (
     <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
@@ -42,10 +47,16 @@ export function ApprovalPanel({ draft, findings = [], onDecide }: Props) {
         className="mt-3 w-full rounded border border-amber-300 bg-white px-3 py-2 text-sm"
       />
 
+      <PlaceholderForm text={content} values={values} onChange={setValues} />
+
       <div className="mt-3 flex items-center gap-2">
         <button
-          onClick={() => onDecide(true, edited ? content : undefined)}
-          className="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+          onClick={() => onDecide(true, edited ? filled : undefined)}
+          disabled={missing.length > 0}
+          title={
+            missing.length ? `Still blank: ${missing.join(', ')}` : undefined
+          }
+          className="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40"
         >
           {edited ? 'Send edited reply' : 'Approve and send'}
         </button>

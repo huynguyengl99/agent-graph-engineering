@@ -36,6 +36,9 @@ class TestTriageService(WebsocketTestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        # A reviewer, not the requester: progress and drafts are the team's.
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
         self.ticket = TicketFactory.create(created_by=self.user)
         self.topic = f"ticket:{self.ticket.id}"
 

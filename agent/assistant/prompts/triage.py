@@ -46,5 +46,9 @@ ANSWER_PROMPT = (
     "found and who is picking it up instead.\n"
     "A line marked as an internal note is a colleague talking to colleagues. "
     "Use what it tells you, but never quote it, name it, or let the customer "
-    "infer it was written: write what it means for them instead."
+    "infer it was written: write what it means for them instead.\n"
+    "When you need a value nobody has given you - an amount, a date, a case "
+    "number - write it as {{a short name}} instead of inventing one. A reply "
+    "with one of those in it cannot be sent until a person fills it in, which "
+    "is the point: a guessed figure is worse than a blank."
 )

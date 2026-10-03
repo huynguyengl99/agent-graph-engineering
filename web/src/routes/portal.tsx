@@ -11,14 +11,16 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth';
 import { LoginForm } from '@/components/LoginForm';
-import { NewTicketForm } from '@/components/NewTicketForm';
+import { NewTicketDialog } from '@/components/NewTicketDialog';
 import { PortalThread } from '@/components/PortalThread';
+import { awaitingFirstReply } from '@/lib/newTickets';
 import type { Ticket } from '@/lib/types';
 
 export function PortalLayout() {
   const { fetchUser, logout, isAuthenticated, user } = useAuthStore();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const { ticketId } = useParams({ strict: false });
+  const [composing, setComposing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,15 +65,14 @@ export function PortalLayout() {
 
       <div className="flex min-h-0 flex-1">
         <aside className="w-80 overflow-y-auto border-r bg-white">
-          <NewTicketForm
-            onCreated={(ticket) => {
-              setTickets((current) => [ticket, ...current]);
-              void navigate({
-                to: '/portal/tickets/$ticketId',
-                params: { ticketId: ticket.id },
-              });
-            }}
-          />
+          <div className="border-b px-4 py-3">
+            <button
+              onClick={() => setComposing(true)}
+              className="w-full rounded bg-indigo-600 px-3 py-2 text-sm text-white"
+            >
+              New ticket
+            </button>
+          </div>
           <ul>
             {tickets.map((ticket) => (
               <li key={ticket.id} className="border-b">
@@ -96,6 +97,21 @@ export function PortalLayout() {
           <Outlet />
         </main>
       </div>
+
+      {composing && (
+        <NewTicketDialog
+          onClose={() => setComposing(false)}
+          onCreated={(ticket) => {
+            setComposing(false);
+            awaitingFirstReply.add(ticket.id);
+            setTickets((current) => [ticket, ...current]);
+            void navigate({
+              to: '/portal/tickets/$ticketId',
+              params: { ticketId: ticket.id },
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

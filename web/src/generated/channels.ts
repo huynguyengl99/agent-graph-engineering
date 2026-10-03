@@ -16,8 +16,8 @@ import type {
   NewEventMessage,
   PingMessage,
   PongMessage,
-  ReturnToAgentMessage,
   SendMessageMessage,
+  SetAgentMessage,
   TokenMessage,
   ToolApprovalMessage,
   ToolDecisionMessage,
@@ -28,8 +28,8 @@ export type HubToClient = PongMessage;
 export type HubTicketTopicToServer =
   | ApprovalDecisionMessage
   | AskAgentMessage
-  | ReturnToAgentMessage
-  | SendMessageMessage;
+  | SendMessageMessage
+  | SetAgentMessage;
 export type HubTicketTopicToClient =
   AgentProgressMessage | ApprovalRequiredMessage | NewEventMessage;
 export type HubConversationTopicToServer =

@@ -3,7 +3,8 @@ import { api } from '@/lib/api';
 import { router } from '@/router';
 import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import type { Ticket, TicketEvent } from '@/lib/types';
-import { HANDLING, TicketEventItem } from './TicketEventItem';
+import { HANDLING, Row, TicketEventItem } from './TicketEventItem';
+import { placeholdersIn } from '@/lib/placeholders';
 import { ApprovalPanel } from './ApprovalPanel';
 
 interface Progress {
@@ -68,7 +69,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     setProgress((current) => [...current, { stage, detail }]);
   }, []);
 
-  const { sendMessage, askAgent, returnToAgent, submitApproval, isConnected } =
+  const { sendMessage, askAgent, setAgent, submitApproval, isConnected } =
     useTicketChat({
       ticketId,
       onNewEvent,
@@ -114,10 +115,12 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     }
   };
 
+  const blanks = isPublic ? placeholdersIn(draft) : [];
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const content = draft.trim();
-    if (!content) return;
+    if (!content || blanks.length) return;
     sendMessage(content, isPublic);
     setDraft('');
   };
@@ -134,21 +137,27 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           >
             {HANDLING[handling].chip}
           </span>
-          {handling !== 'agent' && (
-            <button
-              onClick={() => returnToAgent()}
+          <label
+            className="ml-auto flex cursor-pointer items-center gap-2 text-sm"
+            title={
+              handling === 'agent'
+                ? 'The agent answers new customer messages.'
+                : 'Your team answers. The agent only replies when asked.'
+            }
+          >
+            <input
+              type="checkbox"
+              checked={handling === 'agent'}
               disabled={!isConnected}
-              className="ml-auto rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
-            >
-              Give back to the agent
-            </button>
-          )}
+              onChange={(e) => setAgent(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Agent replies
+          </label>
           <button
             onClick={() => void askAssistant()}
             disabled={openingChat}
-            className={`rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40 ${
-              handling === 'agent' ? 'ml-auto' : ''
-            }`}
+            className="rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
           >
             {openingChat ? 'Opening…' : 'Ask the assistant'}
           </button>
@@ -160,13 +169,23 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             {isConnected ? 'live' : 'connecting…'}
           </span>
         </div>
-        <p className="mt-2 text-gray-700">{ticket.description}</p>
       </header>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-6 py-4">
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <ul className="space-y-3">
+          <Row
+            tone="neutral"
+            label={
+              ticket.createdBy?.fullName ||
+              ticket.createdBy?.email ||
+              'Customer'
+            }
+            when={new Date(ticket.createdAt).toLocaleTimeString()}
+          >
+            {ticket.description}
+          </Row>
           {events.map((event) => (
             <TicketEventItem
               key={`${event.eventType}-${event.id}`}
@@ -209,27 +228,35 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           isPublic ? 'bg-white' : 'bg-amber-50'
         }`}
       >
-        <div className="flex items-center gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              checked={!isPublic}
-              onChange={() => setIsPublic(false)}
-            />
-            Internal note
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              checked={isPublic}
-              onChange={() => setIsPublic(true)}
-            />
-            Reply to customer
-          </label>
+        <div className="flex items-center gap-3 text-sm">
+          <div className="flex overflow-hidden rounded border">
+            {([false, true] as const).map((value) => (
+              <button
+                key={String(value)}
+                type="button"
+                onClick={() => setIsPublic(value)}
+                className={`px-3 py-1 text-xs ${
+                  isPublic === value
+                    ? value
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-amber-500 text-white'
+                    : 'bg-white text-gray-600'
+                }`}
+              >
+                {value ? 'Reply to customer' : 'Internal note'}
+              </button>
+            ))}
+          </div>
           <span className="text-xs text-gray-600">
-            {isPublic
-              ? 'The customer will see this.'
-              : 'Only your team will see this.'}
+            {blanks.length > 0 ? (
+              <span className="text-amber-800">
+                Fill in {blanks.join(', ')} before this can go out.
+              </span>
+            ) : isPublic ? (
+              'The customer sees this.'
+            ) : (
+              'Only your team sees this, the agent included.'
+            )}
           </span>
         </div>
         <div className="flex gap-2">
@@ -237,14 +264,19 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
-              isPublic ? 'Reply to the customer…' : 'Note for your team…'
+              isPublic
+                ? 'Reply to the customer…'
+                : 'Note for your team, or a question for the agent…'
             }
             className="flex-1 rounded border px-3 py-2"
           />
           <button
             type="button"
-            onClick={() => askAgent(isPublic)}
-            disabled={!isConnected}
+            onClick={() => {
+              askAgent(isPublic, isPublic ? '' : draft.trim());
+              if (!isPublic) setDraft('');
+            }}
+            disabled={!isConnected || (!isPublic && !draft.trim())}
             title={
               isPublic
                 ? 'The agent answers the customer here.'
@@ -252,11 +284,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             }
             className="rounded border px-4 py-2 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
           >
-            {isPublic ? 'Let the agent reply' : 'Ask the agent to draft'}
+            {isPublic ? 'Let the agent reply' : 'Ask the agent'}
           </button>
           <button
             type="submit"
-            disabled={!isConnected || !draft.trim()}
+            disabled={!isConnected || !draft.trim() || blanks.length > 0}
             className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-40"
           >
             Send

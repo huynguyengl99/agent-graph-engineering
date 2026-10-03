@@ -48,12 +48,12 @@ export function useTicketChat({
     send({ action: 'send_message', payload: { content, public: isPublic } });
   };
 
-  const askAgent = (isPublic: boolean) => {
-    send({ action: 'ask_agent', payload: { public: isPublic } });
+  const askAgent = (isPublic: boolean, question = '') => {
+    send({ action: 'ask_agent', payload: { public: isPublic, question } });
   };
 
-  const returnToAgent = (reason = '') => {
-    send({ action: 'return_to_agent', payload: { reason } });
+  const setAgent = (on: boolean, reason = '') => {
+    send({ action: 'set_agent', payload: { on, reason } });
   };
 
   const submitApproval = (approved: boolean, content?: string) => {
@@ -66,7 +66,7 @@ export function useTicketChat({
   return {
     sendMessage,
     askAgent,
-    returnToAgent,
+    setAgent,
     submitApproval,
     // `subscribed`, not socket status: the socket is shared, and a frame sent
     // before the server confirms this topic is dropped.

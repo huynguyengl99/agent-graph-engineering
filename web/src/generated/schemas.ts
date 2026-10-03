@@ -53,6 +53,7 @@ export interface AskAgentMessage {
 
 export interface AskAgentPayload {
   public?: boolean;
+  question?: string;
 }
 
 /** A rep says something to the assistant. */
@@ -180,16 +181,6 @@ export interface PongMessage {
   payload?: null;
 }
 
-/** Staff gives the ticket back to the agent. */
-export interface ReturnToAgentMessage {
-  action: 'return_to_agent';
-  payload: ReturnToAgentPayload;
-}
-
-export interface ReturnToAgentPayload {
-  reason?: string;
-}
-
 /** A human posts a comment on the ticket. */
 export interface SendMessageMessage {
   action: 'send_message';
@@ -199,6 +190,17 @@ export interface SendMessageMessage {
 export interface SendMessagePayload {
   content: string;
   public?: boolean;
+}
+
+/** Staff turns the agent on this ticket on or off. */
+export interface SetAgentMessage {
+  action: 'set_agent';
+  payload: SetAgentPayload;
+}
+
+export interface SetAgentPayload {
+  on: boolean;
+  reason?: string;
 }
 
 export interface StatusChangeEvent {

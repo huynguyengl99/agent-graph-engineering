@@ -30,8 +30,10 @@ class ApprovalDecisionMessage(BaseMessage):
 
 
 class AskAgentPayload(BaseModel):
-    # Public asks the agent to answer the customer; internal keeps it a draft.
+    # Public asks the agent to answer the customer; internal asks it a question
+    # only the team will see.
     public: bool = False
+    question: str = ""
 
 
 class AskAgentMessage(BaseMessage):
@@ -41,12 +43,14 @@ class AskAgentMessage(BaseMessage):
     payload: AskAgentPayload
 
 
-class ReturnToAgentPayload(BaseModel):
+class SetAgentPayload(BaseModel):
+    # On, the agent answers new customer messages; off, the team does.
+    on: bool
     reason: str = ""
 
 
-class ReturnToAgentMessage(BaseMessage):
-    """Staff gives the ticket back to the agent."""
+class SetAgentMessage(BaseMessage):
+    """Staff turns the agent on this ticket on or off."""
 
-    action: Literal["return_to_agent"] = "return_to_agent"
-    payload: ReturnToAgentPayload
+    action: Literal["set_agent"] = "set_agent"
+    payload: SetAgentPayload

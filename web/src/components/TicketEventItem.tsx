@@ -18,18 +18,27 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
           label={who || 'Someone'}
           when={when}
           badge={internal ? 'Internal note' : undefined}
+          indented={internal}
         >
           {event.content}
         </Row>
       );
     }
 
-    case 'ai_response':
+    case 'ai_response': {
+      const internal = event.visibility === 'internal';
       return (
-        <Row tone="agent" label={`Agent (${event.modelName})`} when={when}>
+        <Row
+          tone={internal ? 'agentInternal' : 'agent'}
+          label={`Agent (${event.modelName})`}
+          when={when}
+          badge={internal ? 'Internal' : undefined}
+          indented={internal}
+        >
           {event.content}
         </Row>
       );
+    }
 
     case 'status_change':
       return (
@@ -47,7 +56,12 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
 
     case 'handoff':
       return (
-        <Row tone="meta" label={HANDLING[event.handling].title} when={when}>
+        <Row
+          tone="meta"
+          label={HANDLING[event.handling].title}
+          when={when}
+          indented
+        >
           {event.reason || HANDLING[event.handling].blurb(who)}
         </Row>
       );
@@ -81,24 +95,33 @@ const TONES = {
   // aside reaching the customer.
   internal: 'bg-amber-50 border-amber-300',
   agent: 'bg-indigo-50 border-indigo-200',
+  agentInternal: 'bg-indigo-50/60 border-amber-300',
   meta: 'bg-gray-50 border-gray-200 text-gray-600 text-sm',
 } as const;
 
-function Row({
+export function Row({
   tone,
   label,
   when,
   badge,
+  indented,
   children,
 }: {
   tone: keyof typeof TONES;
   label: string;
   when: string;
   badge?: string;
+  /** The team's half of the thread, stepped in so one list still reads as two
+   *  conversations. */
+  indented?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <li className={`rounded-lg border px-4 py-3 ${TONES[tone]}`}>
+    <li
+      className={`rounded-lg border px-4 py-3 ${TONES[tone]} ${
+        indented ? 'ml-10 border-l-4 border-l-amber-400' : ''
+      }`}
+    >
       <div className="flex items-baseline justify-between gap-4">
         <span className="font-medium">
           {label}

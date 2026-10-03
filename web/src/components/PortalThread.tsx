@@ -9,7 +9,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useTicketChat } from '@/hooks/useTicketChat';
-import { TicketEventItem } from '@/components/TicketEventItem';
+import { Row, TicketEventItem } from '@/components/TicketEventItem';
+import { awaitingFirstReply } from '@/lib/newTickets';
 import type { Ticket, TicketEvent } from '@/lib/types';
 
 export function PortalThread({ ticketId }: { ticketId: string }) {
@@ -18,10 +19,17 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
   const [draft, setDraft] = useState('');
   const bottom = useRef<HTMLDivElement>(null);
 
-  const { sendMessage, isConnected } = useTicketChat({
+  const { sendMessage, askAgent, isConnected } = useTicketChat({
     ticketId,
     onNewEvent: (event) => setEvents((current) => [...current, event]),
   });
+
+  // The opening message is the ticket, so nothing posted it: hand it over as
+  // soon as the thread is live.
+  useEffect(() => {
+    if (!isConnected || !awaitingFirstReply.delete(ticketId)) return;
+    askAgent(true);
+  }, [isConnected, ticketId, askAgent]);
 
   useEffect(() => {
     let ignore = false;
@@ -59,10 +67,16 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
     <section className="flex h-full flex-col">
       <header className="border-b bg-white px-6 py-4">
         <h2 className="text-xl font-semibold">{ticket.title}</h2>
-        <p className="mt-1 text-gray-600">{ticket.description}</p>
       </header>
 
       <ul className="min-h-0 flex-1 space-y-3 overflow-y-auto p-6">
+        <Row
+          tone="neutral"
+          label={ticket.createdBy?.fullName || ticket.createdBy?.email || 'You'}
+          when={new Date(ticket.createdAt).toLocaleTimeString()}
+        >
+          {ticket.description}
+        </Row>
         {events.map((event) => (
           <TicketEventItem key={event.id} event={event} />
         ))}

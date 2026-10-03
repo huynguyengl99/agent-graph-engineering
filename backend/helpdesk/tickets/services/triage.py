@@ -58,6 +58,7 @@ from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import AIResponseEvent, Handling, PendingReply, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off
+from helpdesk.tickets.services.placeholders import UnfilledError, refuse_if_unfilled
 from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
 logger = structlog.get_logger(__name__)
@@ -283,6 +284,8 @@ class TicketTriageClient(AgentClient):
     def _persist_answer(self, content: str) -> WireTicketEvent:
         """A sent reply is the one replayable event that is not idempotent, so the
         cursor commits with the row."""
+        if self.visibility == Visibility.PUBLIC:
+            refuse_if_unfilled(content)
         with transaction.atomic():
             event = AIResponseEvent.objects.create(
                 ticket_id=self.ticket_id,
@@ -350,6 +353,27 @@ async def submit_approval(
     A separate connection from the one that started the run: the graph lives in
     the agent's checkpointer keyed by ticket, not in the socket.
     """
+    visibility = await _parked_visibility(ticket_id)
+    if approved and visibility == Visibility.PUBLIC:
+        try:
+            refuse_if_unfilled(
+                content or await TicketTriageClient._stored_draft(ticket_id)
+            )
+        except UnfilledError as unfilled:
+            await broadcast(
+                ticket_topic(ticket_id),
+                AgentProgressMessage(
+                    payload=AgentProgressPayload(
+                        stage="failed",
+                        detail=(
+                            "Fill in "
+                            + ", ".join(unfilled.names)
+                            + " before this can go to the customer."
+                        ),
+                    )
+                ),
+            )
+            return
     try:
         client = TicketTriageClient(
             ticket_id,
@@ -359,7 +383,7 @@ async def submit_approval(
                 content=content,
                 models=ModelOverrides(**(models or {})),
             ),
-            visibility=await _parked_visibility(ticket_id),
+            visibility=visibility,
         )
         client.pending_reply = content
         await client.handle()

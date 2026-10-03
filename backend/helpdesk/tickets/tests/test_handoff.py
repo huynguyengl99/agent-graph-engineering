@@ -17,15 +17,17 @@ from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.messages import (
-    ReturnToAgentMessage,
-    ReturnToAgentPayload,
+    AgentProgressMessage,
+    AgentProgressPayload,
     SendMessageMessage,
     SendMessagePayload,
+    SetAgentMessage,
+    SetAgentPayload,
 )
 from helpdesk.tickets.models import AIResponseEvent, Handling, Ticket, Visibility
 from helpdesk.tickets.services.handoff import hand_off, handling_of
 from helpdesk.tickets.services.triage import TicketTriageClient, _parked_visibility
-from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent
+from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent, TicketTopic
 
 
 async def settled(mock: AsyncMock, *, expected: int = 1) -> int:
@@ -134,7 +136,7 @@ class TestTakingTheTicket(WebsocketTestCase):
         await self.subscribe_ready(self.topic)
 
         await self.auth_communicator.send_message(
-            ReturnToAgentMessage(payload=ReturnToAgentPayload(reason="Resolved")),
+            SetAgentMessage(payload=SetAgentPayload(on=True, reason="Resolved")),
             topic=self.topic,
         )
         await self.receive_topic_messages(TicketFeedEvent, stop_action="event_complete")
@@ -217,3 +219,44 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         event = await AIResponseEvent.objects.filter(ticket_id=self.ticket.id).afirst()
         assert event is not None
         assert event.visibility == Visibility.PUBLIC
+
+
+class TestTheCustomerOnlySeesTheirHalf(WebsocketTestCase):
+    """The REST list filters by visibility; the live fan-out has to as well, or
+    an internal note reaches whoever has the ticket open."""
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.user.is_staff = False
+        self.user.save(update_fields=["is_staff"])
+        self.ticket = TicketFactory.create(created_by=self.user)
+        self.topic = f"ticket:{self.ticket.id}"
+
+    async def test_an_internal_note_is_not_relayed(self) -> None:
+        await self.subscribe_ready(self.topic)
+        staff = await UserFactory.acreate(is_staff=True)
+
+        await hand_off(str(self.ticket.id), Handling.NEEDS_HUMAN, user=staff)
+
+        messages = await self.receive_topic_messages(
+            TicketFeedEvent, stop_action="event_complete"
+        )
+        assert messages == []
+
+    async def test_the_agents_progress_is_not_relayed(self) -> None:
+        await self.subscribe_ready(self.topic)
+
+        await TicketTopic.broadcast(
+            self.topic,
+            AgentProgressMessage(
+                payload=AgentProgressPayload(stage="decided", detail="Escalate")
+            ),
+        )
+
+        messages = await self.receive_topic_messages(
+            TicketFeedEvent, stop_action="event_complete"
+        )
+        assert messages == []

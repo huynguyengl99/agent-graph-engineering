@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiClient } from './api';
+import { forgetSession, rememberSession } from './session';
 import type { User } from './types';
 
 interface AuthState {
@@ -37,6 +38,7 @@ export const useAuthStore = create<AuthState>()(
             email,
             password,
           });
+          rememberSession(response.data);
           const user = response.data.user;
           set({ user, isAuthenticated: true, isLoading: false });
         } catch (error) {
@@ -60,6 +62,7 @@ export const useAuthStore = create<AuthState>()(
             firstName,
             lastName,
           });
+          rememberSession(response.data);
           const user = response.data.user;
           set({ user, isAuthenticated: true, isLoading: false });
         } catch (error) {
@@ -74,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error('Logout error:', error);
         }
+        forgetSession();
         set({ user: null, isAuthenticated: false });
       },
 

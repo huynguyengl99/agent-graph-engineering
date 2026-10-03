@@ -7,6 +7,7 @@
 
 import axios from 'axios';
 import { createApiClient } from '@/schemas/backend';
+import { keepSessionFresh, refreshSessionWith } from './session';
 
 // Auth endpoints are not part of the generated ticket surface.
 export const apiClient = axios.create({
@@ -26,3 +27,10 @@ export const apiClient = axios.create({
 export const api = createApiClient(window.location.origin, {
   axiosConfig: { withCredentials: true },
 });
+
+// Both carry the same cookie, so both renew it.
+keepSessionFresh(apiClient);
+keepSessionFresh(api.axios);
+refreshSessionWith(() =>
+  apiClient.post('/accounts/token/refresh/', {}).then((r) => r.data),
+);

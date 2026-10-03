@@ -1,5 +1,6 @@
 import {
   Link,
+  Navigate,
   Outlet,
   useParams,
   useRouterState,
@@ -10,7 +11,6 @@ import { router } from '@/router';
 import { useAuthStore } from '@/lib/auth';
 import { LoginForm } from '@/components/LoginForm';
 import { TicketList } from '@/components/TicketList';
-import { NewTicketForm } from '@/components/NewTicketForm';
 import { ConversationList } from '@/components/ConversationList';
 import type { Conversation, Ticket } from '@/lib/types';
 
@@ -82,6 +82,8 @@ export function RootLayout() {
   };
 
   if (!isAuthenticated) return <LoginForm />;
+  // The console is for people answering tickets. Everyone else has a portal.
+  if (user && !user.isStaff) return <Navigate to="/portal" />;
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
@@ -147,14 +149,7 @@ export function RootLayout() {
                 busy={starting}
               />
             ) : (
-              <>
-                <NewTicketForm
-                  onCreated={(ticket) =>
-                    setTickets((current) => [ticket, ...current])
-                  }
-                />
-                <TicketList tickets={tickets} selectedId={ticketId ?? null} />
-              </>
+              <TicketList tickets={tickets} selectedId={ticketId ?? null} />
             )}
           </aside>
         )}

@@ -11,6 +11,7 @@ const User = z
     firstName: z.string().max(150).optional(),
     lastName: z.string().max(150).optional(),
     fullName: z.string(),
+    isStaff: z.boolean(),
     dateJoined: z.string().datetime({ offset: true }),
   })
   .passthrough();

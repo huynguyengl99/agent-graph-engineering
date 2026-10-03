@@ -351,6 +351,7 @@ export interface User {
   firstName?: string;
   lastName?: string;
   fullName: string;
+  isStaff: boolean;
   dateJoined: string;
 }
 

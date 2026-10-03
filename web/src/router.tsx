@@ -9,19 +9,29 @@ import { TicketRoute } from '@/routes/ticket';
 import { ChatRoute } from '@/routes/chat';
 import { GraphsRoute } from '@/routes/graphs';
 import { SettingsRoute } from '@/routes/settings';
+import { PortalIndex, PortalLayout, PortalTicketRoute } from '@/routes/portal';
 
-// Code-based routes rather than file-based: five of them, and it keeps the
-// build free of a route-tree generator step.
-const rootRoute = createRootRoute({ component: RootLayout });
+// Code-based routes rather than file-based: it keeps the build free of a
+// route-tree generator step.
+//
+// Two layouts under one root. The console and the portal are the same app and
+// the same session; which one an account gets is decided by `isStaff`.
+const rootRoute = createRootRoute();
+
+const consoleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'console',
+  component: RootLayout,
+});
 
 const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => consoleRoute,
   path: '/',
   component: TicketsIndex,
 });
 
 const ticketRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => consoleRoute,
   path: '/tickets/$ticketId',
   component: function Ticket() {
     const { ticketId } = ticketRoute.useParams();
@@ -30,7 +40,7 @@ const ticketRoute = createRoute({
 });
 
 const chatIndexRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => consoleRoute,
   path: '/chat',
   component: function ChatIndex() {
     return (
@@ -42,7 +52,7 @@ const chatIndexRoute = createRoute({
 });
 
 const chatRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => consoleRoute,
   path: '/chat/$conversationId',
   component: function Chat() {
     const { conversationId } = chatRoute.useParams();
@@ -51,25 +61,49 @@ const chatRoute = createRoute({
 });
 
 const graphsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => consoleRoute,
   path: '/graphs',
   component: GraphsRoute,
 });
 
 const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => consoleRoute,
   path: '/settings',
   component: SettingsRoute,
 });
 
+const portalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/portal',
+  component: PortalLayout,
+});
+
+const portalIndexRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: '/',
+  component: PortalIndex,
+});
+
+const portalTicketRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: 'tickets/$ticketId',
+  component: function PortalTicket() {
+    const { ticketId } = portalTicketRoute.useParams();
+    return <PortalTicketRoute key={ticketId} ticketId={ticketId} />;
+  },
+});
+
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
-    indexRoute,
-    ticketRoute,
-    chatIndexRoute,
-    chatRoute,
-    graphsRoute,
-    settingsRoute,
+    consoleRoute.addChildren([
+      indexRoute,
+      ticketRoute,
+      chatIndexRoute,
+      chatRoute,
+      graphsRoute,
+      settingsRoute,
+    ]),
+    portalRoute.addChildren([portalIndexRoute, portalTicketRoute]),
   ]),
 });
 

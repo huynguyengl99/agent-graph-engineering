@@ -12,5 +12,15 @@ class UserSerializer(serializers.ModelSerializer[User]):
 
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name", "full_name", "date_joined"]
-        read_only_fields = ["id", "date_joined"]
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            # Which side of the product this account is on. The portal and the
+            # console are the same app; this is what picks one.
+            "is_staff",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "is_staff", "date_joined"]

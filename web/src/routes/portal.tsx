@@ -1,0 +1,113 @@
+/**
+ * What the customer sees.
+ *
+ * The same app as the console, and the same components where they fit. What
+ * differs is not styling but scope: the API serves this account its own tickets
+ * and the public half of each thread, so there is nothing here to hide.
+ */
+
+import { Link, Outlet, useParams, useNavigate } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth';
+import { LoginForm } from '@/components/LoginForm';
+import { NewTicketForm } from '@/components/NewTicketForm';
+import { PortalThread } from '@/components/PortalThread';
+import type { Ticket } from '@/lib/types';
+
+export function PortalLayout() {
+  const { fetchUser, logout, isAuthenticated, user } = useAuthStore();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const { ticketId } = useParams({ strict: false });
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    void fetchUser();
+  }, [fetchUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let ignore = false;
+    void (async () => {
+      try {
+        const page = await api.get('/api/tickets/');
+        if (!ignore) setTickets(page.results ?? []);
+      } catch {
+        if (!ignore) setTickets([]);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) return <LoginForm />;
+
+  return (
+    <div className="flex h-screen flex-col">
+      <header className="flex items-center gap-4 border-b bg-white px-6 py-3">
+        <span className="font-semibold">Support</span>
+        {user?.isStaff && (
+          <Link to="/" className="text-sm text-indigo-700 hover:underline">
+            Back to the console
+          </Link>
+        )}
+        <span className="ml-auto text-sm text-gray-600">{user?.email}</span>
+        <button
+          onClick={() => void logout()}
+          className="text-sm text-indigo-700 hover:underline"
+        >
+          Sign out
+        </button>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        <aside className="w-80 overflow-y-auto border-r bg-white">
+          <NewTicketForm
+            onCreated={(ticket) => {
+              setTickets((current) => [ticket, ...current]);
+              void navigate({
+                to: '/portal/tickets/$ticketId',
+                params: { ticketId: ticket.id },
+              });
+            }}
+          />
+          <ul>
+            {tickets.map((ticket) => (
+              <li key={ticket.id} className="border-b">
+                <Link
+                  to="/portal/tickets/$ticketId"
+                  params={{ ticketId: ticket.id }}
+                  className={`block px-4 py-3 hover:bg-gray-50 ${
+                    ticketId === ticket.id ? 'bg-indigo-50' : ''
+                  }`}
+                >
+                  <p className="truncate font-medium">{ticket.title}</p>
+                  <p className="mt-0.5 text-xs uppercase tracking-wide text-gray-500">
+                    {ticket.status}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        <main className="min-w-0 flex-1 bg-gray-50">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export function PortalIndex() {
+  return (
+    <p className="p-8 text-gray-500">
+      Pick one of your tickets, or report a new problem.
+    </p>
+  );
+}
+
+export function PortalTicketRoute({ ticketId }: { ticketId: string }) {
+  return <PortalThread ticketId={ticketId} />;
+}

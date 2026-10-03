@@ -17,6 +17,7 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
+const CUSTOMER_EMAIL = process.env.E2E_CUSTOMER_EMAIL ?? 'customer@example.com';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pass-123';
 const results = [];
 const ok = (m) => {
@@ -74,19 +75,35 @@ const sawStage = async (name, timeout = 60000) => {
   return false;
 };
 
-async function login() {
+async function login(email = EMAIL) {
   await page.goto(BASE);
-  await page.fill('input[type="email"]', EMAIL);
+  await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', PASSWORD);
   await page.click('button[type="submit"]');
-  await page.waitForSelector('a[href^="/tickets/"]', { timeout: 20000 });
+  await page.waitForSelector('a[href*="/tickets/"]', { timeout: 20000 });
+}
+
+async function signOut() {
+  await page.click('button:has-text("Sign out")');
+  await page.waitForSelector('input[type="email"]', { timeout: 20000 });
 }
 
 console.log('== auth + ticket list ==');
 await login();
 ok('logged in and the ticket list rendered');
 
-console.log('== ticket triage, end to end ==');
+console.log('== the customer reports a problem ==');
+// Their own session, so both sides are open at once: staff watch the run on the
+// console while the customer is in the portal, which is also what proves the
+// fan-out reaches a connection that did not start the run.
+const customerContext = await browser.newContext();
+const customerPage = await customerContext.newPage();
+await customerPage.goto(BASE);
+await customerPage.fill('input[type="email"]', CUSTOMER_EMAIL);
+await customerPage.fill('input[type="password"]', PASSWORD);
+await customerPage.click('button[type="submit"]');
+await customerPage.waitForURL('**/portal', { timeout: 20000 });
+ok('the customer lands on the portal, not the console');
 // A fresh ticket per run. Sharing one meant every run appended a comment, and
 // a ticket with eight identical complaints eventually routes to escalation -
 // which correctly has no approval gate, so the run "failed" on a correct
@@ -94,37 +111,50 @@ console.log('== ticket triage, end to end ==');
 // Through the form, not through fetch: the form is generated from the same
 // OpenAPI schema the client validates against, so creating a ticket this way
 // covers the generated schema, the form built from it and the request together.
-await page.fill('aside input[aria-label="Title"]', 'Charged twice this month');
-await page.fill(
+await customerPage.fill(
+  'aside input[aria-label="Title"]',
+  'Charged twice this month',
+);
+await customerPage.fill(
   'aside textarea[aria-label="Description"]',
   'My card shows two charges for the same plan.',
 );
-await page.selectOption('aside select[aria-label="Priority"]', 'medium');
+await customerPage.selectOption(
+  'aside select[aria-label="Priority"]',
+  'medium',
+);
 
 // The list already has tickets, so waiting for "a ticket link" would match one
 // from a previous run. Wait for the list to grow instead.
-const TICKET_LINK = 'aside a[href^="/tickets/"]';
-const ticketsBefore = await page.locator(TICKET_LINK).count();
-await page.click('aside button:has-text("Create ticket")');
-await page.waitForFunction(
+const TICKET_LINK = 'aside a[href*="/tickets/"]';
+const ticketsBefore = await customerPage.locator(TICKET_LINK).count();
+await customerPage.click('aside button:has-text("Create ticket")');
+await customerPage.waitForFunction(
   ([selector, n]) => document.querySelectorAll(selector).length > n,
   [TICKET_LINK, ticketsBefore],
   { timeout: 20000 },
 );
-const ticketId = await page
+const ticketId = await customerPage
   .locator(TICKET_LINK)
   .first()
   .getAttribute('href')
   .then((href) => href.split('/').pop());
-ok(`created a ticket through the generated form (${ticketId.slice(0, 8)})`);
+ok(`reported a problem through the generated form (${ticketId.slice(0, 8)})`);
 
+console.log('== ticket triage, end to end ==');
+// Staff open the ticket first, so the run's progress is watched by a connection
+// that did not start it.
 await page.goto(`${BASE}/tickets/${ticketId}`);
 await page.waitForSelector('text=live', { timeout: 20000 });
-await page.fill(
+
+// The customer's own message is what asks the agent for a reply. A staff note
+// would not, which is the point of the audience.
+await customerPage.goto(`${BASE}/portal/tickets/${ticketId}`);
+await customerPage.fill(
   'main form input[placeholder]',
   'I was charged twice for my plan this month.',
 );
-await page.click('main form button[type="submit"]');
+await customerPage.click('main form button[type="submit"]');
 (await sawStage('classified'))
   ? ok('the classification reached the browser')
   : bad('no classified stage arrived');
@@ -343,25 +373,34 @@ if (parked) {
     'Actually refund demo@example.com £50 as well.',
   );
   await page.click('main button:has-text("Ask")');
-  await page.waitForSelector('button:has-text("Cancel")', { timeout: 90000 });
-  await page.click('button:has-text("Cancel")');
-  await page.waitForSelector('button:has-text("Cancel")', {
-    state: 'detached',
-    timeout: 30000,
-  });
-  ok('cancelling closes the gate without running the tool');
-  // Deliberately broad. A run that correctly said "has been reviewed and has not
-  // been authorized" failed a /cancel/ check, and tightening prose assertions
-  // around one model's wording is how you end up tuning the test instead of the
-  // product. That nothing *ran* is asserted above; this only catches the
-  // assistant reporting success for a call that was refused.
-  const afterCancel = await nextAnswer(answersBefore + 1);
-  /cancel|not authori[sz]|declin|rejected|not (been )?process|was not/i.test(
-    afterCancel,
-  )
-    ? ok('the assistant reports that the action did not happen')
-    : bad(`the resumed run did not report the cancellation: ${afterCancel}`);
-  ok('the tool call parked before running');
+  // Guarded like the gate above: the planner may decline this one too, and an
+  // unguarded wait turns that into a crash that loses every check after it.
+  const offered = await page
+    .waitForSelector('button:has-text("Cancel")', { timeout: 90000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!offered) {
+    bad('no tool proposal reached the gate for the second refund request');
+  } else {
+    await page.click('button:has-text("Cancel")');
+    await page.waitForSelector('button:has-text("Cancel")', {
+      state: 'detached',
+      timeout: 30000,
+    });
+    ok('cancelling closes the gate without running the tool');
+    // Deliberately broad. A run that correctly said "has been reviewed and has not
+    // been authorized" failed a /cancel/ check, and tightening prose assertions
+    // around one model's wording is how you end up tuning the test instead of the
+    // product. That nothing *ran* is asserted above; this only catches the
+    // assistant reporting success for a call that was refused.
+    const afterCancel = await nextAnswer(answersBefore + 1);
+    /cancel|not authori[sz]|declin|rejected|not (been )?process|was not/i.test(
+      afterCancel,
+    )
+      ? ok('the assistant reports that the action did not happen')
+      : bad(`the resumed run did not report the cancellation: ${afterCancel}`);
+    ok('the tool call parked before running');
+  }
 }
 
 console.log('== settings: models and contracts ==');

@@ -99,11 +99,25 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
   const blanks = isPublic ? placeholdersIn(draft) : [];
 
+  // Send is the one button. On a note it asks the agent, because a question
+  // nobody answers is the rarer thing to want.
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const content = draft.trim();
-    if (!content || blanks.length) return;
-    sendMessage(content, isPublic);
+    if (!content || blanks.length || asking) return;
+    if (isPublic) {
+      sendMessage(content, true);
+    } else {
+      setAsking(true);
+      askAgent(false, content);
+    }
+    setDraft('');
+  };
+
+  const noteOnly = () => {
+    const content = draft.trim();
+    if (!content) return;
+    sendMessage(content, false);
     setDraft('');
   };
 
@@ -229,7 +243,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             ) : isPublic ? (
               'The customer sees this.'
             ) : (
-              'Only your team sees this, the agent included.'
+              'Send asks the agent. Note just records it. Either way the customer sees neither.'
             )}
           </span>
         </div>
@@ -244,33 +258,25 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             }
             className="flex-1 rounded border px-3 py-2"
           />
-          <button
-            type="button"
-            onClick={() => {
-              setAsking(true);
-              askAgent(isPublic, isPublic ? '' : draft.trim());
-              if (!isPublic) setDraft('');
-            }}
-            disabled={asking || !isConnected || (!isPublic && !draft.trim())}
-            title={
-              isPublic
-                ? 'The agent answers the customer here.'
-                : 'The agent drafts for your team only.'
-            }
-            className="rounded border px-4 py-2 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
-          >
-            {asking
-              ? 'Thinking…'
-              : isPublic
-                ? 'Let the agent reply'
-                : 'Ask the agent'}
-          </button>
+          {!isPublic && (
+            <button
+              type="button"
+              onClick={noteOnly}
+              disabled={!isConnected || !draft.trim()}
+              title="Record it for the team. The agent will not answer."
+              className="rounded border px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+            >
+              Note
+            </button>
+          )}
           <button
             type="submit"
-            disabled={!isConnected || !draft.trim() || blanks.length > 0}
+            disabled={
+              asking || !isConnected || !draft.trim() || blanks.length > 0
+            }
             className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-40"
           >
-            Send
+            {asking ? 'Thinking…' : 'Send'}
           </button>
         </div>
       </form>

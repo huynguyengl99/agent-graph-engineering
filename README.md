@@ -165,6 +165,17 @@ just logs a      # follow one of them (b backend, a agent, w web)
 just down        # stop them and free the ports
 ```
 
+Three ways to tidy up, in increasing order of violence:
+
+| | |
+| --- | --- |
+| `just down` | stops the services. Postgres and Redis keep running. |
+| `just infra-down` | stops those too. Data survives, so `just up` picks up where you left off. |
+| `just reset` | throws the data away: database volumes, traces, eval runs. Re-migrates and re-seeds, so you end where `just setup` left you. Code and `.env` files are untouched. |
+
+`just clean` is a different axis: it removes caches and generated clients, so it
+wants a `just gen` afterwards.
+
 Or one per terminal, when you are working on that service and want its output
 in front of you:
 

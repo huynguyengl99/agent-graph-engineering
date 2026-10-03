@@ -37,6 +37,19 @@ app-down:
     @echo "🐳 Stopping the containerised app..."
     docker compose -f docker-compose.yml -f docker-compose.app.yml down
 
+# Throw away every bit of state and start again: databases, traces, eval runs
+reset:
+    @echo "💣 Removing the databases, the traces and the eval runs."
+    @echo "   Code and .env files are untouched."
+    @bash scripts/dev.sh down || true
+    docker compose down -v
+    rm -rf agent/.traces agent/evals/results/runs
+    @just infra-up
+    @just migrate
+    @just seed
+    @echo ""
+    @echo "✅ Back to a fresh install. Run 'just up' to start the services."
+
 # Stop Docker infrastructure
 infra-down:
     @echo "🛑 Stopping infrastructure..."

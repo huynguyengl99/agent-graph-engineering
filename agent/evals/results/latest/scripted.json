@@ -1,6 +1,6 @@
 {
-  "run_id": "b7d67ca",
-  "git_commit": "b7d67ca",
+  "run_id": "72d952a",
+  "git_commit": "72d952a",
   "models": {
     "decision": "scripted",
     "answer": "scripted"

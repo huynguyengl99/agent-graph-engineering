@@ -17,10 +17,17 @@ export interface ModelCall {
   finish_reason?: string;
 }
 
+/** What a node was handed, and what it changed. */
+export interface NodeState {
+  state?: string;
+  update?: string;
+}
+
 export interface Span {
   name: string;
   duration_ms: number;
   call: ModelCall | null;
+  state: NodeState | null;
   signal: Record<string, string>;
   noise: Record<string, string>;
   children: Span[];

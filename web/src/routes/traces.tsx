@@ -11,6 +11,7 @@ import {
   fetchTrace,
   listRuns,
   type ModelCall,
+  type NodeState,
   type RunSummary,
   type Span,
   type Trace,
@@ -154,7 +155,8 @@ function SpanRow({ span, depth }: { span: Span; depth: number }) {
   const [open, setOpen] = useState(false);
   const signal = Object.entries(span.signal);
   const noise = Object.entries(span.noise);
-  const expandable = span.call !== null || noise.length > 0;
+  const expandable =
+    span.call !== null || span.state !== null || noise.length > 0;
 
   return (
     <li>
@@ -181,13 +183,14 @@ function SpanRow({ span, depth }: { span: Span; depth: number }) {
         ))}
         {expandable && (
           <span className="ml-auto shrink-0 text-xs text-indigo-700">
-            {open ? '−' : span.call ? 'open' : `+${noise.length}`}
+            {open ? '−' : span.call || span.state ? 'open' : `+${noise.length}`}
           </span>
         )}
       </div>
 
       {open && (
         <div style={{ paddingLeft: `${depth * 20 + 24}px` }} className="mb-2">
+          {span.state && <State state={span.state} />}
           {span.call && <Call call={span.call} />}
           {noise.length > 0 && (
             <dl className="mt-2 space-y-0.5 text-xs text-gray-600">
@@ -215,6 +218,30 @@ function SpanRow({ span, depth }: { span: Span; depth: number }) {
       )}
     </li>
   );
+}
+
+/** What the node was handed and what it changed - the run as a sequence of
+ * state changes, which is what a graph is. */
+function State({ state }: { state: NodeState }) {
+  return (
+    <div className="mb-2 space-y-2 rounded border bg-white p-3">
+      {state.update && (
+        <Block label="State update" body={pretty(state.update)} accent />
+      )}
+      {state.state && (
+        <Block label="State in" body={pretty(state.state)} folded />
+      )}
+    </div>
+  );
+}
+
+/** Indented when it parses, raw when it does not. */
+function pretty(body: string): string {
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2);
+  } catch {
+    return body;
+  }
 }
 
 /** What the model was sent and what came back, in full. */

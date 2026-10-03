@@ -21,6 +21,9 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 BODY_ATTRIBUTES = frozenset(
     {
         "final_result",
+        # A graph state holds the ticket and the draft, so it is a body too.
+        "graph.state",
+        "graph.state_update",
         "gen_ai.input.messages",
         "gen_ai.output.messages",
         "gen_ai.system_instructions",

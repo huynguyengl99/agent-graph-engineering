@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from assistant.tracing.files import TraceFiles
+from assistant.tracing.nodes import STATE_IN, STATE_UPDATE
 from assistant.tracing.redact import (
     BODY_ATTRIBUTES,
     PLACEHOLDER,
@@ -157,10 +158,10 @@ class TestRedactingExports:
         assert kept["gen_ai.usage.input_tokens"] == 120
         assert kept["gen_ai.input.messages"] == PLACEHOLDER
 
-    def test_every_body_attribute_is_one_pydantic_ai_actually_sets(self) -> None:
+    def test_every_body_attribute_is_one_something_actually_sets(self) -> None:
         """A key that nothing emits is a redaction that does nothing, and reads
         like protection that is not there."""
-        observed = {
+        from_pydantic_ai = {
             "final_result",
             "gen_ai.input.messages",
             "gen_ai.output.messages",
@@ -169,8 +170,20 @@ class TestRedactingExports:
             "model_request_parameters",
             "pydantic_ai.all_messages",
         }
+        # Taken from the tracer rather than spelled again, so renaming one there
+        # fails here instead of quietly leaving a state body unredacted.
+        ours = {STATE_IN, STATE_UPDATE}
 
-        assert BODY_ATTRIBUTES == observed
+        assert BODY_ATTRIBUTES == from_pydantic_ai | ours
+
+    def test_a_state_body_does_not_leave(self) -> None:
+        """A graph state holds the ticket and the draft, so it is as much a body
+        as a prompt is."""
+        redacted = redacted_attributes(
+            {STATE_IN: '{"context": "..."}', STATE_UPDATE: '{"answer": "..."}'}
+        )
+
+        assert set(redacted.values()) == {"[redacted]"}
 
     def test_nothing_is_added_or_dropped(self) -> None:
         attributes = {"a": 1, "gen_ai.input.messages": "x"}

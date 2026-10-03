@@ -1,5 +1,6 @@
 """Span-per-node instrumentation, applied when the graph is built."""
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any, Protocol
@@ -57,6 +58,21 @@ def _decisions(update: Any) -> dict[str, str | int | float | bool]:
     return recorded
 
 
+STATE_IN = "graph.state"
+STATE_UPDATE = "graph.state_update"
+
+
+def _as_json(value: Any) -> str:
+    """Whole, not summarised. A run is a sequence of state changes, and a state
+    cut to fit an attribute answers nothing."""
+    try:
+        if hasattr(value, "model_dump"):
+            value = value.model_dump(mode="json")
+        return json.dumps(value, default=str, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def traced(name: str, node: Node) -> Node:
     """Wrap a node so its run, and the model calls inside it, share one span."""
 
@@ -64,7 +80,9 @@ def traced(name: str, node: Node) -> Node:
         with tracer().start_as_current_span(
             f"node.{name}", attributes={RUN_ATTRIBUTE: _run_key(state)}
         ) as span:
+            span.set_attribute(STATE_IN, _as_json(state))
             update = await node(state)
+            span.set_attribute(STATE_UPDATE, _as_json(update))
             for key, value in _decisions(update).items():
                 span.set_attribute(key, value)
             return update

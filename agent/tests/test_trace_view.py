@@ -101,3 +101,61 @@ class TestPreparingTheTree:
         )
 
         assert len(spans[0]["noise"]["final_result"]) < 200
+
+
+class TestFramesThatOnlyWrap:
+    def frame(self, children: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "node.decide",
+                "duration_ms": 20.0,
+                "attributes": {"graph.state_update": "{}"},
+                "children": [
+                    {
+                        "name": "invoke_agent agent",
+                        "duration_ms": 19.0,
+                        "attributes": {"model_name": "gpt-4o-mini"},
+                        "children": children,
+                    }
+                ],
+            }
+        ]
+
+    def call(self, name: str = "chat gpt-4o-mini") -> dict[str, Any]:
+        return {
+            "name": name,
+            "duration_ms": 18.0,
+            "attributes": {"gen_ai.input.messages": "[]"},
+            "children": [],
+        }
+
+    def test_a_frame_around_one_call_becomes_the_call(self) -> None:
+        [node] = prepare(self.frame([self.call()]))
+
+        assert [child["name"] for child in node["children"]] == ["chat gpt-4o-mini"]
+
+    def test_the_frame_leaves_its_attributes_behind(self) -> None:
+        """What it knew about the call is the reason it was worth a box."""
+        [node] = prepare(self.frame([self.call()]))
+
+        assert node["children"][0]["signal"]["model_name"] == "gpt-4o-mini"
+
+    def test_a_frame_around_a_loop_is_kept(self) -> None:
+        [node] = prepare(self.frame([self.call(), self.call("chat gpt-4o")]))
+
+        assert [child["name"] for child in node["children"]] == ["invoke_agent agent"]
+
+    def test_a_run_with_one_node_is_still_a_run(self) -> None:
+        roots = [
+            {
+                "name": "triage run",
+                "duration_ms": 30.0,
+                "attributes": {},
+                "children": self.frame([self.call()]),
+            }
+        ]
+
+        [run] = prepare(roots)
+
+        assert run["name"] == "triage run"
+        assert [child["name"] for child in run["children"]] == ["node.decide"]

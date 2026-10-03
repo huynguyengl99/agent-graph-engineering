@@ -1,5 +1,5 @@
 /**
- * One run, as a tree, with what each model call was actually given.
+ * One run, as the chain of steps it was, with what each model call was given.
  *
  * Here rather than behind the Django admin: whoever asks why it answered that
  * is the person who just watched it answer. The agent serves the spans and
@@ -99,11 +99,7 @@ export function TracesRoute() {
         aria-label="trace"
       >
         {trace && <Totals trace={trace} />}
-        <ul className="mt-4 space-y-0.5">
-          {trace?.spans.map((span, index) => (
-            <SpanRow key={`${span.name}-${index}`} span={span} depth={0} />
-          ))}
-        </ul>
+        {trace && <Chain spans={trace.spans} />}
       </section>
     </div>
   );
@@ -151,72 +147,108 @@ function Stat({
   );
 }
 
-function SpanRow({ span, depth }: { span: Span; depth: number }) {
+/** Steps in the order they ran, with the arrow saying so. */
+function Chain({ spans }: { spans: Span[] }) {
+  return (
+    <ol className="mt-4">
+      {spans.map((span, index) => (
+        <li key={`${span.name}-${index}`}>
+          {index > 0 && <Arrow />}
+          <SpanCard span={span} />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const Arrow = () => (
+  <p className="py-1 text-center text-xs text-gray-400" aria-hidden>
+    ↓
+  </p>
+);
+
+/** What a span is, for the eye: the run, a graph node, a model call, or the
+ * library's own frame between them. */
+function kindOf(span: Span): keyof typeof KINDS {
+  if (span.call) return 'llm';
+  if (span.name.startsWith('node.')) return 'node';
+  if (span.name.endsWith(' run')) return 'run';
+  return 'frame';
+}
+
+const KINDS = {
+  run: { bar: 'border-l-slate-500', chip: 'bg-slate-100 text-slate-700' },
+  node: { bar: 'border-l-indigo-500', chip: 'bg-indigo-50 text-indigo-700' },
+  llm: { bar: 'border-l-violet-500', chip: 'bg-violet-100 text-violet-700' },
+  frame: { bar: 'border-l-gray-300', chip: 'bg-gray-100 text-gray-600' },
+};
+
+function SpanCard({ span }: { span: Span }) {
   const [open, setOpen] = useState(false);
+  const kind = kindOf(span);
   const signal = Object.entries(span.signal);
   const noise = Object.entries(span.noise);
   const expandable =
     span.call !== null || span.state !== null || noise.length > 0;
 
   return (
-    <li>
-      <div
-        className={`flex items-baseline gap-3 rounded px-2 py-1 ${
-          expandable ? 'cursor-pointer hover:bg-white' : ''
-        }`}
-        style={{ paddingLeft: `${depth * 20 + 8}px` }}
-        onClick={() => expandable && setOpen(!open)}
-      >
-        {span.call && (
-          <span className="rounded bg-violet-100 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
-            llm
+    <div>
+      <div className={`rounded border border-l-4 bg-white ${KINDS[kind].bar}`}>
+        <div
+          className={`flex items-center gap-2 px-3 py-2 ${
+            expandable ? 'cursor-pointer' : ''
+          }`}
+          onClick={() => expandable && setOpen(!open)}
+        >
+          <span
+            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${KINDS[kind].chip}`}
+          >
+            {kind}
           </span>
-        )}
-        <span className="font-mono text-sm">{span.name}</span>
-        <span className="text-xs text-gray-500">
-          {span.duration_ms.toFixed(1)}ms
-        </span>
-        {signal.map(([key, value]) => (
-          <span key={key} className="truncate text-xs text-gray-700">
-            <span className="text-gray-500">{key}</span> {value}
+          <span className="truncate font-mono text-sm font-medium">
+            {span.name.replace(/^node\./, '')}
           </span>
-        ))}
-        {expandable && (
-          <span className="ml-auto shrink-0 text-xs text-indigo-700">
-            {open ? '−' : span.call || span.state ? 'open' : `+${noise.length}`}
+          {signal.map(([key, value]) => (
+            <span
+              key={key}
+              className="hidden truncate rounded bg-gray-50 px-1.5 py-0.5 text-xs text-gray-700 sm:inline"
+            >
+              <span className="text-gray-400">{key}</span> {value}
+            </span>
+          ))}
+          <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-gray-500">
+            {span.duration_ms.toFixed(1)}ms
+            {expandable && (
+              <span className="text-gray-400">{open ? '▾' : '▸'}</span>
+            )}
           </span>
+        </div>
+
+        {open && (
+          <div className="border-t px-3 py-3">
+            {span.state && <State state={span.state} />}
+            {span.call && <Call call={span.call} />}
+            {noise.length > 0 && (
+              <dl className="mt-2 space-y-0.5 text-xs text-gray-600">
+                {noise.map(([key, value]) => (
+                  <div key={key} className="flex gap-2">
+                    <dt className="shrink-0 text-gray-500">{key}</dt>
+                    <dd className="truncate font-mono">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
         )}
       </div>
 
-      {open && (
-        <div style={{ paddingLeft: `${depth * 20 + 24}px` }} className="mb-2">
-          {span.state && <State state={span.state} />}
-          {span.call && <Call call={span.call} />}
-          {noise.length > 0 && (
-            <dl className="mt-2 space-y-0.5 text-xs text-gray-600">
-              {noise.map(([key, value]) => (
-                <div key={key} className="flex gap-2">
-                  <dt className="shrink-0 text-gray-500">{key}</dt>
-                  <dd className="truncate font-mono">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
+      {span.children.length > 0 && (
+        <div className="ml-5 border-l border-dashed pl-5">
+          <Arrow />
+          <Chain spans={span.children} />
         </div>
       )}
-
-      {span.children.length > 0 && (
-        <ul>
-          {span.children.map((child, index) => (
-            <SpanRow
-              key={`${child.name}-${index}`}
-              span={child}
-              depth={depth + 1}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
+    </div>
   );
 }
 

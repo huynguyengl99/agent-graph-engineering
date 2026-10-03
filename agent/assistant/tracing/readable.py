@@ -67,11 +67,36 @@ def state_of(attributes: dict[str, Any]) -> dict[str, str] | None:
     }
 
 
+def _folded(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop a span that only wraps one other.
+
+    Pydantic AI puts its own frame between the node and the model call, and on
+    screen that is a third box saying what the two around it already say. Its
+    attributes move down to the call it wrapped. A frame with several calls
+    under it is kept: there it is the agent's loop, which is worth seeing.
+    """
+    folded = []
+    for span in spans:
+        kept = span
+        while (
+            kept["call"] is None
+            and kept["state"] is None
+            and len(kept["children"]) == 1
+        ):
+            child = kept["children"][0]
+            child["signal"] = {**kept["signal"], **child["signal"]}
+            child["noise"] = {**kept["noise"], **child["noise"]}
+            kept = child
+        folded.append(kept)
+    return folded
+
+
 def prepare(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Split each span's attributes into the ones a reader wants and the rest.
 
     A model call's own messages are pulled out whole, into `call`, rather than
-    left among the rest to be shortened.
+    left among the rest to be shortened. The run's own roots are never folded,
+    so a graph with a single node still reads as a run.
     """
     prepared = []
     for span in spans:
@@ -94,7 +119,7 @@ def prepare(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "noise": {
                     key: _short(value) for key, value in rest.items() if _is_noise(key)
                 },
-                "children": prepare(list(span.get("children") or [])),
+                "children": _folded(prepare(list(span.get("children") or []))),
             }
         )
     return prepared

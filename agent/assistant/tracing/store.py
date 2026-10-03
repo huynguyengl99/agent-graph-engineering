@@ -12,6 +12,7 @@ collector as well.
 
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from threading import Lock
 from typing import Any
 
@@ -113,11 +114,49 @@ class TraceStore:
                 total = total + call
         return total
 
+    def summary(self, run_id: str) -> dict[str, Any]:
+        """Enough to pick a run out of a list without opening each one."""
+        spans = self.spans(run_id)
+        if not spans:
+            return {"run_id": run_id, "label": "", "started_at": None}
+
+        start = min(span.start_ns for span in spans)
+        end = max(span.end_ns for span in spans)
+        cost = self.cost(run_id)
+        return {
+            "run_id": run_id,
+            # The decision the run turned on, not the words that prompted it:
+            # a list is read at a glance and customer prose does not belong in
+            # one. `route AnswerFromContext` says what happened.
+            "label": _label(spans),
+            "started_at": datetime.fromtimestamp(start / 1e9, tz=UTC).isoformat(),
+            "duration_ms": round((end - start) / 1_000_000, 2),
+            "spans": len(spans),
+            "calls": cost.calls,
+            # Through `as_dict`, which floats the Decimal: handed over raw it
+            # serialises as a string and every reader has to parse it back.
+            "cost_usd": cost.as_dict()["cost_usd"],
+            "priced": cost.priced,
+        }
+
     def clear(self) -> None:
         """Memory only. Files are data, and a test clearing its own spans has no
         business deleting a run someone was looking at."""
         with self._lock:
             self._by_ticket.clear()
+
+
+# Attributes that say what a run decided, most telling first.
+LABEL_KEYS = ("route", "decision", "tool", "category", "classification")
+
+
+def _label(spans: list[SpanRecord]) -> str:
+    root = next((span.name for span in spans if span.parent_id is None), "")
+    for key in LABEL_KEYS:
+        for span in spans:
+            if (value := span.attributes.get(key)) is not None:
+                return f"{root} · {key} {value}"
+    return root
 
 
 trace_store = TraceStore()

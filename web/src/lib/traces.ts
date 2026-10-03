@@ -7,12 +7,34 @@
  * about the tracer rather than about the page.
  */
 
+/** What a model call was given and gave back, kept whole. */
+export interface ModelCall {
+  system?: string;
+  input?: string;
+  output?: string;
+  tools?: string;
+  model?: string;
+  finish_reason?: string;
+}
+
 export interface Span {
   name: string;
   duration_ms: number;
+  call: ModelCall | null;
   signal: Record<string, string>;
   noise: Record<string, string>;
   children: Span[];
+}
+
+export interface RunSummary {
+  run_id: string;
+  label: string;
+  started_at: string | null;
+  duration_ms: number;
+  spans: number;
+  calls: number;
+  cost_usd: number;
+  priced: boolean;
 }
 
 export interface Usage {
@@ -31,10 +53,10 @@ export interface Trace {
   spans: Span[];
 }
 
-export async function listRuns(): Promise<string[]> {
+export async function listRuns(): Promise<RunSummary[]> {
   const response = await fetch('/agent/traces');
   if (!response.ok) throw new Error(`agent returned ${response.status}`);
-  const body = (await response.json()) as { runs: string[] };
+  const body = (await response.json()) as { runs: RunSummary[] };
   return body.runs;
 }
 

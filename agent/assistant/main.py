@@ -116,8 +116,10 @@ async def graph_diagram(name: str, xray: bool = True) -> Response:
 
 
 @app.get("/traces", tags=["Observability"])
-async def list_traced_runs() -> dict[str, list[str]]:
-    return {"runs": trace_store.runs()}
+async def list_traced_runs() -> dict[str, list[dict[str, object]]]:
+    """Newest first, with enough on each to pick one without opening it."""
+    runs = [trace_store.summary(run) for run in trace_store.runs()]
+    return {"runs": list(reversed(runs))}
 
 
 @app.get("/traces/{run_id}", tags=["Observability"])

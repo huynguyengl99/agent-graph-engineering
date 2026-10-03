@@ -471,17 +471,27 @@ const traceText = (
   ? ok('the trace shows its nodes and what the run cost')
   : bad(`the trace is missing nodes or cost: ${traceText.slice(0, 200)}`);
 
-// Noise is collapsed behind a count, so the signal is what you see first.
-const expander = page
-  .locator('section[aria-label="trace"] button', { hasText: /^\+\d+$/ })
-  .first();
-if ((await expander.count()) > 0) {
-  await expander.click();
-  (await page.locator('section[aria-label="trace"] dl').count()) > 0
-    ? ok('the hidden attributes expand on demand')
-    : bad('expanding a span showed nothing');
+// The question a trace is opened to answer: what was this model actually sent,
+// and what did it say? Collapsed by default, so the tree stays readable.
+// The badge, then the row it sits in: matching the row by its text catches
+// outer containers whose text merely includes it.
+const modelCall = page
+  .locator('section[aria-label="trace"] span', { hasText: /^llm$/ })
+  .first()
+  .locator('..');
+if ((await modelCall.count()) > 0) {
+  await modelCall.scrollIntoViewIfNeeded();
+  await modelCall.click();
+  // Asserted on rendered text, because the labels are uppercased by CSS and a
+  // `text=` selector matches what is in the DOM rather than what is on screen.
+  const shown = await page
+    .locator('section[aria-label="trace"]')
+    .innerText({ timeout: 15000 });
+  /SYSTEM PROMPT/.test(shown) && /INPUT/.test(shown) && /RESPONSE/.test(shown)
+    ? ok('a model call shows what it was sent and what it returned')
+    : bad('the expanded call is missing its input or response');
 } else {
-  bad('no span offered its hidden attributes');
+  bad('no model call in the trace to open');
 }
 
 // Prompts and ticket text are customer-written and must not reach a span.

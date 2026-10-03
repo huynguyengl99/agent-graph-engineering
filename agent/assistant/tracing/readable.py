@@ -30,24 +30,56 @@ def _short(value: Any) -> str:
     return text if len(text) <= MAX_VALUE else text[: MAX_VALUE - 1] + "…"
 
 
+# What a model call was actually given and gave back. Kept whole, because a
+# prompt cut at 120 characters answers no question anyone opens a trace to ask.
+CALL_KEYS = {
+    "system": "gen_ai.system_instructions",
+    "input": "gen_ai.input.messages",
+    "output": "gen_ai.output.messages",
+    "tools": "gen_ai.tool.definitions",
+    "model": "gen_ai.response.model",
+    "finish_reason": "gen_ai.response.finish_reasons",
+}
+
+
+def call_of(attributes: dict[str, Any]) -> dict[str, str] | None:
+    """The model call on this span, or None when it is not one."""
+    if CALL_KEYS["input"] not in attributes:
+        return None
+    return {
+        field: str(attributes[key])
+        for field, key in CALL_KEYS.items()
+        if attributes.get(key) is not None
+    }
+
+
 def prepare(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Split each span's attributes into the ones a reader wants and the rest."""
+    """Split each span's attributes into the ones a reader wants and the rest.
+
+    A model call's own messages are pulled out whole, into `call`, rather than
+    left among the rest to be shortened.
+    """
     prepared = []
     for span in spans:
         attributes = dict(span.get("attributes") or {})
+        call = call_of(attributes)
+        rest = {
+            key: value
+            for key, value in attributes.items()
+            if key not in set(CALL_KEYS.values())
+        }
         prepared.append(
             {
                 "name": span.get("name", ""),
                 "duration_ms": float(span.get("duration_ms") or 0),
+                "call": call,
                 "signal": {
                     key: _short(value)
-                    for key, value in attributes.items()
+                    for key, value in rest.items()
                     if not _is_noise(key)
                 },
                 "noise": {
-                    key: _short(value)
-                    for key, value in attributes.items()
-                    if _is_noise(key)
+                    key: _short(value) for key, value in rest.items() if _is_noise(key)
                 },
                 "children": prepare(list(span.get("children") or [])),
             }

@@ -18,9 +18,11 @@ import type {
   PongMessage,
   SendMessageMessage,
   SetAgentMessage,
+  TicketTopicToolDecisionMessage,
   TokenMessage,
   ToolApprovalMessage,
   ToolDecisionMessage,
+  ToolProposalMessage,
 } from './schemas';
 
 export type HubToServer = PingMessage;
@@ -29,9 +31,13 @@ export type HubTicketTopicToServer =
   | ApprovalDecisionMessage
   | AskAgentMessage
   | SendMessageMessage
-  | SetAgentMessage;
+  | SetAgentMessage
+  | TicketTopicToolDecisionMessage;
 export type HubTicketTopicToClient =
-  AgentProgressMessage | ApprovalRequiredMessage | NewEventMessage;
+  | AgentProgressMessage
+  | ApprovalRequiredMessage
+  | NewEventMessage
+  | ToolProposalMessage;
 export type HubConversationTopicToServer =
   AskMessage | DraftToTicketMessage | ToolDecisionMessage;
 export type HubConversationTopicToClient =

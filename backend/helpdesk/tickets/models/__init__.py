@@ -10,6 +10,7 @@ from .events import (
     Visibility,
 )
 from .pending_reply import PendingReply
+from .pending_tool_call import PendingToolCall
 from .ticket import Handling, Ticket, TicketPriority, TicketStatus
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "AIResponseEvent",
     "HandoffEvent",
     "PendingReply",
+    "PendingToolCall",
 ]

@@ -213,6 +213,18 @@ export interface StatusChangeEvent {
   newStatus: string;
 }
 
+/** Approve, correct, or cancel a tool the agent proposed on this ticket. */
+export interface TicketTopicToolDecisionMessage {
+  action: 'tool_decision';
+  payload: TicketTopicToolDecisionPayload;
+}
+
+export interface TicketTopicToolDecisionPayload {
+  approved: boolean;
+  arguments?: Record<string, unknown>;
+  publish?: boolean;
+}
+
 /** One delta of the assistant's answer, as it is produced. */
 export interface TokenMessage {
   action: 'token';
@@ -249,4 +261,18 @@ export interface ToolDecisionMessage {
 export interface ToolDecisionPayload {
   approved: boolean;
   arguments?: Record<string, unknown>;
+}
+
+export interface ToolProposalMessage {
+  action: 'tool_proposal';
+  payload: ToolProposalPayload;
+}
+
+/** A tool is waiting on this ticket. Nothing has run yet. */
+export interface ToolProposalPayload {
+  tool: string;
+  description: string;
+  arguments?: Record<string, unknown>;
+  argumentsSchema?: Record<string, unknown>;
+  unknownArguments?: Array<string>;
 }

@@ -5,6 +5,7 @@ import type { Ticket, TicketEvent } from '@/lib/types';
 import { HANDLING, Row, TicketEventItem } from './TicketEventItem';
 import { placeholdersIn } from '@/lib/placeholders';
 import { ApprovalPanel } from './ApprovalPanel';
+import { ToolApprovalCard, type Proposal } from './ToolApprovalCard';
 
 interface Progress {
   stage: AgentStage;
@@ -27,6 +28,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   );
   const [handling, setHandling] = useState(ticket.handling);
   const [asking, setAsking] = useState(false);
+  // Seeded from the ticket, so a reload finds a tool still parked at the gate.
+  const [proposal, setProposal] = useState<Proposal | null>(
+    parked(ticket.pendingToolCall),
+  );
+  const [publish, setPublish] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -53,12 +59,20 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const onNewEvent = useCallback((event: TicketEvent) => {
     setEvents((current) => [...current, event]);
     if (event.eventType === 'handoff') setHandling(event.handling);
-    if (event.eventType === 'ai_response') setAsking(false);
+    if (event.eventType === 'ai_response') {
+      setAsking(false);
+      setProposal(null);
+    }
     if (event.eventType === 'ai_response') {
       // The reply went out: the trail and the gate have served their purpose.
       setProgress([]);
       setPendingApproval(null);
     }
+  }, []);
+
+  const onToolProposal = useCallback((proposed: Proposal) => {
+    setProposal(proposed);
+    setAsking(false);
   }, []);
 
   const onApprovalRequired = useCallback((text: string, found: string[]) => {
@@ -71,13 +85,20 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     if (stage === 'failed') setAsking(false);
   }, []);
 
-  const { sendMessage, askAgent, setAgent, submitApproval, isConnected } =
-    useTicketChat({
-      ticketId,
-      onNewEvent,
-      onAgentProgress,
-      onApprovalRequired,
-    });
+  const {
+    sendMessage,
+    askAgent,
+    setAgent,
+    decideTool,
+    submitApproval,
+    isConnected,
+  } = useTicketChat({
+    ticketId,
+    onNewEvent,
+    onAgentProgress,
+    onApprovalRequired,
+    onToolProposal,
+  });
 
   const decide = useCallback(
     (approved: boolean, content?: string) => {
@@ -199,6 +220,18 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           </ul>
         )}
 
+        {proposal !== null && (
+          <ToolApprovalCard
+            proposal={proposal}
+            publish={{ value: publish, onChange: setPublish }}
+            onDecide={(approved, args) => {
+              decideTool(approved, args, publish);
+              setProposal(null);
+              setAsking(approved);
+            }}
+          />
+        )}
+
         {pendingApproval !== null && (
           <ApprovalPanel
             draft={pendingApproval}
@@ -282,6 +315,18 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
       </form>
     </section>
   );
+}
+
+/** The REST row types its JSON fields as unknown; the card wants a shape. */
+function parked(row: Ticket['pendingToolCall']): Proposal | null {
+  if (!row) return null;
+  return {
+    tool: row.tool,
+    description: row.description,
+    arguments: row.arguments as Record<string, unknown>,
+    argumentsSchema: row.argumentsSchema as Record<string, unknown>,
+    unknownArguments: row.unknownArguments as string[],
+  };
 }
 
 function Badge({ children }: { children: React.ReactNode }) {

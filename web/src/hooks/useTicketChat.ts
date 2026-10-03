@@ -8,6 +8,7 @@
 
 import { useTopic } from '@chanx-js/client/react';
 import { hub } from '@/generated';
+import type { ToolProposalPayload } from '@/generated';
 import type { TicketEvent } from '@/lib/types';
 
 export type AgentStage = 'classified' | 'decided' | 'failed';
@@ -17,6 +18,7 @@ interface UseTicketChatOptions {
   onNewEvent?: (event: TicketEvent) => void;
   onAgentProgress?: (stage: AgentStage, detail: string) => void;
   onApprovalRequired?: (draft: string, findings: string[]) => void;
+  onToolProposal?: (proposal: ToolProposalPayload) => void;
 }
 
 export function useTicketChat({
@@ -24,6 +26,7 @@ export function useTicketChat({
   onNewEvent,
   onAgentProgress,
   onApprovalRequired,
+  onToolProposal,
 }: UseTicketChatOptions) {
   const { send, subscribed } = useTopic(
     hub,
@@ -40,6 +43,7 @@ export function useTicketChat({
             message.payload.draft,
             message.payload.findings ?? [],
           ),
+        tool_proposal: (message) => onToolProposal?.(message.payload),
       },
     },
   );
@@ -56,6 +60,17 @@ export function useTicketChat({
     send({ action: 'set_agent', payload: { on, reason } });
   };
 
+  const decideTool = (
+    approved: boolean,
+    toolArguments: Record<string, unknown>,
+    publish: boolean,
+  ) => {
+    send({
+      action: 'tool_decision',
+      payload: { approved, arguments: toolArguments, publish },
+    });
+  };
+
   const submitApproval = (approved: boolean, content?: string) => {
     send({
       action: 'approval_decision',
@@ -67,6 +82,7 @@ export function useTicketChat({
     sendMessage,
     askAgent,
     setAgent,
+    decideTool,
     submitApproval,
     // `subscribed`, not socket status: the socket is shared, and a frame sent
     // before the server confirms this topic is dropped.

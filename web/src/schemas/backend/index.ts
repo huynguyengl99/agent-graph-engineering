@@ -165,6 +165,16 @@ const PendingReply = z
     createdAt: z.string().datetime({ offset: true }),
   })
   .passthrough();
+const PendingToolCall = z
+  .object({
+    tool: z.string().max(100),
+    description: z.string().optional(),
+    arguments: z.unknown().optional(),
+    argumentsSchema: z.unknown().optional(),
+    unknownArguments: z.unknown().optional(),
+    createdAt: z.string().datetime({ offset: true }),
+  })
+  .passthrough();
 const Ticket = z
   .object({
     id: z.string().uuid(),
@@ -176,6 +186,7 @@ const Ticket = z
     createdBy: User,
     assignedTo: User.nullable(),
     pendingReply: PendingReply.nullable(),
+    pendingToolCall: PendingToolCall.nullable(),
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
   })
@@ -336,6 +347,7 @@ export const schemas = {
   PriorityEnum,
   HandlingEnum,
   PendingReply,
+  PendingToolCall,
   Ticket,
   PaginatedTicketList,
   TicketCreateRequest,

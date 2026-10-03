@@ -15,6 +15,8 @@ from .incoming import (
     SendMessagePayload,
     SetAgentMessage,
     SetAgentPayload,
+    ToolDecisionMessage,
+    ToolDecisionPayload,
 )
 from .outgoing import (
     AgentProgressMessage,
@@ -27,6 +29,8 @@ from .outgoing import (
     NewEventPayload,
     StreamingMessage,
     StreamingPayload,
+    ToolProposalMessage,
+    ToolProposalPayload,
 )
 
 __all__ = [
@@ -54,4 +58,8 @@ __all__ = [
     "StreamingMessage",
     "StreamingPayload",
     "TicketEvent",
+    "ToolDecisionMessage",
+    "ToolDecisionPayload",
+    "ToolProposalMessage",
+    "ToolProposalPayload",
 ]

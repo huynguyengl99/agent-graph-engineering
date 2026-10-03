@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
@@ -54,3 +54,18 @@ class SetAgentMessage(BaseMessage):
 
     action: Literal["set_agent"] = "set_agent"
     payload: SetAgentPayload
+
+
+class ToolDecisionPayload(BaseModel):
+    approved: bool
+    # Only the fields the reviewer changed; empty runs it as proposed.
+    arguments: dict[str, Any] = {}
+    # Whether what the agent writes afterwards goes to the customer.
+    publish: bool = False
+
+
+class ToolDecisionMessage(BaseMessage):
+    """Approve, correct, or cancel a tool the agent proposed on this ticket."""
+
+    action: Literal["tool_decision"] = "tool_decision"
+    payload: ToolDecisionPayload

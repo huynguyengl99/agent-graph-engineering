@@ -261,6 +261,16 @@ export interface PendingReply {
   createdAt: string;
 }
 
+/** The same shape the `tool_proposal` frame carries. */
+export interface PendingToolCall {
+  tool: string;
+  description?: string;
+  arguments?: unknown;
+  argumentsSchema?: unknown;
+  unknownArguments?: unknown;
+  createdAt: string;
+}
+
 /** * `low` - Low * `medium` - Medium * `high` - High * `urgent` - Urgent */
 export type PriorityEnum = "low" | "medium" | "high" | "urgent";
 
@@ -325,6 +335,7 @@ export interface Ticket {
   createdBy: User;
   assignedTo: User;
   pendingReply: PendingReply;
+  pendingToolCall: PendingToolCall;
   createdAt: string;
   updatedAt: string;
 }

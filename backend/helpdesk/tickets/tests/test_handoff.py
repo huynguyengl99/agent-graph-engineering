@@ -8,6 +8,13 @@ from channels.db import database_sync_to_async
 from django.test import override_settings
 
 from helpdesk.accounts.factories import UserFactory
+from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
+    ChatCompleteMessage,
+    ChatCompletePayload,
+    ChatRequestPayload,
+    ToolApprovalMessage,
+    ToolApprovalPayload,
+)
 from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
@@ -34,10 +41,12 @@ from helpdesk.tickets.models import (
     AIResponseEvent,
     CommentEvent,
     Handling,
+    PendingToolCall,
     Ticket,
     Visibility,
 )
 from helpdesk.tickets.serializers.event import serialize_event
+from helpdesk.tickets.services.consult import TicketConsultClient
 from helpdesk.tickets.services.handoff import hand_off, handling_of
 from helpdesk.tickets.services.triage import TicketTriageClient, _parked_visibility
 from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent, TicketTopic
@@ -336,3 +345,89 @@ class TestAFailedRunDoesNotStrandTheCustomer(WebsocketTestCase):
         )
 
         assert await handling_of(str(self.ticket.id)) == Handling.NEEDS_HUMAN
+
+
+class TestTheGateOnTheTicket(WebsocketTestCase):
+    """The tool the agent proposes while helping the team is approved here, and
+    what it writes afterwards goes where the reviewer said."""
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        self.ticket = TicketFactory.create(created_by=self.user)
+        self.topic = f"ticket:{self.ticket.id}"
+
+    def client_for(self, visibility: str = Visibility.INTERNAL) -> TicketConsultClient:
+        return TicketConsultClient(
+            str(self.ticket.id),
+            ChatRequestPayload(conversation_id=str(self.ticket.id), question="refund?"),
+            visibility=visibility,
+        )
+
+    async def propose(self) -> None:
+        await self.client_for().on_event(
+            ToolApprovalMessage(
+                payload=ToolApprovalPayload(
+                    conversation_id=str(self.ticket.id),
+                    tool="issue_refund",
+                    description="Refund a charge",
+                    arguments={"amount": 29.0},
+                    arguments_schema={"properties": {"amount": {"type": "number"}}},
+                )
+            )
+        )
+
+    async def test_a_proposal_survives_a_reload(self) -> None:
+        await self.subscribe_ready(self.topic)
+
+        await self.propose()
+
+        parked = await PendingToolCall.objects.aget(ticket_id=self.ticket.id)
+        assert parked.tool == "issue_refund"
+        assert parked.arguments == {"amount": 29.0}
+
+    async def test_a_proposal_persists_no_ticket_event(self) -> None:
+        """Proposing is not answering."""
+        await self.subscribe_ready(self.topic)
+
+        await self.propose()
+
+        assert not await AIResponseEvent.objects.filter(
+            ticket_id=self.ticket.id
+        ).aexists()
+
+    async def test_the_reviewer_can_send_the_result_to_the_customer(self) -> None:
+        await self.subscribe_ready(self.topic)
+
+        await self.client_for(Visibility.PUBLIC).on_event(
+            ChatCompleteMessage(
+                payload=ChatCompletePayload(
+                    conversation_id=str(self.ticket.id),
+                    content="Your refund of $29.00 is on its way.",
+                )
+            )
+        )
+
+        event = await AIResponseEvent.objects.filter(ticket_id=self.ticket.id).afirst()
+        assert event is not None
+        assert event.visibility == Visibility.PUBLIC
+
+    async def test_a_lookup_stays_with_the_team(self) -> None:
+        await self.subscribe_ready(self.topic)
+
+        await self.client_for().on_event(
+            ChatCompleteMessage(
+                payload=ChatCompletePayload(
+                    conversation_id=str(self.ticket.id),
+                    content="They are on the monthly plan.",
+                )
+            )
+        )
+
+        event = await AIResponseEvent.objects.filter(ticket_id=self.ticket.id).afirst()
+        assert event is not None
+        assert event.visibility == Visibility.INTERNAL

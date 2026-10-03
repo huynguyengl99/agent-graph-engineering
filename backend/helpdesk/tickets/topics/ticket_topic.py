@@ -15,13 +15,20 @@ from helpdesk.tickets.messages import (
     NewEventPayload,
     SendMessageMessage,
     SetAgentMessage,
+    ToolDecisionMessage,
+    ToolProposalMessage,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import CommentEvent, Handling, Ticket, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off, handling_of
 
-TicketFeedEvent = NewEventMessage | AgentProgressMessage | ApprovalRequiredMessage
+TicketFeedEvent = (
+    NewEventMessage
+    | AgentProgressMessage
+    | ApprovalRequiredMessage
+    | ToolProposalMessage
+)
 
 
 class TicketTopic(Topic[TicketFeedEvent]):
@@ -150,6 +157,24 @@ class TicketTopic(Topic[TicketFeedEvent]):
             ),
         )
 
+    @ws_handler(
+        summary="Approve, correct, or cancel a proposed tool call",
+        description=(
+            "Resumes the parked consult. Corrected arguments replace the "
+            "proposed ones, so what the reviewer saw is what runs."
+        ),
+        output_type=NewEventMessage | AgentProgressMessage,
+    )
+    async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
+        from helpdesk.tickets.services.consult import start_tool_decision
+
+        await start_tool_decision(
+            self.params["ticket_id"],
+            approved=message.payload.approved,
+            arguments=message.payload.arguments,
+            publish=message.payload.publish,
+        )
+
     async def _announce(self, ticket_id: str, event: Any) -> None:
         if event is None:
             return
@@ -187,6 +212,13 @@ class TicketTopic(Topic[TicketFeedEvent]):
         self, event: ApprovalRequiredMessage
     ) -> ApprovalRequiredMessage | None:
         """A draft that has not been approved has not been sent."""
+        return event if self._staff else None
+
+    @event_handler
+    async def handle_tool_proposal(
+        self, event: ToolProposalMessage
+    ) -> ToolProposalMessage | None:
+        """A tool nobody has approved has not run."""
         return event if self._staff else None
 
     @property

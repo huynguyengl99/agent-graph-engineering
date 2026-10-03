@@ -5,7 +5,7 @@ from typing import Any
 from rest_framework import serializers
 
 from helpdesk.accounts.serializers import UserSerializer
-from helpdesk.tickets.models import PendingReply, Ticket
+from helpdesk.tickets.models import PendingReply, PendingToolCall, Ticket
 
 
 class PendingReplySerializer(serializers.ModelSerializer[PendingReply]):
@@ -18,12 +18,28 @@ class PendingReplySerializer(serializers.ModelSerializer[PendingReply]):
         fields = ["draft", "findings", "created_at"]
 
 
+class PendingToolCallSerializer(serializers.ModelSerializer[PendingToolCall]):
+    """The same shape the `tool_proposal` frame carries."""
+
+    class Meta:
+        model = PendingToolCall
+        fields = [
+            "tool",
+            "description",
+            "arguments",
+            "arguments_schema",
+            "unknown_arguments",
+            "created_at",
+        ]
+
+
 class TicketSerializer(serializers.ModelSerializer[Ticket]):
     """Full ticket serializer for read operations."""
 
     created_by = UserSerializer(read_only=True)
     assigned_to = UserSerializer(read_only=True, allow_null=True)
     pending_reply = PendingReplySerializer(read_only=True, allow_null=True)
+    pending_tool_call = PendingToolCallSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = Ticket
@@ -37,6 +53,7 @@ class TicketSerializer(serializers.ModelSerializer[Ticket]):
             "created_by",
             "assigned_to",
             "pending_reply",
+            "pending_tool_call",
             "created_at",
             "updated_at",
         ]

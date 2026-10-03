@@ -6,12 +6,21 @@ import {
 } from '@/components/auto-form';
 import { isFreeText, zodFromJsonSchema } from '@/lib/zodFromJsonSchema';
 import { corrections, decisionArguments } from '@/lib/toolForm';
-import type { ToolApprovalPayload } from '@/generated';
+/** Structural, so the assistant's proposal and a ticket's are one card. */
+export interface Proposal {
+  tool: string;
+  description?: string;
+  arguments?: Record<string, unknown>;
+  argumentsSchema?: Record<string, unknown>;
+  unknownArguments?: string[];
+}
 
 interface Props {
-  proposal: ToolApprovalPayload;
+  proposal: Proposal;
   onDecide: (approved: boolean, args: Record<string, unknown>) => void;
   disabled?: boolean;
+  /** Offered where the result has somewhere else to go: a ticket. */
+  publish?: { value: boolean; onChange: (value: boolean) => void };
 }
 
 /**
@@ -21,9 +30,14 @@ interface Props {
  * Nothing has run at this point: the graph is parked in the agent's
  * checkpointer, and it stays parked until this card is answered.
  */
-export function ToolApprovalCard({ proposal, onDecide, disabled }: Props) {
+export function ToolApprovalCard({
+  proposal,
+  onDecide,
+  disabled,
+  publish,
+}: Props) {
   const schema = useMemo(
-    () => zodFromJsonSchema(proposal.argumentsSchema),
+    () => zodFromJsonSchema(proposal.argumentsSchema ?? {}),
     [proposal.argumentsSchema],
   );
 
@@ -91,6 +105,18 @@ export function ToolApprovalCard({ proposal, onDecide, disabled }: Props) {
           <p className="text-xs text-amber-800">
             This tool takes no arguments.
           </p>
+        )}
+
+        {publish && (
+          <label className="mt-3 flex items-center gap-2 text-sm text-amber-900">
+            <input
+              type="checkbox"
+              checked={publish.value}
+              disabled={disabled}
+              onChange={(e) => publish.onChange(e.target.checked)}
+            />
+            Send what the agent writes afterwards to the customer
+          </label>
         )}
 
         <div className="mt-4 flex items-center gap-2">

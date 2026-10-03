@@ -27,6 +27,9 @@ from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
     ChatTurn,
     IncomingMessage,
     ToolApprovalMessage,
+    ToolApprovalPayload,
+    ToolDecisionMessage,
+    ToolDecisionPayload,
 )
 from helpdesk.agent_client.shared.messages import (
     ModelOverrides,
@@ -40,9 +43,18 @@ from helpdesk.tickets.messages import (
     AgentProgressPayload,
     NewEventMessage,
     NewEventPayload,
+    ToolProposalMessage,
+    ToolProposalPayload,
 )
-from helpdesk.tickets.models import AIResponseEvent, CommentEvent, Ticket, Visibility
+from helpdesk.tickets.models import (
+    AIResponseEvent,
+    CommentEvent,
+    PendingToolCall,
+    Ticket,
+    Visibility,
+)
 from helpdesk.tickets.serializers.event import serialize_event
+from helpdesk.tickets.services.placeholders import refuse_if_unfilled
 from helpdesk.tickets.services.triage import broadcast, spawn, ticket_topic
 
 logger = structlog.get_logger(__name__)
@@ -63,10 +75,16 @@ class _ConsultHandle(AgentHubConversationTopicClient):
 class TicketConsultClient(AgentClient):
     """One internal question, answered on the ticket."""
 
-    def __init__(self, ticket_id: str, request: ChatRequestPayload) -> None:
+    def __init__(
+        self,
+        ticket_id: str,
+        request: ChatRequestPayload | ToolDecisionPayload,
+        visibility: str = Visibility.INTERNAL,
+    ) -> None:
         super().__init__(settings.AGENT_WS_URL, headers=agent_headers())
         self.ticket_id = ticket_id
         self.payload = request
+        self.visibility = visibility
         self.group = ticket_topic(ticket_id)
         self.incoming_seq = 0
         self.agent_topic = ""
@@ -79,7 +97,10 @@ class TicketConsultClient(AgentClient):
                 payload=ReplayRequestPayload(since=await last_handled(topic.topic))
             )
         )
-        await topic.send_message(ChatRequestMessage(payload=self.payload))
+        if isinstance(self.payload, ChatRequestPayload):
+            await topic.send_message(ChatRequestMessage(payload=self.payload))
+        else:
+            await topic.send_message(ToolDecisionMessage(payload=self.payload))
 
     async def disconnect(self, code: int = 1000, reason: str = "") -> None:
         if getattr(self, "websocket", None) is None:
@@ -95,19 +116,21 @@ class TicketConsultClient(AgentClient):
                 )
                 await self.disconnect()
             case ToolApprovalMessage(payload=payload):
-                # The gate lives on the assistant, which has the card for it.
+                await self._remember_proposal(payload)
                 await broadcast(
                     self.group,
-                    AgentProgressMessage(
-                        payload=AgentProgressPayload(
-                            stage="decided",
-                            detail=(
-                                f"{payload.tool} needs approval. Open the "
-                                "assistant to review it."
-                            ),
+                    ToolProposalMessage(
+                        payload=ToolProposalPayload(
+                            tool=payload.tool,
+                            description=payload.description,
+                            arguments=payload.arguments,
+                            arguments_schema=payload.arguments_schema or {},
+                            unknown_arguments=payload.unknown_arguments or [],
                         )
                     ),
                 )
+                # Parked on a person. Nothing is persisted: a proposal is not
+                # an answer, and it only becomes one if it runs.
                 await self.disconnect()
             case ChatErrorMessage(payload=payload):
                 await broadcast(
@@ -125,13 +148,33 @@ class TicketConsultClient(AgentClient):
         await advance(self.agent_topic, self.incoming_seq)
 
     @database_sync_to_async
+    def _remember_proposal(self, payload: ToolApprovalPayload) -> None:
+        PendingToolCall.objects.update_or_create(
+            ticket_id=self.ticket_id,
+            defaults={
+                "tool": payload.tool,
+                "description": payload.description,
+                "arguments": payload.arguments,
+                "arguments_schema": payload.arguments_schema or {},
+                "unknown_arguments": payload.unknown_arguments or [],
+            },
+        )
+
+    @staticmethod
+    @database_sync_to_async
+    def forget_proposal(ticket_id: str) -> None:
+        PendingToolCall.objects.filter(ticket_id=ticket_id).delete()
+
+    @database_sync_to_async
     def _persist(self, content: str) -> Any:
+        if self.visibility == Visibility.PUBLIC:
+            refuse_if_unfilled(content)
         with transaction.atomic():
             event = AIResponseEvent.objects.create(
                 ticket_id=self.ticket_id,
                 content=content,
                 model_name=settings.AGENT_ANSWER_MODEL,
-                visibility=Visibility.INTERNAL,
+                visibility=self.visibility,
             )
             advance_sync(self.agent_topic, self.incoming_seq)
             return serialize_event(event)
@@ -184,3 +227,41 @@ async def consult(ticket_id: str, question: str, user_id: Any = None) -> None:
 
 async def start_consult(ticket_id: str, question: str, user_id: Any = None) -> None:
     spawn(consult(ticket_id, question, user_id))
+
+
+async def decide_tool(
+    ticket_id: str, *, approved: bool, arguments: dict[str, Any], publish: bool
+) -> None:
+    """Resume a consult parked at the tool gate.
+
+    What the agent writes afterwards goes where the reviewer said: a refund they
+    approved is the customer's news, a lookup they ran is the team's.
+    """
+    try:
+        # Cleared first: the card is answered whatever the resumed run does.
+        await TicketConsultClient.forget_proposal(ticket_id)
+        await TicketConsultClient(
+            ticket_id,
+            ToolDecisionPayload(
+                conversation_id=ticket_id, approved=approved, arguments=arguments
+            ),
+            visibility=Visibility.PUBLIC if publish else Visibility.INTERNAL,
+        ).handle()
+    except Exception:
+        logger.exception("consult.tool_decision_failed", ticket_id=ticket_id)
+        await broadcast(
+            ticket_topic(ticket_id),
+            AgentProgressMessage(
+                payload=AgentProgressPayload(
+                    stage="failed", detail="That tool call could not be finished."
+                )
+            ),
+        )
+
+
+async def start_tool_decision(
+    ticket_id: str, *, approved: bool, arguments: dict[str, Any], publish: bool
+) -> None:
+    spawn(
+        decide_tool(ticket_id, approved=approved, arguments=arguments, publish=publish)
+    )

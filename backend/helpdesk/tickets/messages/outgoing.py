@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
@@ -62,3 +62,19 @@ class ApprovalRequiredMessage(BaseMessage):
 
     action: Literal["approval_required"] = "approval_required"
     payload: ApprovalRequiredPayload
+
+
+class ToolProposalPayload(BaseModel):
+    """A tool is waiting on this ticket. Nothing has run yet."""
+
+    tool: str
+    description: str
+    arguments: dict[str, Any] = {}
+    # JSON Schema for the arguments; the correction form is generated from it.
+    arguments_schema: dict[str, Any] = {}
+    unknown_arguments: list[str] = []
+
+
+class ToolProposalMessage(BaseMessage):
+    action: Literal["tool_proposal"] = "tool_proposal"
+    payload: ToolProposalPayload

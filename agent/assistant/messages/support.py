@@ -300,6 +300,7 @@ class RunRequestMessage(BaseMessage):
 
 class ReasoningDeltaPayload(BaseModel):
     thread_id: str
+    step: str = ""
     delta: str
 
 
@@ -312,6 +313,8 @@ class ReasoningDeltaMessage(BaseMessage):
 
 class ReasonedPayload(BaseModel):
     thread_id: str
+    # Which step explained itself: a run has several that do.
+    step: str = ""
     content: str
     decision: str
     model: str = ""

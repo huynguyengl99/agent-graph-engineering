@@ -518,10 +518,11 @@ class TestReasoningIsTheTeams(WebsocketTestCase):
         sink = relay(str(self.ticket.id)).sink
 
         await sink.reasoned(
-            "They want a refund, which needs a person.", "Escalate", "gpt-4o"
+            "decide", "They want a refund, which needs a person.", "Escalate", "gpt-4o"
         )
 
         event = await ReasoningEvent.objects.aget(ticket_id=self.ticket.id)
+        assert event.step == "decide"
         assert event.decision == "Escalate"
         assert event.model_name == "gpt-4o"
 
@@ -529,7 +530,7 @@ class TestReasoningIsTheTeams(WebsocketTestCase):
         sink = relay(str(self.ticket.id), Visibility.PUBLIC).sink
 
         await sink.reasoned(
-            "Documented in the help centre.", "SearchKnowledgeBase", "x"
+            "decide", "Documented in the help centre.", "SearchKnowledgeBase", "x"
         )
 
         event = await ReasoningEvent.objects.aget(ticket_id=self.ticket.id)
@@ -538,7 +539,7 @@ class TestReasoningIsTheTeams(WebsocketTestCase):
     async def test_nothing_is_kept_when_there_was_no_reasoning(self) -> None:
         sink = relay(str(self.ticket.id)).sink
 
-        await sink.reasoned("", "Answer", "x")
+        await sink.reasoned("classify", "", "Answer", "x")
 
         assert not await ReasoningEvent.objects.filter(
             ticket_id=self.ticket.id

@@ -104,7 +104,8 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
         )
 
     actions = [frame["action"] for frame in await socket.receive_all_json()]
-    assert actions[0] == "classified"
+    # A step explains itself while it decides, so its reasoning lands first.
+    assert actions[:2] == ["reasoned", "classified"]
     assert "decided" in actions
     assert "answer" in actions
     assert actions[-1] == "approval_required"

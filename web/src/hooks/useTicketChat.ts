@@ -20,7 +20,7 @@ interface UseTicketChatOptions {
   onApprovalRequired?: (draft: string, findings: string[]) => void;
   onToolProposal?: (proposal: ToolProposalPayload) => void;
   onTicketUpdated?: (status: string, priority: string) => void;
-  onReasoning?: (delta: string) => void;
+  onReasoning?: (step: string, delta: string) => void;
 }
 
 export function useTicketChat({
@@ -48,7 +48,8 @@ export function useTicketChat({
             message.payload.findings ?? [],
           ),
         tool_proposal: (message) => onToolProposal?.(message.payload),
-        reasoning_delta: (message) => onReasoning?.(message.payload.delta),
+        reasoning_delta: (message) =>
+          onReasoning?.(message.payload.step ?? '', message.payload.delta),
         ticket_updated: (message) =>
           onTicketUpdated?.(message.payload.status, message.payload.priority),
       },

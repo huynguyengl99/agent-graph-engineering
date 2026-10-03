@@ -95,6 +95,7 @@ class TicketUpdatedMessage(BaseMessage):
 class ReasoningDeltaPayload(BaseModel):
     """A piece of the agent's reasoning, as it is written. Staff only."""
 
+    step: str = ""
     delta: str
 
 

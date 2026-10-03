@@ -283,6 +283,7 @@ export interface ReasoningEvent {
   createdBy: User;
   visibility?: VisibilityEnum;
   createdAt: string;
+  step?: string;
   content: string;
   decision?: string;
   modelName?: string;
@@ -294,6 +295,7 @@ export interface ReasoningEventTyped {
   createdBy: User;
   visibility?: VisibilityEnum;
   createdAt: string;
+  step?: string;
   content: string;
   decision?: string;
   modelName?: string;

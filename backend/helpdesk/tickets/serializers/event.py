@@ -103,6 +103,7 @@ class ReasoningEventSerializer(TicketEventBaseSerializer):
     class Meta(TicketEventBaseSerializer.Meta):
         model = ReasoningEvent
         fields = TicketEventBaseSerializer.Meta.fields + [
+            "step",
             "content",
             "decision",
             "model_name",

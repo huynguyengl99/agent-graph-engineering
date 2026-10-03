@@ -7,6 +7,7 @@ from langgraph.types import interrupt
 import assistant.tools  # noqa: F401  # importing registers the tools
 from assistant.agents import AgentConfig
 from assistant.agents.planner import ToolPlannerAgent
+from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import ToolState, Update
 from assistant.outputs.tools import ToolProposal
@@ -43,8 +44,10 @@ class ToolGraph(BaseGraph):
 
     name = "tool"
 
-    def __init__(self, config: AgentConfig | None = None) -> None:
-        super().__init__(config)
+    def __init__(
+        self, config: AgentConfig | None = None, emitter: Emitter = silent
+    ) -> None:
+        super().__init__(config, emitter)
         self.planner = ToolPlannerAgent(self.config)
 
     async def plan(self, state: ToolState) -> Update:
@@ -53,7 +56,7 @@ class ToolGraph(BaseGraph):
             f"{context.render(state.request, with_audience=False)}"
             f"\n\nAvailable tools:\n{render_tool_list()}"
         )
-        decision = await self.planner.run(prompt, context)
+        decision = await self.reason("plan", self.planner, prompt, context)
 
         update: Update = {"plan": decision}
         if isinstance(decision, ToolProposal):
@@ -203,6 +206,8 @@ class ToolGraph(BaseGraph):
 
 def build_tool_graph(
     config: AgentConfig | None = None,
+    emitter: Emitter = silent,
 ) -> CompiledStateGraph[ToolState, None, ToolState, ToolState]:
-    """Compiled, so a parent can add it as a node directly."""
-    return ToolGraph(config).build().compile()
+    """Compiled, so a parent can add it as a node directly. The emitter comes
+    with it: a subgraph that explains itself needs somewhere to say it."""
+    return ToolGraph(config, emitter).build().compile()

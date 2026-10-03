@@ -36,7 +36,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   );
   const [publish, setPublish] = useState(false);
   const [switching, setSwitching] = useState(false);
-  const [thinking, setThinking] = useState('');
+  const [thinking, setThinking] = useState({ step: '', text: '' });
   const [status, setStatus] = useState<Status>(ticket.status ?? 'open');
   const [priority, setPriority] = useState<Priority>(
     ticket.priority ?? 'medium',
@@ -70,7 +70,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
       setHandling(event.handling);
       publishTicketChange({ id: ticketId, handling: event.handling });
     }
-    if (event.eventType === 'reasoning') setThinking('');
+    if (event.eventType === 'reasoning') setThinking({ step: '', text: '' });
     if (event.eventType === 'ai_response') {
       setAsking(false);
       setProposal(null);
@@ -83,8 +83,13 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   }, []);
 
   // Cleared when the finished reasoning arrives as an event of its own.
-  const onReasoning = useCallback((delta: string) => {
-    setThinking((text) => text + delta);
+  const onReasoning = useCallback((step: string, delta: string) => {
+    // A new step starts its own line rather than appending to the last one's.
+    setThinking((current) =>
+      current.step === step
+        ? { step, text: current.text + delta }
+        : { step, text: delta },
+    );
   }, []);
 
   const onTicketUpdated = useCallback(
@@ -251,7 +256,9 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
               event={event}
             />
           ))}
-          {thinking && <Thinking content={thinking} live />}
+          {thinking.text && (
+            <Thinking step={thinking.step} content={thinking.text} live />
+          )}
         </ul>
 
         {progress.length > 0 && (

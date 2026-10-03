@@ -61,6 +61,7 @@ class HandoffEvent(BaseEvent):
 
 class ReasoningEvent(BaseEvent):
     event_type: Literal["reasoning"] = "reasoning"
+    step: str = ""
     content: str
     decision: str = ""
     model_name: str = ""

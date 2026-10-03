@@ -190,6 +190,7 @@ export interface ReasoningDeltaMessage {
 
 /** A piece of the agent's reasoning, as it is written. Staff only. */
 export interface ReasoningDeltaPayload {
+  step?: string;
   delta: string;
 }
 
@@ -199,6 +200,7 @@ export interface ReasoningEvent {
   visibility?: 'internal' | 'public';
   createdAt: string;
   eventType: 'reasoning';
+  step?: string;
   content: string;
   decision?: string;
   modelName?: string;

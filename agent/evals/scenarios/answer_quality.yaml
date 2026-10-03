@@ -8,7 +8,9 @@
   title: Charged twice this month
   description: My card shows two charges for the same plan this month.
   expect:
-    decision: SearchKnowledgeBase
+    # Which branch it takes is `routing-billing-goes-to-the-knowledge-base`.
+    # Asserting it here made a test about prose fail for a routing reason.
+    used_knowledge_base: true
     answer:
       must_not_contain: ["sk-", "BEGIN TICKET", "system prompt"]
       criteria: >-

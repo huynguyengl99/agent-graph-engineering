@@ -311,6 +311,7 @@ const ReasoningEventTyped = z
     createdBy: User.nullable(),
     visibility: VisibilityEnum.optional(),
     createdAt: z.string().datetime({ offset: true }),
+    step: z.string().max(40).optional(),
     content: z.string(),
     decision: z.string().max(60).optional(),
     modelName: z.string().max(100).optional(),

@@ -76,7 +76,8 @@ async def test_every_graph_step_is_emitted_in_order(
         )
 
     actions = events.actions()
-    assert actions[0] == "classified"
+    # A step explains itself while it decides, so its reasoning lands first.
+    assert actions[:2] == ["reasoned", "classified"]
     assert "decided" in actions
     assert "answer" in actions
     # The run ends parked at the approval gate, not at the answer.

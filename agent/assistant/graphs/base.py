@@ -2,11 +2,13 @@ from typing import Any, cast
 
 import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.config import get_stream_writer
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
-from assistant.agents.config import AgentConfig
+from assistant.agents.config import AgentConfig, ModelPurpose
 from assistant.agents.factory import AgentFactory
 from assistant.events import Emitter, silent
+from assistant.messages.support import ReasonedMessage, ReasonedPayload
 from assistant.tracing.nodes import Node, traced
 from assistant.tracing.runs import TracedRun
 
@@ -43,6 +45,44 @@ class BaseGraph:
         a thread, and the next run fails validating the other's state.
         """
         return f"{cls.name}:{key}"
+
+    async def reason(
+        self,
+        step: str,
+        agent: Any,
+        prompt: str,
+        context: Any,
+        history: Any = None,
+    ) -> Any:
+        """Run a step, reporting its reasoning as the model writes it.
+
+        Structured output arrives in pieces, so every step that explains itself
+        can be read while it decides rather than after. The deltas ride the
+        custom channel the answer's tokens do, tagged with which they are; the
+        finished text is emitted once, for the record.
+        """
+        writer = get_stream_writer()
+
+        async def aloud(delta: str) -> None:
+            writer({"kind": "reasoning", "step": step, "delta": delta})
+
+        output = await agent.reason_aloud(prompt, context, history, on_delta=aloud)
+        said = str(
+            getattr(output, "reasoning", None) or getattr(output, "reason", None) or ""
+        )
+        if said:
+            await self.emit(
+                ReasonedMessage(
+                    payload=ReasonedPayload(
+                        thread_id=context.thread_id,
+                        step=step,
+                        content=said,
+                        decision=type(output).__name__,
+                        model=self.config.models[ModelPurpose.DECISION].slug,
+                    )
+                )
+            )
+        return output
 
     def build(self) -> StateGraph[Any, Any, Any, Any]:
         raise NotImplementedError

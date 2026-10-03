@@ -182,7 +182,9 @@ class SupportTopic(Replays, Topic[SupportEvent]):
                 await self.send_message(
                     ReasoningDeltaMessage(
                         payload=ReasoningDeltaPayload(
-                            thread_id=self.thread_id, delta=delta
+                            thread_id=self.thread_id,
+                            step=str(chunk.get("step") or ""),
+                            delta=delta,
                         )
                     )
                     if chunk.get("kind") == "reasoning"

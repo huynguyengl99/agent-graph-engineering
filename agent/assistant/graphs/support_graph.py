@@ -15,7 +15,6 @@ from assistant.agents import (
     TeamDecisionAgent,
 )
 from assistant.agents.chat import TeamAgent
-from assistant.agents.config import ModelPurpose
 from assistant.conversations import history
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
@@ -33,8 +32,6 @@ from assistant.messages.support import (
     ClassifiedPayload,
     DecidedMessage,
     DecidedPayload,
-    ReasonedMessage,
-    ReasonedPayload,
     ToolRanMessage,
     ToolRanPayload,
 )
@@ -84,8 +81,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
         context = state.context
         # Recorded, not refused: see assistant/guardrails/input.py.
         attempts = screen_input(context.untrusted_text())
-        classification = await self.classifier.run(
-            context.render(with_history=True), context
+        classification = await self.reason(
+            "classify", self.classifier, context.render(with_history=True), context
         )
         await self.emit(
             ClassifiedMessage(
@@ -106,28 +103,12 @@ class SupportGraph(AnswerFeed, BaseGraph):
         context = state.context
         prompt = context.render(state.question, with_history=context.for_customer)
 
-        # Structured output arrives in pieces, so the reasoning behind a branch
-        # is readable while it is being written rather than after it is taken.
-        writer = get_stream_writer()
-
-        async def aloud(delta: str) -> None:
-            writer({"kind": "reasoning", "delta": delta})
-
-        decision = await self.deciders[context.audience].reason_aloud(
+        decision = await self.reason(
+            "decide",
+            self.deciders[context.audience],
             prompt,
             context,
             await self._history(state) if state.question else None,
-            on_delta=aloud,
-        )
-        await self.emit(
-            ReasonedMessage(
-                payload=ReasonedPayload(
-                    thread_id=context.thread_id,
-                    content=_reasoning(decision),
-                    decision=type(decision).__name__,
-                    model=self.config.models[ModelPurpose.DECISION].slug,
-                )
-            )
         )
         await self.emit(
             DecidedMessage(
@@ -294,8 +275,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
 
         # Compiled subgraphs go in as nodes. They share the keys they need with
         # this state, so nothing has to be mapped across the boundary.
-        graph.add_node("knowledge", build_knowledge_graph(self.config))
-        graph.add_node("tool", build_tool_graph(self.config))
+        graph.add_node("knowledge", build_knowledge_graph(self.config, self.emit))
+        graph.add_node("tool", build_tool_graph(self.config, self.emit))
         graph.add_node("delivery", build_delivery_graph(self.config, self.emit))
 
         graph.add_conditional_edges(

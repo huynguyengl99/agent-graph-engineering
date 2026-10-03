@@ -4,6 +4,7 @@ from langgraph.graph.state import CompiledStateGraph
 from assistant.agents import AgentConfig
 from assistant.agents.deps import Context
 from assistant.agents.refiner import RefinerAgent
+from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import KnowledgeState, Update
 from assistant.tools.core import Failed, Succeeded
@@ -36,8 +37,10 @@ class KnowledgeGraph(BaseGraph):
 
     name = "knowledge"
 
-    def __init__(self, config: AgentConfig | None = None) -> None:
-        super().__init__(config)
+    def __init__(
+        self, config: AgentConfig | None = None, emitter: Emitter = silent
+    ) -> None:
+        super().__init__(config, emitter)
         self.refiner = RefinerAgent(self.config)
 
     async def search(self, state: KnowledgeState) -> Update:
@@ -56,7 +59,9 @@ class KnowledgeGraph(BaseGraph):
 
     async def refine(self, state: KnowledgeState) -> Update:
         """Ask for broader terms. Only reached when the last search was empty."""
-        refined = await self.refiner.run(
+        refined = await self.reason(
+            "refine",
+            self.refiner,
             f"{_described(state.context)}\n\nThese terms found nothing: "
             f"{state.kb_query or '(the ticket text)'}",
             state.context,
@@ -89,6 +94,8 @@ class KnowledgeGraph(BaseGraph):
 
 def build_knowledge_graph(
     config: AgentConfig | None = None,
+    emitter: Emitter = silent,
 ) -> CompiledStateGraph[KnowledgeState, None, KnowledgeState, KnowledgeState]:
-    """Compiled, so the parent can add it as a node directly."""
-    return KnowledgeGraph(config).build().compile()
+    """Compiled, so the parent can add it as a node directly. The emitter comes
+    with it: a subgraph that explains itself needs somewhere to say it."""
+    return KnowledgeGraph(config, emitter).build().compile()

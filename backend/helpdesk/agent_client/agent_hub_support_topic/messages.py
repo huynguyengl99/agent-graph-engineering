@@ -137,6 +137,7 @@ class ReasonedPayload(BaseModel):
     """ReasonedPayload"""
 
     thread_id: str
+    step: str = ""
     content: str
     decision: str
     model: str = ""
@@ -153,6 +154,7 @@ class ReasoningDeltaPayload(BaseModel):
     """ReasoningDeltaPayload"""
 
     thread_id: str
+    step: str = ""
     delta: str
 
 

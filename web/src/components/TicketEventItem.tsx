@@ -58,6 +58,7 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
     case 'reasoning':
       return (
         <Thinking
+          step={event.step}
           content={event.content}
           decision={event.decision}
           when={when}
@@ -103,12 +104,22 @@ export const HANDLING = {
   },
 } as const;
 
+/** What each step is called, for a row that says which one thought. */
+const STEPS: Record<string, string> = {
+  classify: 'Filed the ticket',
+  decide: 'Chose what to do',
+  plan: 'Picked the tool',
+  refine: 'Searched again',
+};
+
 export function Thinking({
+  step,
   content,
   decision,
   when,
   live,
 }: {
+  step?: string;
   content: string;
   decision?: string;
   when?: string;
@@ -127,8 +138,10 @@ export function Thinking({
         {!live && <span className="text-gray-400">{open ? '▾' : '▸'}</span>}
         <span className="italic">
           {live
-            ? 'Thinking…'
-            : `Thought this through${decision ? ` → ${decision}` : ''}`}
+            ? `${step ? (STEPS[step] ?? step) : 'Thinking'}…`
+            : `${step ? (STEPS[step] ?? step) : 'Thought this through'}${
+                decision ? ` → ${decision}` : ''
+              }`}
         </span>
         {when && <span className="ml-auto text-xs">{when}</span>}
       </button>

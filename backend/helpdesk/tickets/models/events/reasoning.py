@@ -12,6 +12,8 @@ class ReasoningEvent(TicketEvent):
     they asked a question, not for the workings.
     """
 
+    # Which step explained itself: a run has several that do.
+    step = models.CharField(max_length=40, blank=True)
     content = models.TextField()
     decision = models.CharField(max_length=60, blank=True)
     model_name = models.CharField(max_length=100, blank=True)

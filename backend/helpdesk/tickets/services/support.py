@@ -151,17 +151,23 @@ class TicketSink(Sink):
     async def tool_ran(self, payload: Any) -> None:
         await self._event(await self._persist_tool_call(payload))
 
-    async def reasoning_delta(self, delta: str) -> None:
+    async def reasoning_delta(self, step: str, delta: str) -> None:
         """Live only. The finished reasoning is the record; the pieces are how
         it looked being written."""
         await broadcast(
             self.group,
-            ReasoningDeltaMessage(payload=ReasoningDeltaPayload(delta=delta)),
+            ReasoningDeltaMessage(
+                payload=ReasoningDeltaPayload(step=step, delta=delta)
+            ),
         )
 
-    async def reasoned(self, content: str, decision: str, model: str) -> None:
+    async def reasoned(
+        self, step: str, content: str, decision: str, model: str
+    ) -> None:
         if content:
-            await self._event(await self._persist_reasoning(content, decision, model))
+            await self._event(
+                await self._persist_reasoning(step, content, decision, model)
+            )
 
     async def failed(self, message: str) -> None:
         await self._progress("failed", message)
@@ -208,12 +214,15 @@ class TicketSink(Sink):
         )
 
     @database_sync_to_async
-    def _persist_reasoning(self, content: str, decision: str, model: str) -> Any:
+    def _persist_reasoning(
+        self, step: str, content: str, decision: str, model: str
+    ) -> Any:
         """Internal whoever started the run: the customer asked a question, not
         for the workings."""
         return serialize_event(
             ReasoningEvent.objects.create(
                 ticket_id=self.ticket_id,
+                step=step,
                 content=content,
                 decision=decision,
                 model_name=model,

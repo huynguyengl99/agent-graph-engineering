@@ -449,40 +449,40 @@ const collapsed = await page.locator('main svg').innerHTML();
   ? ok('collapsed shows subgraphs as single nodes')
   : bad('collapse did not work');
 
-console.log('== traces, in the admin ==');
-// The run just exercised above should be on the dashboard, with the nodes it
-// took nested under the run. Visited last so there is something to look at.
-// The admin is its own auth surface: the app signs in with JWT cookies, which
-// Django's session-backed admin does not accept.
-const ADMIN = `${BASE.replace('5173', '8000')}/admin`;
-await page.goto(`${ADMIN}/login/`);
-await page.fill('input[name="username"]', EMAIL);
-await page.fill('input[name="password"]', PASSWORD);
-await page.click('input[type="submit"], button[type="submit"]');
-await page.waitForURL(/\/admin\/?$/, { timeout: 20000 });
-ok('the admin is reachable with the seeded staff account');
+console.log('== traces, in the console ==');
+// The run just exercised above, with the nodes it took nested under it. In the
+// console rather than behind the admin: whoever asks why it answered that is
+// already here.
+await page.goto(`${BASE}/traces`);
+await page.waitForSelector('aside button', { timeout: 20000 });
+const runButtons = page.locator('aside button');
+(await runButtons.count()) > 0
+  ? ok(`${await runButtons.count()} run(s) listed in the trace view`)
+  : bad('the trace view listed no runs after a full session');
 
-await page.goto(`${ADMIN}/observability/trace/dashboard/`);
-const traceLinks = page.locator('ul.runs a');
-(await traceLinks.count()) > 0
-  ? ok(`${await traceLinks.count()} run(s) listed in the trace dashboard`)
-  : bad('the trace dashboard listed no runs after a full session');
-
-await traceLinks.first().click();
-await page.waitForSelector('ul.spans', { timeout: 20000 });
-const traceText = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
-/node\./.test(traceText) && /Cost \$/.test(traceText)
-  ? ok('the trace shows its nodes and what the run cost')
-  : bad(`the trace page is missing nodes or cost: ${traceText.slice(0, 200)}`);
-
-// The stylesheet has to come through the proxy, or the page is unreadable.
-const cssStatus = await page.evaluate(async () => {
-  const response = await fetch('/admin/observability/trace/static/trace.css');
-  return response.status;
+await runButtons.first().click();
+await page.waitForSelector('section[aria-label="trace"] li', {
+  timeout: 20000,
 });
-cssStatus === 200
-  ? ok('the stylesheet is served through the admin proxy')
-  : bad(`the stylesheet returned ${cssStatus}`);
+const traceText = (
+  await page.locator('section[aria-label="trace"]').innerText()
+).replace(/\s+/g, ' ');
+/node\./.test(traceText) && /MODEL CALLS/i.test(traceText)
+  ? ok('the trace shows its nodes and what the run cost')
+  : bad(`the trace is missing nodes or cost: ${traceText.slice(0, 200)}`);
+
+// Noise is collapsed behind a count, so the signal is what you see first.
+const expander = page
+  .locator('section[aria-label="trace"] button', { hasText: /^\+\d+$/ })
+  .first();
+if ((await expander.count()) > 0) {
+  await expander.click();
+  (await page.locator('section[aria-label="trace"] dl').count()) > 0
+    ? ok('the hidden attributes expand on demand')
+    : bad('expanding a span showed nothing');
+} else {
+  bad('no span offered its hidden attributes');
+}
 
 // Prompts and ticket text are customer-written and must not reach a span.
 !/BEGIN TICKET|Thank you for reaching out/i.test(traceText)

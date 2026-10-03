@@ -1,4 +1,4 @@
-"""The trace page, and what a span is allowed to carry.
+"""What a span is allowed to carry, and which of it a reader is shown.
 
 A span ends up in the store and in whatever collector it is forwarded to, so
 what goes on one is a privacy decision, not a formatting one."""
@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from assistant.outputs.chat import ConsultKnowledgeBase
 from assistant.tracing.nodes import _decisions
-from assistant.tracing.views import prepare
+from assistant.tracing.readable import prepare
 
 
 class TestWhatASpanRecords:

@@ -9,6 +9,7 @@ import { TicketRoute } from '@/routes/ticket';
 import { ChatRoute } from '@/routes/chat';
 import { GraphsRoute } from '@/routes/graphs';
 import { SettingsRoute } from '@/routes/settings';
+import { TracesRoute } from '@/routes/traces';
 import { PortalIndex, PortalLayout, PortalTicketRoute } from '@/routes/portal';
 
 // Code-based routes rather than file-based: it keeps the build free of a
@@ -66,6 +67,12 @@ const graphsRoute = createRoute({
   component: GraphsRoute,
 });
 
+const tracesRoute = createRoute({
+  getParentRoute: () => consoleRoute,
+  path: '/traces',
+  component: TracesRoute,
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => consoleRoute,
   path: '/settings',
@@ -101,6 +108,7 @@ export const router = createRouter({
       chatIndexRoute,
       chatRoute,
       graphsRoute,
+      tracesRoute,
       settingsRoute,
     ]),
     portalRoute.addChildren([portalIndexRoute, portalTicketRoute]),

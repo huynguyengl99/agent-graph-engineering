@@ -14,7 +14,7 @@ import { TicketList } from '@/components/TicketList';
 import { ConversationList } from '@/components/ConversationList';
 import type { Conversation, Ticket } from '@/lib/types';
 
-type Pane = 'tickets' | 'chat' | 'graphs' | 'settings';
+type Pane = 'tickets' | 'chat' | 'graphs' | 'traces' | 'settings';
 
 export function RootLayout() {
   const { fetchUser, logout, isAuthenticated, user } = useAuthStore();
@@ -30,9 +30,11 @@ export function RootLayout() {
     ? 'chat'
     : path.startsWith('/graphs')
       ? 'graphs'
-      : path.startsWith('/settings')
-        ? 'settings'
-        : 'tickets';
+      : path.startsWith('/traces')
+        ? 'traces'
+        : path.startsWith('/settings')
+          ? 'settings'
+          : 'tickets';
 
   useEffect(() => {
     void fetchUser();
@@ -117,6 +119,16 @@ export function RootLayout() {
             }`}
           >
             Graphs
+          </Link>
+          <Link
+            to="/traces"
+            className={`rounded px-3 py-1 ${
+              pane === 'traces'
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'text-gray-600'
+            }`}
+          >
+            Traces
           </Link>
           <Link
             to="/settings"

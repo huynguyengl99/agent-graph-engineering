@@ -1,19 +1,9 @@
-"""The trace pages, rendered by the service that owns the spans.
-
-Here rather than in the web app because a span tree is an operator's tool, not
-part of a support agent's product. The backend proxies these behind staff auth,
-passing `base` so links and assets resolve under `/admin/`.
+"""Which of a span's attributes a reader wants, decided by the service that owns
+the spans: the keys are Pydantic AI's and OpenTelemetry's, and knowing which are
+noise is knowledge about them rather than about the page showing them.
 """
 
-from pathlib import Path
 from typing import Any
-
-from fastapi.templating import Jinja2Templates
-
-HERE = Path(__file__).parent
-STATIC_DIR = HERE / "static"
-
-templates = Jinja2Templates(directory=str(HERE / "templates"))
 
 # Keys every span carries from pydantic-ai and OpenTelemetry. Hidden by default:
 # a row showing all of them is no more readable than the JSON this replaces.

@@ -25,7 +25,6 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/triage_dev
       REDIS_URL: redis://redis:6379/0
       AGENT_WS_URL: ws://agent:8001
-      AGENT_HTTP_URL: http://agent:8001
       CORS_ALLOWED_ORIGINS: http://localhost:8080
       CSRF_TRUSTED_ORIGINS: http://localhost:8080
     depends_on:

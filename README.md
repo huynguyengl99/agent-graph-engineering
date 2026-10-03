@@ -223,8 +223,8 @@ A walk through both, with the two accounts in two windows:
    29.00 charge for demo@example.com"*. It parks on a card whose form is
    generated from the tool's schema. Correct the amount and approve: the
    corrected value is what runs.
-5. Check the trace at `/admin/observability/trace/dashboard/`. One tree per run,
-   model calls nested under the node that made them, and what it cost.
+5. Open **Traces**. One tree per run, model calls nested under the node that
+   made them, and what it cost.
 
 ### Regenerate clients after a contract change
 
@@ -409,7 +409,9 @@ It runs with **no API key**: the scripted model keeps the deterministic checks r
 
 ## Observability
 
-Every graph node opens a span and Pydantic AI nests its model calls underneath, so one run reads as a tree rather than a list of completions. Staff see it at `/admin/observability/trace/`: the agent renders the page because it owns the spans, and the admin proxies it because the agent is internal and answers only with the shared token. A span tree is an operator's tool, so it lives there rather than in a support agent's product.
+Every graph node opens a span and Pydantic AI nests its model calls underneath, so one run reads as a tree rather than a list of completions. It is the **Traces** tab in the console, beside Graphs: whoever asks why it answered that is the person who just watched it answer, and they are already there.
+
+The agent serves the spans as JSON and the console renders them. It also decides which of a span's attributes are worth reading - which OpenTelemetry and Pydantic AI keys are noise is knowledge about the tracer, not about the page - so the rest collapse behind a count and expand on demand.
 
 Spans go to a file per run under `ASSISTANT_TRACE_DIR`, and to an OTLP collector when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Both, not either: the files are the graph-shaped view, and a collector is where you keep things and compare runs. There is a test with a fake collector proving the request lands with its auth header intact.
 

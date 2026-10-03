@@ -95,7 +95,7 @@ export function ConversationPane({
         <p className="mt-2 text-sm text-gray-600">
           {ticketId
             ? 'Your own thread about this ticket. Nothing here reaches the customer until you send an answer to the ticket, where it still needs approval.'
-            : 'Your own thread. Not attached to a ticket, so there is nothing to send an answer to — open one from a ticket with “Ask the assistant” for that.'}
+            : 'Your own thread, with no ticket behind it. Asking about a ticket belongs on the ticket, where the team can see it.'}
         </p>
       </header>
 

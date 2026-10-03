@@ -4,7 +4,9 @@ import { fetchDiagram, listGraphs, type GraphSummary } from '@/lib/graphs';
 
 export function GraphsRoute() {
   const [graphs, setGraphs] = useState<GraphSummary[]>([]);
-  const [selected, setSelected] = useState('triage');
+  // The parent, whatever it is called: a hardcoded name silently renders
+  // nothing the day the graph is renamed.
+  const [selected, setSelected] = useState('');
   const [xray, setXray] = useState(true);
   const [definition, setDefinition] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +16,11 @@ export function GraphsRoute() {
     void (async () => {
       try {
         const found = await listGraphs();
-        if (!ignore) setGraphs(found);
+        if (ignore) return;
+        setGraphs(found);
+        setSelected(
+          (current) => current || found.find((g) => !g.subgraph)?.name || '',
+        );
       } catch (e) {
         if (!ignore)
           setError(e instanceof Error ? e.message : 'Agent unreachable');
@@ -26,6 +32,7 @@ export function GraphsRoute() {
   }, []);
 
   useEffect(() => {
+    if (!selected) return;
     let ignore = false;
     void (async () => {
       try {

@@ -307,9 +307,11 @@ Working end to end, with nothing mocked in `just e2e`:
 - **Two human gates.** A drafted reply parks before it reaches a customer; a
   tool call parks before it runs. Both survive a reload, and both resume on a
   different socket than the one that started the run.
-- **The agent reasons out loud.** Structured output arrives in pieces, so the
-  reasoning behind a branch is read while it is written, then kept on the
-  ticket - for the team only, including on runs a customer started.
+- **The agent reasons out loud, at every step that explains itself.** Structured
+  output arrives in pieces, so filing the ticket, choosing what to do, picking
+  the tool and re-searching each report their reasoning while it is written,
+  then keep it on the ticket - for the team only, including on runs a customer
+  started.
 - **Nothing half-written reaches a customer.** A value the model could not fill
   is written `{{like this}}`, and the agent's prompt, the backend and the
   browser all refuse to publish text that still has one.

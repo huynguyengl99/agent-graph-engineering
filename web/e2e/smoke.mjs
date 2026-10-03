@@ -108,27 +108,21 @@ ok('the customer lands on the portal, not the console');
 // a ticket with eight identical complaints eventually routes to escalation -
 // which correctly has no approval gate, so the run "failed" on a correct
 // decision.
-// Through the form, not through fetch: the form is generated from the same
-// OpenAPI schema the client validates against, so creating a ticket this way
-// covers the generated schema, the form built from it and the request together.
+// Through the dialog, not through fetch: what they type is the ticket's first
+// message, and the agent picks it up from there. Priority is not asked for -
+// the agent grades it, because everyone's own problem is urgent.
+const TICKET_LINK = 'aside a[href*="/tickets/"]';
+const ticketsBefore = await customerPage.locator(TICKET_LINK).count();
+await customerPage.click('button:has-text("New ticket")');
 await customerPage.fill(
-  'aside input[aria-label="Title"]',
+  '[role="dialog"] input',
   'Charged twice this month',
 );
 await customerPage.fill(
-  'aside textarea[aria-label="Description"]',
+  '[role="dialog"] textarea',
   'My card shows two charges for the same plan.',
 );
-await customerPage.selectOption(
-  'aside select[aria-label="Priority"]',
-  'medium',
-);
-
-// The list already has tickets, so waiting for "a ticket link" would match one
-// from a previous run. Wait for the list to grow instead.
-const TICKET_LINK = 'aside a[href*="/tickets/"]';
-const ticketsBefore = await customerPage.locator(TICKET_LINK).count();
-await customerPage.click('aside button:has-text("Create ticket")');
+await customerPage.click('[role="dialog"] button[type="submit"]');
 await customerPage.waitForFunction(
   ([selector, n]) => document.querySelectorAll(selector).length > n,
   [TICKET_LINK, ticketsBefore],
@@ -139,7 +133,7 @@ const ticketId = await customerPage
   .first()
   .getAttribute('href')
   .then((href) => href.split('/').pop());
-ok(`reported a problem through the generated form (${ticketId.slice(0, 8)})`);
+ok(`reported a problem through the dialog (${ticketId.slice(0, 8)})`);
 
 console.log('== ticket triage, end to end ==');
 // Staff open the ticket first, so the run's progress is watched by a connection
@@ -187,11 +181,41 @@ recorded.replace(/Agent \([^)]*\)/, '').trim().length > 20
   ? ok('the ticket recorded the reply that was sent')
   : bad(`the ticket event is empty: ${recorded}`);
 
-console.log('== rep chat, streaming + persistence ==');
-await page.click('button:has-text("Ask the assistant")');
+console.log("== the team's own lane, on the ticket ==");
+// The question and its answer stay on the ticket: there is no second place to
+// ask about a ticket that already has a thread.
+await page.fill(
+  'form input[placeholder*="Note for your team"]',
+  'Is an annual plan refundable when it was billed twice?',
+);
+await page.click('form button[type="submit"]:has-text("Send")');
+
+// Every step that explains itself reports it while it writes.
+const reasoned = await page
+  .waitForSelector('li span.italic', { timeout: 60000 })
+  .then(() => true)
+  .catch(() => false);
+reasoned
+  ? ok('the agent reasoned where it could be read')
+  : bad('no reasoning reached the browser');
+
+await page.waitForSelector('li:has-text("INTERNAL")', { timeout: 90000 });
+ok('the agent answered the team on the ticket');
+
+// The customer asked a question, not for the workings.
+const leaked = await customerPage
+  .locator('li:has-text("INTERNAL"), li span.italic')
+  .count();
+leaked === 0
+  ? ok("none of the team's lane reached the customer")
+  : bad(`${leaked} internal rows reached the customer`);
+
+console.log('== the assistant, with no ticket behind it ==');
+await page.goto(`${BASE}/chat`);
+await page.click('button:has-text("New conversation")');
 await page.waitForURL(/\/chat\/[0-9a-f-]+$/, { timeout: 20000 });
 const chatUrl = page.url();
-ok('ticket opened a conversation carrying its ticket');
+ok('started a conversation with no ticket');
 await page.fill(
   'main form input[placeholder]',
   'What should I tell them about the double charge?',
@@ -199,15 +223,21 @@ await page.fill(
 await page.click('main button:has-text("Ask")');
 await page.waitForSelector('text=answering…', { timeout: 30000 });
 ok('the answer started streaming');
-await page.waitForSelector('main button:has-text("Send this to the ticket")', {
-  timeout: 90000,
-});
-ok('the answer finished and can be sent to the ticket');
+await page.waitForSelector(
+  'main li[data-role="assistant"]:not([data-pending])',
+  {
+    timeout: 90000,
+  },
+);
+ok('the answer finished');
 const before = await page.locator('main ul li').allInnerTexts();
 await page.reload();
-await page.waitForSelector('main button:has-text("Send this to the ticket")', {
-  timeout: 30000,
-});
+await page.waitForSelector(
+  'main li[data-role="assistant"]:not([data-pending])',
+  {
+    timeout: 30000,
+  },
+);
 const after = await page.locator('main ul li').allInnerTexts();
 JSON.stringify(before) === JSON.stringify(after)
   ? ok(`conversation survived a reload (${after.length} turns, identical)`)
@@ -467,9 +497,10 @@ await page.waitForSelector('section[aria-label="trace"] li', {
 const traceText = (
   await page.locator('section[aria-label="trace"]').innerText()
 ).replace(/\s+/g, ' ');
-/node\./.test(traceText) && /MODEL CALLS/i.test(traceText)
-  ? ok('the trace shows its nodes and what the run cost')
-  : bad(`the trace is missing nodes or cost: ${traceText.slice(0, 200)}`);
+// The chip says what a row is; the name beside it no longer repeats it.
+/\bNODE\b/.test(traceText) && /MODEL CALLS/i.test(traceText)
+  ? ok('the trace shows its steps and what the run cost')
+  : bad(`the trace is missing steps or cost: ${traceText.slice(0, 200)}`);
 
 // The question a trace is opened to answer: what was this model actually sent,
 // and what did it say? Collapsed by default, so the tree stays readable.

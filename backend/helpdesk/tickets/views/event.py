@@ -12,7 +12,7 @@ from drf_spectacular.utils import (
     extend_schema_view,
 )
 
-from helpdesk.tickets.models import TicketEvent
+from helpdesk.tickets.models import TicketEvent, Visibility
 from helpdesk.tickets.serializers import (
     CommentEventCreateSerializer,
     TicketEventPolymorphicSerializer,
@@ -52,11 +52,19 @@ class TicketEventViewSet(
     queryset = TicketEvent.objects.none()
 
     def get_queryset(self) -> QuerySet[TicketEvent]:
-        return (
+        """Internal events are filtered here, not in the client.
+
+        Hiding a note in the UI leaves it one devtools tab away, which makes
+        "internal" a label rather than a fact.
+        """
+        events = (
             TicketEvent.objects.filter(ticket_id=self.kwargs["ticket_pk"])
             .select_related("created_by")
             .order_by("created_at")
         )
+        if not self.request.user.is_staff:
+            events = events.filter(visibility=Visibility.PUBLIC)
+        return events
 
     def get_serializer_class(self) -> type[BaseSerializer[Any]]:
         if self.action == "create":

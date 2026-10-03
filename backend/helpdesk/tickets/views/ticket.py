@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from django.db.models import QuerySet
 from rest_framework import filters, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -57,6 +58,14 @@ class TicketViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
 
     queryset = Ticket.objects.select_related("created_by", "assigned_to").all()
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self) -> QuerySet[Ticket]:
+        """A customer sees their own tickets; staff see the queue."""
+        tickets = super().get_queryset()
+        if self.request.user.is_staff:
+            return tickets
+        return tickets.filter(created_by=self.request.user)
+
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,

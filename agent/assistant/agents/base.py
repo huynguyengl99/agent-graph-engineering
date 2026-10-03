@@ -6,6 +6,7 @@ from pydantic_ai.messages import ModelMessage
 from assistant.agents.config import AgentConfig, ModelPurpose
 from assistant.agents.deps import Context
 from assistant.agents.factory import AgentFactory
+from assistant.core.config import settings
 
 
 class BaseAgent[OutputT]:
@@ -59,7 +60,9 @@ class BaseAgent[OutputT]:
         async with self.agent.run_stream(
             prompt, deps=deps, message_history=history
         ) as result:
-            async for partial in result.stream_output(debounce_by=None):
+            async for partial in result.stream_output(
+                debounce_by=settings.stream_debounce
+            ):
                 output = partial
                 # `Escalate` calls it a reason; everything else calls it
                 # reasoning. Both are the model explaining itself.
@@ -81,7 +84,9 @@ class BaseAgent[OutputT]:
         async with self.agent.run_stream(
             prompt, deps=deps, message_history=history
         ) as result:
-            async for delta in result.stream_text(delta=True, debounce_by=None):
+            async for delta in result.stream_text(
+                delta=True, debounce_by=settings.stream_debounce
+            ):
                 yield delta
             # Only complete once the stream is drained, so this is read after.
             self.messages = list(result.all_messages())

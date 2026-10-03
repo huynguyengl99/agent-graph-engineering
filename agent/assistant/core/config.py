@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Annotated, Any
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from assistant.graphs.limits import GRAPH_RECURSION_LIMIT
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -33,8 +35,19 @@ class Settings(BaseSettings):
         default=60.0, validation_alias="ASSISTANT_MODEL_TIMEOUT"
     )
     # A backstop against a routing cycle, not a tuning knob.
+    # How long deltas are grouped before they are sent. None is every token as
+    # the model writes it, which is what makes streaming visible; a deployment
+    # paying per frame would raise it. Pydantic AI defaults to 0.1, which turns
+    # a short answer into three lumps and reads as no streaming at all.
+    stream_debounce: float | None = Field(
+        default=None, validation_alias="ASSISTANT_STREAM_DEBOUNCE"
+    )
+
+    # The default and its reasoning live in `graphs/limits.py`, with the other
+    # bounds it has to leave room for.
     graph_recursion_limit: int = Field(
-        default=150, validation_alias="ASSISTANT_GRAPH_RECURSION_LIMIT"
+        default=GRAPH_RECURSION_LIMIT,
+        validation_alias="ASSISTANT_GRAPH_RECURSION_LIMIT",
     )
 
     # Shared with the backend. Empty accepts every caller.

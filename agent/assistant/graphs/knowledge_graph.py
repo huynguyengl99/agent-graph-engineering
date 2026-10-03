@@ -6,14 +6,11 @@ from assistant.agents.deps import Context
 from assistant.agents.refiner import RefinerAgent
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
+from assistant.graphs.limits import KB_MAX_ATTEMPTS
 from assistant.graphs.states import KnowledgeState, Update
 from assistant.tools.core import Failed, Succeeded
 from assistant.tools.knowledge_base import search_knowledge_base
 from assistant.tracing.nodes import Node
-
-# One retry. A second empty result means the article does not exist, and
-# looping on a model's guesses is how you turn a miss into a bill.
-MAX_ATTEMPTS = 2
 
 
 def _searchable(context: Context) -> str:
@@ -70,7 +67,7 @@ class KnowledgeGraph(BaseGraph):
         return {"kb_query": refined.query}
 
     def route_after_search(self, state: KnowledgeState) -> str:
-        if state.kb_snippets or state.kb_attempts >= MAX_ATTEMPTS:
+        if state.kb_snippets or state.kb_attempts >= KB_MAX_ATTEMPTS:
             return END
         return "refine"
 

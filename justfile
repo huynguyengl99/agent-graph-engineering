@@ -132,6 +132,10 @@ evals *args:
     @echo "🎯 Running evals..."
     cd agent && uv run python -m evals.run {{args}}
 
+# Which tools a scenario actually asserts
+evals-coverage:
+    cd agent && uv run python -m evals.coverage
+
 # Diff two eval runs by label, e.g. `just evals-compare scripted openai_gpt-4o`
 evals-compare before after:
     cd agent && uv run python -m evals.compare {{before}} {{after}}

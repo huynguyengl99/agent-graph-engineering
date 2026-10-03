@@ -15,7 +15,8 @@ from assistant.agents import (
 )
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.delivery_graph import DeliveryGraph
-from assistant.graphs.knowledge_graph import MAX_ATTEMPTS, KnowledgeGraph
+from assistant.graphs.knowledge_graph import KnowledgeGraph
+from assistant.graphs.limits import KB_MAX_ATTEMPTS
 from assistant.graphs.support_graph import SupportGraph, build_support_graph
 from langgraph.types import Command
 
@@ -49,7 +50,7 @@ class TestKnowledgeSubgraph:
             {"context": ticket("Zzzz", "Qqqq wwww eeee"), "kb_query": "zzzz qqqq"}
         )
 
-        assert state["kb_attempts"] == MAX_ATTEMPTS
+        assert state["kb_attempts"] == KB_MAX_ATTEMPTS
         assert not state["kb_snippets"]
 
     async def test_the_loop_is_capped(self) -> None:
@@ -59,7 +60,7 @@ class TestKnowledgeSubgraph:
             {"context": ticket("Zzzz", "Qqqq"), "kb_query": "zzzz"}
         )
 
-        assert state["kb_attempts"] <= MAX_ATTEMPTS
+        assert state["kb_attempts"] <= KB_MAX_ATTEMPTS
 
 
 class TestComposition:

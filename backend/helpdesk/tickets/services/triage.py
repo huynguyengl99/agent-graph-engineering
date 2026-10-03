@@ -59,6 +59,7 @@ from helpdesk.tickets.models import AIResponseEvent, Handling, PendingReply, Vis
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off
 from helpdesk.tickets.services.placeholders import UnfilledError, refuse_if_unfilled
+from helpdesk.tickets.services.status import set_priority, ticket_state
 from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
 logger = structlog.get_logger(__name__)
@@ -169,6 +170,8 @@ class TicketTriageClient(AgentClient):
     async def on_event(self, message: IncomingMessage) -> None:
         match message:
             case ClassifiedMessage(payload=payload):
+                if await set_priority(self.ticket_id, payload.priority):
+                    await broadcast(self.group, await ticket_state(self.ticket_id))
                 await broadcast(
                     self.group,
                     AgentProgressMessage(

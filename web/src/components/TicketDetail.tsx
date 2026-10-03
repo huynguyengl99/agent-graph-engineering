@@ -35,6 +35,10 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   );
   const [publish, setPublish] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [status, setStatus] = useState<Status>(ticket.status ?? 'open');
+  const [priority, setPriority] = useState<Priority>(
+    ticket.priority ?? 'medium',
+  );
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -72,6 +76,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     }
   }, []);
 
+  const onTicketUpdated = useCallback((now: string, graded: string) => {
+    setStatus(now as Status);
+    setPriority(graded as Priority);
+  }, []);
+
   const onToolProposal = useCallback((proposed: Proposal) => {
     setProposal(proposed);
     setAsking(false);
@@ -91,6 +100,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     sendMessage,
     askAgent,
     setAgent,
+    updateTicket,
     decideTool,
     submitApproval,
     isConnected,
@@ -100,6 +110,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     onAgentProgress,
     onApprovalRequired,
     onToolProposal,
+    onTicketUpdated,
   });
 
   const decide = useCallback(
@@ -149,8 +160,25 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
       <header className="border-b bg-white px-6 py-4">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-semibold">{ticket.title}</h2>
-          <Badge>{ticket.status}</Badge>
-          <Badge>{ticket.priority}</Badge>
+          <Picker
+            value={status}
+            options={STATUSES}
+            disabled={!isConnected}
+            onChange={(next) => {
+              setStatus(next as Status);
+              updateTicket({ status: next });
+            }}
+          />
+          <Picker
+            value={priority}
+            options={PRIORITIES}
+            disabled={!isConnected}
+            title="Set by the agent when it reads the ticket."
+            onChange={(next) => {
+              setPriority(next as Priority);
+              updateTicket({ priority: next });
+            }}
+          />
           <span
             className={`rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${HANDLING[handling].tone}`}
           >
@@ -342,10 +370,38 @@ function parked(row: Ticket['pendingToolCall']): Proposal | null {
   };
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+const STATUSES = ['open', 'in_progress', 'resolved', 'closed'] as const;
+const PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+
+type Status = (typeof STATUSES)[number];
+type Priority = (typeof PRIORITIES)[number];
+
+function Picker({
+  value,
+  options,
+  disabled,
+  title,
+  onChange,
+}: {
+  value: string;
+  options: readonly string[];
+  disabled?: boolean;
+  title?: string;
+  onChange: (value: string) => void;
+}) {
   return (
-    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs uppercase tracking-wide text-gray-600">
-      {children}
-    </span>
+    <select
+      value={value}
+      disabled={disabled}
+      title={title}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded bg-gray-100 px-2 py-0.5 text-xs uppercase tracking-wide text-gray-600 disabled:opacity-50"
+    >
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option.replace('_', ' ')}
+        </option>
+      ))}
+    </select>
   );
 }

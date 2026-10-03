@@ -3,8 +3,6 @@ import { api } from '@/lib/api';
 import { errorBody, fieldErrors } from '@/lib/apiErrors';
 import type { Ticket } from '@/lib/types';
 
-const PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
-
 export function NewTicketDialog({
   onCreated,
   onClose,
@@ -14,8 +12,6 @@ export function NewTicketDialog({
 }) {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [priority, setPriority] =
-    useState<(typeof PRIORITIES)[number]>('medium');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const first = useRef<HTMLInputElement>(null);
@@ -37,7 +33,6 @@ export function NewTicketDialog({
         await api.post('/api/tickets/', {
           title: title.trim(),
           description: message.trim(),
-          priority,
         }),
       );
     } catch (caught) {
@@ -81,23 +76,6 @@ export function NewTicketDialog({
             placeholder="Tell us what happened…"
             className="w-full rounded border px-3 py-2"
           />
-        </label>
-
-        <label className="block text-sm">
-          <span className="mb-1 block text-gray-600">Priority</span>
-          <select
-            value={priority}
-            onChange={(e) =>
-              setPriority(e.target.value as (typeof PRIORITIES)[number])
-            }
-            className="w-full rounded border px-3 py-2"
-          >
-            {PRIORITIES.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
         </label>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

@@ -16,20 +16,24 @@ from helpdesk.tickets.messages import (
     NewEventPayload,
     SendMessageMessage,
     SetAgentMessage,
+    TicketUpdatedMessage,
     ToolDecisionMessage,
     ToolProposalMessage,
+    UpdateTicketMessage,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import CommentEvent, Handling, Ticket, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off, handling_of
 from helpdesk.tickets.services.placeholders import UnfilledError, refuse_if_unfilled
+from helpdesk.tickets.services.status import set_priority, set_status, ticket_state
 
 TicketFeedEvent = (
     NewEventMessage
     | AgentProgressMessage
     | ApprovalRequiredMessage
     | ToolProposalMessage
+    | TicketUpdatedMessage
 )
 
 
@@ -200,6 +204,24 @@ class TicketTopic(Topic[TicketFeedEvent]):
             publish=message.payload.publish,
         )
 
+    @ws_handler(
+        summary="Set where the ticket stands",
+        description="Staff only: the requester reports a problem, they do not grade it.",
+        output_type=NewEventMessage | TicketUpdatedMessage,
+    )
+    async def handle_update_ticket(self, message: UpdateTicketMessage) -> None:
+        if not self._staff:
+            return
+
+        ticket_id = self.params["ticket_id"]
+        if priority := message.payload.priority:
+            await set_priority(ticket_id, priority)
+        if status := message.payload.status:
+            await self._announce(
+                ticket_id, await set_status(ticket_id, status, self.scope.get("user"))
+            )
+        await self.broadcast(f"ticket:{ticket_id}", await ticket_state(ticket_id))
+
     async def _announce(self, ticket_id: str, event: Any) -> None:
         if event is None:
             return
@@ -238,6 +260,12 @@ class TicketTopic(Topic[TicketFeedEvent]):
     ) -> ApprovalRequiredMessage | None:
         """A draft that has not been approved has not been sent."""
         return event if self._staff else None
+
+    @event_handler
+    async def handle_ticket_updated(
+        self, event: TicketUpdatedMessage
+    ) -> TicketUpdatedMessage:
+        return event
 
     @event_handler
     async def handle_tool_proposal(

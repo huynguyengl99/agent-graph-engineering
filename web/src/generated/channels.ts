@@ -19,10 +19,12 @@ import type {
   SendMessageMessage,
   SetAgentMessage,
   TicketTopicToolDecisionMessage,
+  TicketUpdatedMessage,
   TokenMessage,
   ToolApprovalMessage,
   ToolDecisionMessage,
   ToolProposalMessage,
+  UpdateTicketMessage,
 } from './schemas';
 
 export type HubToServer = PingMessage;
@@ -32,11 +34,13 @@ export type HubTicketTopicToServer =
   | AskAgentMessage
   | SendMessageMessage
   | SetAgentMessage
-  | TicketTopicToolDecisionMessage;
+  | TicketTopicToolDecisionMessage
+  | UpdateTicketMessage;
 export type HubTicketTopicToClient =
   | AgentProgressMessage
   | ApprovalRequiredMessage
   | NewEventMessage
+  | TicketUpdatedMessage
   | ToolProposalMessage;
 export type HubConversationTopicToServer =
   AskMessage | DraftToTicketMessage | ToolDecisionMessage;

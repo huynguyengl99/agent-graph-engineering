@@ -226,6 +226,17 @@ export interface TicketTopicToolDecisionPayload {
   publish?: boolean;
 }
 
+/** The ticket's own fields, after something changed them. */
+export interface TicketUpdatedMessage {
+  action: 'ticket_updated';
+  payload: TicketUpdatedPayload;
+}
+
+export interface TicketUpdatedPayload {
+  status: string;
+  priority: string;
+}
+
 /** One delta of the assistant's answer, as it is produced. */
 export interface TokenMessage {
   action: 'token';
@@ -289,4 +300,15 @@ export interface ToolProposalPayload {
   arguments?: Record<string, unknown>;
   argumentsSchema?: Record<string, unknown>;
   unknownArguments?: Array<string>;
+}
+
+/** Staff set where the ticket stands. */
+export interface UpdateTicketMessage {
+  action: 'update_ticket';
+  payload: UpdateTicketPayload;
+}
+
+export interface UpdateTicketPayload {
+  status?: string;
+  priority?: string;
 }

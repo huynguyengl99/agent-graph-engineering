@@ -76,6 +76,24 @@ class TicketViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
     ordering_fields = ["created_at", "updated_at", "priority"]
     ordering = ["-created_at"]
 
+    def update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return self._staff_only(request) or super().update(request, *args, **kwargs)
+
+    def partial_update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return self._staff_only(request) or super().partial_update(
+            request, *args, **kwargs
+        )
+
+    def _staff_only(self, request: Request) -> Response | None:
+        """Scoping the queryset is not enough: a customer owns their ticket and
+        could otherwise close it or raise its priority."""
+        if request.user.is_staff:
+            return None
+        return Response(
+            {"detail": "Only staff can change a ticket."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     def get_serializer_class(self) -> type[BaseSerializer[Any]]:
         """Return appropriate serializer based on action."""
         if self.action == "create":

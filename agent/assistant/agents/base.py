@@ -46,7 +46,7 @@ class BaseAgent[OutputT]:
         async with self.agent.run_stream(
             prompt, deps=deps, message_history=history
         ) as result:
-            async for delta in result.stream_text(delta=True):
+            async for delta in result.stream_text(delta=True, debounce_by=None):
                 yield delta
             # Only complete once the stream is drained, so this is read after.
             self.messages = list(result.all_messages())

@@ -71,3 +71,15 @@ class ToolDecisionMessage(BaseMessage):
 
     action: Literal["tool_decision"] = "tool_decision"
     payload: ToolDecisionPayload
+
+
+class UpdateTicketPayload(BaseModel):
+    status: str = ""
+    priority: str = ""
+
+
+class UpdateTicketMessage(BaseMessage):
+    """Staff set where the ticket stands."""
+
+    action: Literal["update_ticket"] = "update_ticket"
+    payload: UpdateTicketPayload

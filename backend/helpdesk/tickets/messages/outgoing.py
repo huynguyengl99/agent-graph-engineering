@@ -78,3 +78,15 @@ class ToolProposalPayload(BaseModel):
 class ToolProposalMessage(BaseMessage):
     action: Literal["tool_proposal"] = "tool_proposal"
     payload: ToolProposalPayload
+
+
+class TicketUpdatedPayload(BaseModel):
+    status: str
+    priority: str
+
+
+class TicketUpdatedMessage(BaseMessage):
+    """The ticket's own fields, after something changed them."""
+
+    action: Literal["ticket_updated"] = "ticket_updated"
+    payload: TicketUpdatedPayload

@@ -19,6 +19,7 @@ interface UseTicketChatOptions {
   onAgentProgress?: (stage: AgentStage, detail: string) => void;
   onApprovalRequired?: (draft: string, findings: string[]) => void;
   onToolProposal?: (proposal: ToolProposalPayload) => void;
+  onTicketUpdated?: (status: string, priority: string) => void;
 }
 
 export function useTicketChat({
@@ -27,6 +28,7 @@ export function useTicketChat({
   onAgentProgress,
   onApprovalRequired,
   onToolProposal,
+  onTicketUpdated,
 }: UseTicketChatOptions) {
   const { send, subscribed } = useTopic(
     hub,
@@ -44,6 +46,8 @@ export function useTicketChat({
             message.payload.findings ?? [],
           ),
         tool_proposal: (message) => onToolProposal?.(message.payload),
+        ticket_updated: (message) =>
+          onTicketUpdated?.(message.payload.status, message.payload.priority),
       },
     },
   );
@@ -54,6 +58,13 @@ export function useTicketChat({
 
   const askAgent = (isPublic: boolean, question = '') => {
     send({ action: 'ask_agent', payload: { public: isPublic, question } });
+  };
+
+  const updateTicket = (fields: { status?: string; priority?: string }) => {
+    send({
+      action: 'update_ticket',
+      payload: { status: fields.status ?? '', priority: fields.priority ?? '' },
+    });
   };
 
   const setAgent = (on: boolean, message = '') => {
@@ -82,6 +93,7 @@ export function useTicketChat({
     sendMessage,
     askAgent,
     setAgent,
+    updateTicket,
     decideTool,
     submitApproval,
     // `subscribed`, not socket status: the socket is shared, and a frame sent

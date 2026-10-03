@@ -12,6 +12,7 @@ NOISE_KEYS = frozenset(
     {
         "agent_name",
         "assistant.run_id",
+        "assistant.thread_id",
         "final_result",
         "model_request_parameters",
         "operation.cost",
@@ -68,12 +69,9 @@ def state_of(attributes: dict[str, Any]) -> dict[str, str] | None:
 
 
 def _folded(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Drop a span that only wraps one other.
+    """Drop a span that only wraps one other, keeping its attributes.
 
-    Pydantic AI puts its own frame between the node and the model call, and on
-    screen that is a third box saying what the two around it already say. Its
-    attributes move down to the call it wrapped. A frame with several calls
-    under it is kept: there it is the agent's loop, which is worth seeing.
+    A frame around several calls is the agent's loop, and stays.
     """
     folded = []
     for span in spans:
@@ -95,8 +93,7 @@ def prepare(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Split each span's attributes into the ones a reader wants and the rest.
 
     A model call's own messages are pulled out whole, into `call`, rather than
-    left among the rest to be shortened. The run's own roots are never folded,
-    so a graph with a single node still reads as a run.
+    left among the rest to be shortened.
     """
     prepared = []
     for span in spans:

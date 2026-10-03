@@ -29,7 +29,7 @@ def config(thread_id: str) -> dict:
 
 
 def find(nodes: list[dict], name: str) -> dict:
-    """The named span wherever it sits, now that a run has a root above it."""
+    """The named span wherever it sits in the tree."""
     for node in nodes:
         if node["name"] == name:
             return node
@@ -128,8 +128,7 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
 
 async def test_a_run_is_one_trace_not_one_per_node() -> None:
     """Compiling a graph is what gives the run its root, so no caller can leave
-    it out: without one every node opens its own trace and a backend shows one
-    ticket as a dozen unrelated entries."""
+    it out."""
     await run("t-root")
 
     tree = trace_store.tree("t-root")
@@ -142,8 +141,7 @@ async def test_a_run_is_one_trace_not_one_per_node() -> None:
 
 
 async def test_a_streamed_run_is_one_trace_too() -> None:
-    """The span has to stay open across the yields: nodes run as the stream is
-    consumed, not when `astream` is called."""
+    """Nodes run as the stream is consumed, not when `astream` is called."""
     with mock_openai(
         tool_call(
             "final_result",

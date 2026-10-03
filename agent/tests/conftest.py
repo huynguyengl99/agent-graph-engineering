@@ -10,8 +10,7 @@ HTTP layer rather than stubbing Pydantic AI.
 import os
 
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-respx")
-# A test that calls `setup_tracing` would otherwise write its spans into the
-# repo's trace directory, and the console would list `t-route` as a run.
+# `setup_tracing` would otherwise write test spans into the repo.
 os.environ["ASSISTANT_TRACE_DIR"] = ""
 
 
@@ -40,7 +39,5 @@ def _per_test_state() -> None:
     install_run_events(MemoryEventStore())
     install_history(MemoryHistoryStore())
     register_channel_layer(LAYER_ALIAS, InMemoryChannelLayer())
-    # These tests are about the in-memory ring; the file store has its own test
-    # with its own directory.
     trace_store.use_files(None)
     trace_store.clear()

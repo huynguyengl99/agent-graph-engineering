@@ -88,7 +88,7 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
         tool=str(proposal.get("tool") or state.get("tool") or "") or None,
         parked=bool(interrupts),
         answer=str(state.get("answer") or ""),
-        cost=trace_store.cost(conversation_id),
+        cost=trace_store.cost(context.trace_key),
     )
 
 
@@ -121,5 +121,5 @@ async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
         blocked=bool(state.get("reply_blocked")),
         findings=[str(f) for f in state.get("guardrail_findings") or []],
         answer=getattr(answer, "content", "") or "",
-        cost=trace_store.cost(ticket_id),
+        cost=trace_store.cost(context.trace_key),
     )

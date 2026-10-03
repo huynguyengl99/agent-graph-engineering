@@ -2,8 +2,8 @@
 
 The series' complaint about observability platforms is that they hand you a flat
 list of model calls and leave you to reconstruct the flow. This collector keeps
-the parent/child structure, grouped by ticket, so `GET /traces/{ticket_id}`
-answers "what happened to this one message" directly.
+the parent/child structure, grouped by run, so `GET /traces/{run_id}` answers
+"what happened to this one message" directly.
 
 Memory is the fast path for a run in flight; the files behind it are what make a
 trace readable after a restart. Set an OTLP endpoint to send the same spans to a
@@ -23,6 +23,7 @@ from assistant.tracing.cost import RunCost, cost_of_span
 
 MAX_RUNS = 50
 RUN_ATTRIBUTE = "assistant.run_id"
+THREAD_ATTRIBUTE = "assistant.thread_id"
 
 
 @dataclass
@@ -118,7 +119,7 @@ class TraceStore:
         """Enough to pick a run out of a list without opening each one."""
         spans = self.spans(run_id)
         if not spans:
-            return {"run_id": run_id, "label": "", "started_at": None}
+            return {"run_id": run_id, "label": "", "thread": "", "started_at": None}
 
         start = min(span.start_ns for span in spans)
         end = max(span.end_ns for span in spans)
@@ -129,6 +130,7 @@ class TraceStore:
             # a list is read at a glance and customer prose does not belong in
             # one. `route AnswerFromContext` says what happened.
             "label": _label(spans),
+            "thread": _thread(spans),
             "started_at": datetime.fromtimestamp(start / 1e9, tz=UTC).isoformat(),
             "duration_ms": round((end - start) / 1_000_000, 2),
             "spans": len(spans),
@@ -148,6 +150,13 @@ class TraceStore:
 
 # Attributes that say what a run decided, most telling first.
 LABEL_KEYS = ("route", "decision", "tool", "category", "classification")
+
+
+def _thread(spans: list[SpanRecord]) -> str:
+    for span in spans:
+        if (thread := span.attributes.get(THREAD_ATTRIBUTE)) is not None:
+            return str(thread)
+    return ""
 
 
 def _label(spans: list[SpanRecord]) -> str:

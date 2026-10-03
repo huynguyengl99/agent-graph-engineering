@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from uuid import uuid4
 
 from assistant.guardrails import fence
 
@@ -40,10 +41,12 @@ class ChatContext:
     conversation_id: str
     history: list[tuple[str, str]] = field(default_factory=list)
     ticket: TicketContext | None = None
+    # One question answered is one run; the conversation is only where it sits.
+    run_id: str = field(default_factory=lambda: uuid4().hex)
 
     @property
     def trace_key(self) -> str:
-        return self.conversation_id
+        return self.run_id
 
     def render(self, question: str) -> str:
         """The ticket and the question, and deliberately not the history.

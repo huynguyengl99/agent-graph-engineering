@@ -1,10 +1,4 @@
-/**
- * One run, as the chain of steps it was, with what each model call was given.
- *
- * Here rather than behind the Django admin: whoever asks why it answered that
- * is the person who just watched it answer. The agent serves the spans and
- * decides which attributes are worth reading; this renders them.
- */
+/** One run, as the chain of steps it was. */
 
 import { useEffect, useState } from 'react';
 import {
@@ -84,6 +78,11 @@ export function TracesRoute() {
                 <p className="truncate text-sm">{run.label || run.run_id}</p>
                 <p className="mt-0.5 flex gap-3 text-xs text-gray-500">
                   <span>{when(run.started_at)}</span>
+                  {run.thread && (
+                    <span className="truncate font-mono">
+                      {run.thread.slice(0, 8)}
+                    </span>
+                  )}
                   <span>{run.calls} calls</span>
                   <span>{money(run.cost_usd, run.priced)}</span>
                   <span>{(run.duration_ms / 1000).toFixed(1)}s</span>
@@ -147,7 +146,6 @@ function Stat({
   );
 }
 
-/** Steps in the order they ran, with the arrow saying so. */
 function Chain({ spans }: { spans: Span[] }) {
   return (
     <ol className="mt-4">
@@ -167,8 +165,6 @@ const Arrow = () => (
   </p>
 );
 
-/** What a span is, for the eye: the run, a graph node, a model call, or the
- * library's own frame between them. */
 function kindOf(span: Span): keyof typeof KINDS {
   if (span.call) return 'llm';
   if (span.name.startsWith('node.')) return 'node';
@@ -252,8 +248,6 @@ function SpanCard({ span }: { span: Span }) {
   );
 }
 
-/** What the node was handed and what it changed - the run as a sequence of
- * state changes, which is what a graph is. */
 function State({ state }: { state: NodeState }) {
   return (
     <div className="mb-2 space-y-2 rounded border bg-white p-3">
@@ -267,7 +261,6 @@ function State({ state }: { state: NodeState }) {
   );
 }
 
-/** Indented when it parses, raw when it does not. */
 function pretty(body: string): string {
   try {
     return JSON.stringify(JSON.parse(body), null, 2);
@@ -276,7 +269,6 @@ function pretty(body: string): string {
   }
 }
 
-/** What the model was sent and what came back, in full. */
 function Call({ call }: { call: ModelCall }) {
   return (
     <div className="space-y-2 rounded border bg-white p-3">

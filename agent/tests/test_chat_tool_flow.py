@@ -18,6 +18,7 @@ from assistant.messages.chat import (
     ToolDecisionPayload,
 )
 from assistant.messages.triage import ModelOverrides
+from assistant.tracing import setup_tracing, trace_store
 from assistant.ws.topics import ConversationTopic
 
 from tests.helpers.events import Recorded, recording
@@ -294,3 +295,23 @@ class TestDeciding:
         )
 
         assert events.actions() == ["chat_error"]
+
+
+class TestTheParkAndTheResumeAreOneRun:
+    """The gate splits a turn across two WebSocket messages."""
+
+    async def test_the_resume_joins_the_run_it_parked(
+        self, consumer: DetachedTopic, events: Recorded
+    ) -> None:
+        setup_tracing()
+        trace_store.clear()
+        await park(consumer)
+        [run] = trace_store.runs()
+
+        await decide(consumer, approved=True, arguments={})
+
+        assert trace_store.runs() == [run], "the resume opened a trace of its own"
+        assert [root["name"] for root in trace_store.tree(run)] == [
+            "chat run",
+            "chat run resumed",
+        ]

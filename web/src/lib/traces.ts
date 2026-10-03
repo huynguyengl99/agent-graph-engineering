@@ -36,6 +36,7 @@ export interface Span {
 export interface RunSummary {
   run_id: string;
   label: string;
+  thread: string;
   started_at: string | null;
   duration_ms: number;
   spans: number;

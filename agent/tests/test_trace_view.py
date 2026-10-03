@@ -135,7 +135,6 @@ class TestFramesThatOnlyWrap:
         assert [child["name"] for child in node["children"]] == ["chat gpt-4o-mini"]
 
     def test_the_frame_leaves_its_attributes_behind(self) -> None:
-        """What it knew about the call is the reason it was worth a box."""
         [node] = prepare(self.frame([self.call()]))
 
         assert node["children"][0]["signal"]["model_name"] == "gpt-4o-mini"

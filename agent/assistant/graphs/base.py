@@ -48,8 +48,6 @@ class BaseGraph:
     def compile(
         self, checkpointer: BaseCheckpointSaver[Any] | None = None
     ) -> CompiledStateGraph[Any, Any, Any, Any]:
-        """Wrapped, so the run's root span comes with the graph instead of
-        being remembered by whoever drives it."""
         compiled = self.build().compile(checkpointer=checkpointer)
         return cast(
             CompiledStateGraph[Any, Any, Any, Any], TracedRun(self.name, compiled)

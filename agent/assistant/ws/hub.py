@@ -7,7 +7,7 @@ from chanx.messages.incoming import PingMessage
 from chanx.messages.outgoing import PongMessage
 
 from assistant.core.layers import LAYER_ALIAS
-from assistant.ws.topics import ConversationTopic, TriageTopic
+from assistant.ws.topics import SupportTopic
 
 
 @channel(
@@ -25,7 +25,7 @@ class AgentHubConsumer(AsyncJsonWebsocketConsumer):
     """
 
     channel_layer_alias = LAYER_ALIAS
-    topics: ClassVar[list[type[Topic[Any]]]] = [TriageTopic, ConversationTopic]
+    topics: ClassVar[list[type[Topic[Any]]]] = [SupportTopic]
 
     @ws_handler
     async def handle_ping(self, _message: PingMessage) -> PongMessage:

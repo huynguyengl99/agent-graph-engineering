@@ -9,21 +9,24 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from assistant.messages.triage import TriageRequestMessage, TriageRequestPayload
-from assistant.ws.topics import TriageTopic
+from assistant.messages.support import (
+    RunRequestMessage,
+    RunRequestPayload,
+    TicketRef,
+)
+from assistant.ws.topics import SupportTopic
 
-from tests.helpers.contexts import ticket_context
 from tests.helpers.events import Recorded, recording
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 
-class DetachedTopic(TriageTopic):
+class DetachedTopic(SupportTopic):
     """Drives a run without a socket. Everything it and its graph emit is
     published on the topic, which the `events` fixture records."""
 
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
-        self.params = {"ticket_id": "t-1"}
-        self.topic = "triage:t-1"
+        self.params = {"audience": "customer", "thread_id": "t-1"}
+        self.topic = "support:customer:t-1"
 
 
 @pytest.fixture
@@ -33,7 +36,7 @@ def consumer() -> DetachedTopic:
 
 @pytest.fixture
 def events() -> Iterator[Recorded]:
-    with recording(TriageTopic) as recorded:
+    with recording(SupportTopic) as recorded:
         yield recorded
 
 
@@ -55,11 +58,15 @@ async def test_every_graph_step_is_emitted_in_order(
             {"content": "Two charges means proration.", "requires_approval": False},
         ),
     ):
-        await consumer._run_graph(
-            ticket_context(
-                ticket_id="t-1",
-                title="Charged twice this month",
-                description="My card shows two charges.",
+        await consumer.handle_run_request(
+            RunRequestMessage(
+                payload=RunRequestPayload(
+                    ticket=TicketRef(
+                        ticket_id="t-1",
+                        title="Charged twice this month",
+                        description="My card shows two charges.",
+                    )
+                )
             )
         )
 
@@ -80,11 +87,17 @@ async def test_handler_reports_failure_instead_of_raising(
     async def boom(*_args: Any, **_kwargs: Any) -> None:
         raise RuntimeError("graph exploded")
 
-    monkeypatch.setattr(consumer, "_run_graph", boom)
+    monkeypatch.setattr(consumer, "_graph", boom)
 
-    await consumer.handle_triage_request(
-        TriageRequestMessage(
-            payload=TriageRequestPayload(ticket_id="t-1", title="x", description="y")
+    await consumer.handle_run_request(
+        RunRequestMessage(
+            payload=RunRequestPayload(
+                ticket=TicketRef(
+                    ticket_id="t-1",
+                    title="x",
+                    description="y",
+                )
+            )
         )
     )
 

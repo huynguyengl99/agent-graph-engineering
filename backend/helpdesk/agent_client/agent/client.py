@@ -2,8 +2,7 @@
 
 from typing import Any
 
-from ..agent_hub_conversation_topic.client import AgentHubConversationTopicClient
-from ..agent_hub_triage_topic.client import AgentHubTriageTopicClient
+from ..agent_hub_support_topic.client import AgentHubSupportTopicClient
 from ..base.topic_client import BaseTopicConnection
 from .messages import IncomingMessage, OutgoingMessage
 
@@ -20,16 +19,12 @@ class AgentClient(BaseTopicConnection):
     path = "/ws/"
     incoming_message = IncomingMessage
 
-    def triage_topic(self, ticket_id: Any) -> AgentHubTriageTopicClient:
-        """Handle for triage:{ticket_id}."""
-        return self.topic(AgentHubTriageTopicClient, ticket_id=ticket_id)
-
-    def conversation_topic(
-        self, conversation_id: Any
-    ) -> AgentHubConversationTopicClient:
-        """Handle for conversation:{conversation_id}."""
+    def support_topic(
+        self, audience: Any, thread_id: Any
+    ) -> AgentHubSupportTopicClient:
+        """Handle for support:{audience}:{thread_id}."""
         return self.topic(
-            AgentHubConversationTopicClient, conversation_id=conversation_id
+            AgentHubSupportTopicClient, audience=audience, thread_id=thread_id
         )
 
     async def send_message(self, message: OutgoingMessage) -> None:

@@ -10,7 +10,7 @@ from assistant.agents import AgentConfig, Audience, ModelConfig, ModelPurpose
 from assistant.agents.factory import model_settings
 from assistant.core.config import settings
 from assistant.graphs.support_graph import SupportGraph
-from assistant.ws.topics import ConversationTopic
+from assistant.ws.topics import SupportTopic
 
 
 def openai_model() -> ModelConfig:
@@ -53,15 +53,16 @@ class TestRecursionLimit:
                 return
                 yield
 
-        class Consumer(ConversationTopic):
+        class Consumer(SupportTopic):
             def __init__(self) -> None:  # noqa: D107
                 self.sent: list[Any] = []
-                self.params = {"conversation_id": "c-1"}
+                self.params = {"audience": "team", "thread_id": "c-1"}
+                self.topic = "support:team:c-1"
 
             async def send_message(self, message: Any, **_kwargs: Any) -> None:
                 self.sent.append(message)
 
-        asyncio.run(Consumer()._consume(Graph(), {}, "c-1"))
+        asyncio.run(Consumer()._consume(Graph(), {}))
 
         assert captured["recursion_limit"] == settings.graph_recursion_limit
         assert captured["configurable"] == {

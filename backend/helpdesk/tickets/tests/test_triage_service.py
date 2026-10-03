@@ -5,12 +5,11 @@ scripts. Here the generated client is driven directly, which still exercises the
 real message models, the real group envelope, and real persistence.
 """
 
+from typing import Any
+
 from channels.db import database_sync_to_async
 
-from helpdesk.agent_client.agent_hub_triage_topic.messages import (
-    TriageRequestPayload,
-)
-from helpdesk.agent_client.shared.messages import (
+from helpdesk.agent_client.agent_hub_support_topic.messages import (
     AnswerMessage,
     AnswerPayload,
     ApprovalRequiredMessage,
@@ -28,7 +27,7 @@ from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.models import AIResponseEvent
-from helpdesk.tickets.services.triage import TicketTriageClient
+from helpdesk.tickets.services.support import relay
 from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent
 
 
@@ -44,15 +43,8 @@ class TestTriageService(WebsocketTestCase):
         self.ticket = TicketFactory.create(created_by=self.user)
         self.topic = f"ticket:{self.ticket.id}"
 
-    def client_for_ticket(self) -> TicketTriageClient:
-        return TicketTriageClient(
-            str(self.ticket.id),
-            TriageRequestPayload(
-                ticket_id=str(self.ticket.id),
-                title=self.ticket.title,
-                description=self.ticket.description,
-            ),
-        )
+    def client_for_ticket(self) -> Any:
+        return relay(str(self.ticket.id))
 
     async def test_a_draft_awaiting_approval_is_not_persisted(self) -> None:
         """Nothing reaches the ticket log until the reply is actually sent."""

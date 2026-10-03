@@ -117,6 +117,22 @@ class ModelOverrides(BaseModel):
     answer: str | None = None
 
 
+class ApprovalDecisionPayload(BaseModel):
+    """ApprovalDecisionPayload"""
+
+    ticket_id: str
+    approved: bool
+    content: str | None = None
+    models: ModelOverrides | None = None
+
+
+class ApprovalDecisionMessage(BaseModel):
+    """Resume a paused run. `content` overrides the draft when edited."""
+
+    action: Literal["approval_decision"] = "approval_decision"
+    payload: ApprovalDecisionPayload
+
+
 class ReplayRequestPayload(BaseModel):
     """ReplayRequestPayload"""
 
@@ -163,6 +179,41 @@ class ReplySentMessage(BaseModel):
     payload: ReplySentPayload
 
 
+class RunTurn(BaseModel):
+    """One thing already said on the thread."""
+
+    role: str
+    content: str
+
+
+class TicketRef(BaseModel):
+    """The ticket a run is about. Absent for a question with no ticket behind it."""
+
+    ticket_id: str
+    title: str
+    description: str
+
+
+class RunRequestPayload(BaseModel):
+    """One message to work.
+
+    The audience rides the topic rather than the payload: a customer's run and
+    the team's run about one ticket are different threads, and keying them apart
+    is what stops one resuming into the other."""
+
+    question: str = ""
+    ticket: TicketRef | None = None
+    history: list[RunTurn] = []
+    models: ModelOverrides | None = None
+
+
+class RunRequestMessage(BaseModel):
+    """Work this message."""
+
+    action: Literal["run_request"] = "run_request"
+    payload: RunRequestPayload
+
+
 class ToolApprovalPayload(BaseModel):
     """ToolApprovalPayload"""
 
@@ -179,6 +230,21 @@ class ToolApprovalMessage(BaseModel):
 
     action: Literal["tool_approval"] = "tool_approval"
     payload: ToolApprovalPayload
+
+
+class ToolDecisionPayload(BaseModel):
+    """ToolDecisionPayload"""
+
+    conversation_id: str
+    approved: bool
+    arguments: dict[str, Any] = {}
+
+
+class ToolDecisionMessage(BaseModel):
+    """Resume a run parked at the tool gate."""
+
+    action: Literal["tool_decision"] = "tool_decision"
+    payload: ToolDecisionPayload
 
 
 class ToolRanPayload(BaseModel):
@@ -211,3 +277,25 @@ class TriageErrorMessage(BaseModel):
 
     action: Literal["triage_error"] = "triage_error"
     payload: TriageErrorPayload
+
+
+IncomingMessage = (
+    ClassifiedMessage
+    | DecidedMessage
+    | AnswerMessage
+    | ApprovalRequiredMessage
+    | ReplySentMessage
+    | ReplyBlockedMessage
+    | ChatTokenMessage
+    | ChatCompleteMessage
+    | ToolApprovalMessage
+    | ToolRanMessage
+    | TriageErrorMessage
+    | ChatErrorMessage
+)
+OutgoingMessage = (
+    ApprovalDecisionMessage
+    | ReplayRequestMessage
+    | RunRequestMessage
+    | ToolDecisionMessage
+)

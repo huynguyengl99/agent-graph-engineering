@@ -1,24 +1,17 @@
+from typing import Any
+
 from django.test import TestCase, override_settings
 
-from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
-    ChatRequestPayload,
-)
-from helpdesk.agent_client.agent_hub_triage_topic.messages import TriageRequestPayload
-from helpdesk.conversations.services.chat import ConversationChatClient
+from helpdesk.conversations.services.chat import relay
 from helpdesk.core.agent_connection import TOKEN_HEADER, agent_headers
-from helpdesk.tickets.services.triage import TicketTriageClient
 
 
-def chat_client() -> ConversationChatClient:
-    return ConversationChatClient(
-        "c-1", ChatRequestPayload(conversation_id="c-1", question="?")
-    )
+def chat_client() -> Any:
+    return relay("c-1")
 
 
-def triage_client() -> TicketTriageClient:
-    return TicketTriageClient(
-        "t-1", TriageRequestPayload(ticket_id="t-1", title="x", description="y")
-    )
+def triage_client() -> Any:
+    return relay("t-1")
 
 
 @override_settings(AGENT_WS_URL="ws://agent:8001", AGENT_TOKEN="s3cret")

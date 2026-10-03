@@ -11,15 +11,14 @@ from collections.abc import AsyncIterator
 import pytest
 from assistant.core.layers import LAYER_ALIAS
 from assistant.messages.chat import ToolApprovalMessage, ToolApprovalPayload
+from assistant.messages.support import RunRequestMessage, RunRequestPayload
 from assistant.messages.triage import (
     AnswerMessage,
     AnswerPayload,
-    TriageRequestMessage,
-    TriageRequestPayload,
 )
 from assistant.ws.feed import emitter_for
 from assistant.ws.hub import AgentHubConsumer
-from assistant.ws.topics import ConversationTopic, TriageTopic
+from assistant.ws.topics import SupportTopic
 from chanx.fast_channels.testing import WebsocketCommunicator
 from fast_channels.layers import InMemoryChannelLayer, register_channel_layer
 from starlette.applications import Starlette
@@ -32,13 +31,13 @@ TICKET = "t-broadcast"
 CONVERSATION = "c-broadcast"
 
 
-def detached_triage() -> TriageTopic:
+def detached_triage() -> SupportTopic:
     """A real topic, driving a run with no socket of its own."""
-    return TriageTopic(NoSocket(), f"triage:{TICKET}")  # type: ignore[arg-type]
+    return SupportTopic(NoSocket(), f"support:customer:{TICKET}")  # type: ignore[arg-type]
 
 
-def detached_conversation() -> ConversationTopic:
-    return ConversationTopic(NoSocket(), f"conversation:{CONVERSATION}")  # type: ignore[arg-type]
+def detached_conversation() -> SupportTopic:
+    return SupportTopic(NoSocket(), f"support:team:{CONVERSATION}")  # type: ignore[arg-type]
 
 
 @pytest.fixture
@@ -60,7 +59,7 @@ async def socket(layer: None) -> AsyncIterator[WebsocketCommunicator]:
 async def test_the_emitter_a_topic_hands_its_graph_reaches_a_subscriber(
     socket: WebsocketCommunicator,
 ) -> None:
-    reply = await socket.subscribe(f"triage:{TICKET}")
+    reply = await socket.subscribe(f"support:customer:{TICKET}")
     assert reply["action"] == "subscribed", reply
 
     emit = emitter_for(detached_triage())
@@ -72,7 +71,7 @@ async def test_the_emitter_a_topic_hands_its_graph_reaches_a_subscriber(
         )
     )
 
-    event = await socket.receive_topic_message(TriageTopic)
+    event = await socket.receive_topic_message(SupportTopic)
     assert event.action == "answer"
     assert event.payload.content == "Settled."
 
@@ -82,7 +81,7 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
 ) -> None:
     """The reason the topic exists: the run is not tied to the socket that asked
     for it, so another connection sees the same events."""
-    await socket.subscribe(f"triage:{TICKET}")
+    await socket.subscribe(f"support:customer:{TICKET}")
 
     with mock_openai(
         tool_call(
@@ -94,9 +93,9 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),
     ):
-        await detached_triage().handle_triage_request(
-            TriageRequestMessage(
-                payload=TriageRequestPayload(
+        await detached_triage().handle_run_request(
+            RunRequestMessage(
+                payload=RunRequestPayload(
                     ticket_id=TICKET, title="Charged twice", description="Two charges."
                 )
             )
@@ -113,7 +112,7 @@ async def test_the_conversation_topic_carries_its_own_events(
     socket: WebsocketCommunicator,
 ) -> None:
     """Each topic declares its own passthrough list, so each can be wrong alone."""
-    await socket.subscribe(f"conversation:{CONVERSATION}")
+    await socket.subscribe(f"support:team:{CONVERSATION}")
 
     emit = emitter_for(detached_conversation())
     await emit(
@@ -129,6 +128,6 @@ async def test_the_conversation_topic_carries_its_own_events(
         )
     )
 
-    event = await socket.receive_topic_message(ConversationTopic)
+    event = await socket.receive_topic_message(SupportTopic)
     assert event.action == "tool_approval"
     assert event.payload.arguments["amount"] == 29.0

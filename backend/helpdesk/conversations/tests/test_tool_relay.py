@@ -10,21 +10,18 @@ nobody approved.
 from typing import Any
 from unittest.mock import patch
 
-from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
-    ChatRequestPayload,
-    ToolDecisionPayload,
-)
-from helpdesk.agent_client.shared.messages import (
+from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ChatCompleteMessage,
     ChatCompletePayload,
     ToolApprovalMessage,
     ToolApprovalPayload,
+    ToolDecisionPayload,
 )
 from helpdesk.conversations.factories import ConversationFactory
 from helpdesk.conversations.messages import ToolDecisionMessage as FEToolDecisionMessage
 from helpdesk.conversations.messages import ToolDecisionPayload as FEToolDecisionPayload
 from helpdesk.conversations.models import Message
-from helpdesk.conversations.services.chat import ConversationChatClient
+from helpdesk.conversations.services.chat import relay
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 
@@ -56,12 +53,7 @@ class TestRelayingTheProposal(WebsocketTestCase):
         """Feed the client an approval as the agent would, over a live socket."""
         await self.subscribe_ready(self.topic)
 
-        client = ConversationChatClient(
-            str(self.conversation.id),
-            ChatRequestPayload(
-                conversation_id=str(self.conversation.id), question="Refund it."
-            ),
-        )
+        client = relay(str(self.conversation.id))
         await client.on_event(ToolApprovalMessage(payload=REFUND))
 
         return await self.auth_communicator.receive_all_json()
@@ -129,7 +121,7 @@ class TestRelayingTheProposal(WebsocketTestCase):
         """A resume is a different message on the same channel, not a new turn."""
         sent: list[Any] = []
 
-        client = ConversationChatClient(
+        client = relay(
             str(self.conversation.id),
             ToolDecisionPayload(
                 conversation_id=str(self.conversation.id),
@@ -181,12 +173,7 @@ class TestPersistingTheAnswer(WebsocketTestCase):
     async def _finish(self, content: str) -> list[dict[str, Any]]:
         await self.subscribe_ready(self.topic)
 
-        client = ConversationChatClient(
-            str(self.conversation.id),
-            ChatRequestPayload(
-                conversation_id=str(self.conversation.id), question="Anything?"
-            ),
-        )
+        client = relay(str(self.conversation.id))
         await client.on_event(
             ChatCompleteMessage(
                 payload=ChatCompletePayload(

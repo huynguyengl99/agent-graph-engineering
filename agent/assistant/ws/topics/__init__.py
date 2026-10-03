@@ -1,4 +1,3 @@
-from assistant.ws.topics.conversation import ConversationTopic
-from assistant.ws.topics.triage import TriageTopic
+from assistant.ws.topics.support import SupportTopic
 
-__all__ = ["ConversationTopic", "TriageTopic"]
+__all__ = ["SupportTopic"]

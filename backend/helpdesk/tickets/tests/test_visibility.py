@@ -16,7 +16,7 @@ from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.messages import SendMessageMessage, SendMessagePayload
 from helpdesk.tickets.models import CommentEvent, Visibility
-from helpdesk.tickets.services.triage import _ticket_context
+from helpdesk.tickets.services.support import _request
 
 
 class TestWhoACommentIsFor(WebsocketTestCase):
@@ -82,7 +82,7 @@ class TestWhatAsksForAReply(WebsocketTestCase):
     async def test_the_requester_speaking_starts_a_run(self) -> None:
         ticket = await TicketFactory.acreate(created_by=self.user)
 
-        with patch("helpdesk.tickets.services.triage.start_triage") as start:
+        with patch("helpdesk.tickets.services.support.start_run") as start:
             await self._post(ticket, public=False)
 
         start.assert_called_once()
@@ -92,7 +92,7 @@ class TestWhatAsksForAReply(WebsocketTestCase):
         agent answering a conversation it was not part of."""
         ticket = await TicketFactory.acreate(created_by=await UserFactory.acreate())
 
-        with patch("helpdesk.tickets.services.triage.start_triage") as start:
+        with patch("helpdesk.tickets.services.support.start_run") as start:
             await self._post(ticket, public=False)
 
         start.assert_not_called()
@@ -101,7 +101,7 @@ class TestWhatAsksForAReply(WebsocketTestCase):
         """A colleague has just answered; the agent has nothing to add."""
         ticket = await TicketFactory.acreate(created_by=await UserFactory.acreate())
 
-        with patch("helpdesk.tickets.services.triage.start_triage") as start:
+        with patch("helpdesk.tickets.services.support.start_run") as start:
             await self._post(ticket, public=True)
 
         start.assert_not_called()
@@ -129,7 +129,9 @@ class TestWhatTheAgentIsTold(WebsocketTestCase):
             visibility=Visibility.INTERNAL,
         )
 
-        context = await _ticket_context(str(ticket.id))
+        request = await _request(str(ticket.id), "", None)
 
-        assert context["history"][0] == "Customer asked twice."
-        assert context["history"][1].startswith("[internal note, not for the customer]")
+        assert request.history[0].content == "Customer asked twice."
+        assert request.history[1].content.startswith(
+            "[internal note, not for the customer]"
+        )

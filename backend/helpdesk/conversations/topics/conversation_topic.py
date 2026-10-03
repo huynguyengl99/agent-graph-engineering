@@ -66,13 +66,13 @@ class ConversationTopic(Topic[ChatFeedEvent]):
         summary="Send a drafted reply to a ticket",
         description=(
             "The one path out of the conversation. It resumes that ticket's "
-            "triage run at its approval gate, so the customer-facing send is "
+            "run at its approval gate, so the customer-facing send is "
             "still gated."
         ),
         output_type=ChatErrorMessage,
     )
     async def handle_draft_to_ticket(self, message: DraftToTicketMessage) -> None:
-        from helpdesk.tickets.services.triage import start_approval
+        from helpdesk.tickets.services.support import start_approval
 
         payload = message.payload
         user = self.scope.get("user")

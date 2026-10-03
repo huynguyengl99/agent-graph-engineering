@@ -3,16 +3,15 @@
 This side of it: remembering how far it got, and not redoing work when it asks.
 """
 
-from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
-    ChatRequestPayload,
-)
-from helpdesk.agent_client.shared.messages import (
+from typing import Any
+
+from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ChatCompleteMessage,
     ChatCompletePayload,
 )
 from helpdesk.conversations.factories import ConversationFactory
 from helpdesk.conversations.models import Message
-from helpdesk.conversations.services.chat import ConversationChatClient
+from helpdesk.conversations.services.chat import relay
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.core.models import AgentRunCursor
 from helpdesk.core.services.cursors import last_handled
@@ -28,13 +27,8 @@ class TestTheCursorFollowsTheRecord(WebsocketTestCase):
         self.conversation = ConversationFactory.create(owner=self.user)
         self.topic = f"conversation:{self.conversation.id}"
 
-    def _client(self) -> ConversationChatClient:
-        client = ConversationChatClient(
-            str(self.conversation.id),
-            ChatRequestPayload(
-                conversation_id=str(self.conversation.id), question="Refund it."
-            ),
-        )
+    def _client(self) -> Any:
+        client = relay(str(self.conversation.id))
         # What the handle sets from the contract's pattern before forwarding an
         # event. Without it there is no key, and nothing is recorded.
         client.agent_topic = self.topic

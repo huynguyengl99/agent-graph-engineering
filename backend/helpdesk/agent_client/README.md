@@ -65,13 +65,6 @@ Import from channel modules:
 from agent_client.agent import AgentClient, IncomingMessage, OutgoingMessage
 ```
 
-### Shared Messages
-
-Message models shared across multiple channels:
-```python
-from agent_client.shared.messages import *
-```
-
 ## Sending Messages
 
 Use `send_message()` to send messages to the server:

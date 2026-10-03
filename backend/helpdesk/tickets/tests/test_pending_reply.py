@@ -1,12 +1,10 @@
 """A drafted reply parked at the gate, and what the ticket records when it is
 sent. Both used to depend on state that did not outlive the socket."""
 
+from typing import Any
 from unittest.mock import patch
 
-from helpdesk.agent_client.agent_hub_triage_topic.messages import (
-    TriageRequestPayload,
-)
-from helpdesk.agent_client.shared.messages import (
+from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     ReplySentMessage,
@@ -17,7 +15,7 @@ from helpdesk.test_utils.auth_api_test_case import AuthAPITestCase
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.models import AIResponseEvent, PendingReply
-from helpdesk.tickets.services.triage import TicketTriageClient, submit_approval
+from helpdesk.tickets.services.support import relay, submit_approval
 
 DRAFT = "Per [kb-002], the extra line is proration."
 
@@ -30,13 +28,8 @@ class TestPendingReply(WebsocketTestCase):
         super().setUp()
         self.ticket = TicketFactory.create(created_by=self.user)
 
-    def client_for_ticket(self) -> TicketTriageClient:
-        return TicketTriageClient(
-            str(self.ticket.id),
-            TriageRequestPayload(
-                ticket_id=str(self.ticket.id), title="x", description="y"
-            ),
-        )
+    def client_for_ticket(self) -> Any:
+        return relay(str(self.ticket.id))
 
     async def park(self) -> None:
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
@@ -52,7 +45,7 @@ class TestPendingReply(WebsocketTestCase):
         await self.auth_communicator.receive_all_json()
 
     async def _resume(self, content: str | None) -> None:
-        async def fake_handle(client: TicketTriageClient) -> None:
+        async def fake_handle(client: Any) -> None:
             await client.on_event(
                 ReplySentMessage(
                     payload=ReplySentPayload(
@@ -61,9 +54,7 @@ class TestPendingReply(WebsocketTestCase):
                 )
             )
 
-        with patch(
-            "helpdesk.tickets.services.triage.TicketTriageClient.handle", fake_handle
-        ):
+        with patch("helpdesk.tickets.services.support._Run.handle", fake_handle):
             await submit_approval(str(self.ticket.id), approved=True, content=content)
 
     async def test_the_draft_survives_a_reload(self) -> None:

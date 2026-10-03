@@ -8,13 +8,7 @@ from channels.db import database_sync_to_async
 from django.test import override_settings
 
 from helpdesk.accounts.factories import UserFactory
-from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
-    ChatRequestPayload,
-)
-from helpdesk.agent_client.agent_hub_triage_topic.messages import (
-    TriageRequestPayload,
-)
-from helpdesk.agent_client.shared.messages import (
+from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     ChatCompleteMessage,
@@ -51,9 +45,8 @@ from helpdesk.tickets.models import (
     Visibility,
 )
 from helpdesk.tickets.serializers.event import serialize_event
-from helpdesk.tickets.services.consult import TicketConsultClient
 from helpdesk.tickets.services.handoff import hand_off, handling_of
-from helpdesk.tickets.services.triage import TicketTriageClient, _parked_visibility
+from helpdesk.tickets.services.support import parked_visibility, relay
 from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent, TicketTopic
 
 
@@ -144,7 +137,7 @@ class TestTakingTheTicket(WebsocketTestCase):
         assert await handling_of(str(self.ticket.id)) == Handling.AGENT
 
     @override_settings(TRIAGE_ON_COMMENT=True)
-    @patch("helpdesk.tickets.services.triage.start_triage")
+    @patch("helpdesk.tickets.services.support.start_run")
     async def test_the_agent_stays_quiet_once_staff_have_it(
         self, start: AsyncMock
     ) -> None:
@@ -186,7 +179,7 @@ class TestTheAgentStillAnswers(WebsocketTestCase):
         self.topic = f"ticket:{self.ticket.id}"
 
     @override_settings(TRIAGE_ON_COMMENT=True)
-    @patch("helpdesk.tickets.services.triage.start_triage")
+    @patch("helpdesk.tickets.services.support.start_run")
     async def test_the_requester_asking_again_reaches_the_agent(
         self, start: AsyncMock
     ) -> None:
@@ -214,14 +207,8 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         super().setUp()
         self.ticket = TicketFactory.create(created_by=self.user)
 
-    def client_for(self, visibility: str) -> TicketTriageClient:
-        return TicketTriageClient(
-            str(self.ticket.id),
-            TriageRequestPayload(
-                ticket_id=str(self.ticket.id), title="x", description="y"
-            ),
-            visibility=visibility,
-        )
+    def client_for(self, visibility: str) -> Any:
+        return relay(str(self.ticket.id), visibility)
 
     async def test_an_internal_draft_stays_internal_through_the_gate(self) -> None:
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
@@ -233,7 +220,7 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
             )
         )
 
-        assert await _parked_visibility(str(self.ticket.id)) == Visibility.INTERNAL
+        assert await parked_visibility(str(self.ticket.id)) == Visibility.INTERNAL
 
     async def test_an_answer_the_agent_sends_reaches_the_customer(self) -> None:
         client = self.client_for(Visibility.PUBLIC)
@@ -334,12 +321,7 @@ class TestAFailedRunDoesNotStrandTheCustomer(WebsocketTestCase):
 
     async def test_the_ticket_goes_to_a_person(self) -> None:
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
-        client = TicketTriageClient(
-            str(self.ticket.id),
-            TriageRequestPayload(
-                ticket_id=str(self.ticket.id), title="x", description="y"
-            ),
-        )
+        client = relay(str(self.ticket.id))
 
         await client.on_event(
             TriageErrorMessage(
@@ -366,12 +348,8 @@ class TestTheGateOnTheTicket(WebsocketTestCase):
         self.ticket = TicketFactory.create(created_by=self.user)
         self.topic = f"ticket:{self.ticket.id}"
 
-    def client_for(self, visibility: str = Visibility.INTERNAL) -> TicketConsultClient:
-        return TicketConsultClient(
-            str(self.ticket.id),
-            ChatRequestPayload(conversation_id=str(self.ticket.id), question="refund?"),
-            visibility=visibility,
-        )
+    def client_for(self, visibility: str = Visibility.INTERNAL) -> Any:
+        return relay(str(self.ticket.id), visibility)
 
     async def propose(self) -> None:
         await self.client_for().on_event(
@@ -489,10 +467,7 @@ class TestRecordingWhatRan(WebsocketTestCase):
         self.ticket = TicketFactory.create(created_by=self.user)
 
     async def ran(self, **fields: Any) -> ToolCallEvent:
-        client = TicketConsultClient(
-            str(self.ticket.id),
-            ChatRequestPayload(conversation_id=str(self.ticket.id), question="refund?"),
-        )
+        client = relay(str(self.ticket.id))
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
         await client.on_event(
             ToolRanMessage(

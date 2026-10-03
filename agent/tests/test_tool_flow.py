@@ -12,14 +12,13 @@ from typing import Any
 
 import pytest
 from assistant.messages.chat import (
-    ChatRequestMessage,
-    ChatRequestPayload,
     ToolDecisionMessage,
     ToolDecisionPayload,
 )
+from assistant.messages.support import RunRequestMessage, RunRequestPayload
 from assistant.messages.triage import ModelOverrides
 from assistant.tracing import setup_tracing, trace_store
-from assistant.ws.topics import ConversationTopic
+from assistant.ws.topics import SupportTopic
 
 from tests.helpers.events import Recorded, recording
 from tests.helpers.openai_mock import Recorder, mock_openai, text_stream, tool_call
@@ -43,15 +42,15 @@ PROPOSE_REFUND = tool_call(
 )
 
 
-class DetachedTopic(ConversationTopic):
+class DetachedTopic(SupportTopic):
     """Drives a run without a socket. Token deltas still go to the one socket
     that is streaming, so they arrive here; every other event is broadcast and
     the `events` fixture captures it."""
 
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
         self.sent: list[Any] = []
-        self.params = {"conversation_id": CONVERSATION}
-        self.topic = f"conversation:{CONVERSATION}"
+        self.params = {"audience": "team", "thread_id": CONVERSATION}
+        self.topic = f"support:team:{CONVERSATION}"
 
     async def send_message(self, message: Any, **kwargs: Any) -> None:
         self.sent.append(message)
@@ -68,13 +67,13 @@ def consumer() -> DetachedTopic:
 
 @pytest.fixture
 def events() -> Iterator[Recorded]:
-    with recording(ConversationTopic) as recorded:
+    with recording(SupportTopic) as recorded:
         yield recorded
 
 
-def request() -> ChatRequestMessage:
-    return ChatRequestMessage(
-        payload=ChatRequestPayload(
+def request() -> RunRequestMessage:
+    return RunRequestMessage(
+        payload=RunRequestPayload(
             conversation_id=CONVERSATION,
             question="Refund the duplicate charge for demo@example.com.",
             # Pin the provider so the mocked transport is the one in play.
@@ -85,7 +84,7 @@ def request() -> ChatRequestMessage:
 
 async def park(consumer: DetachedTopic) -> None:
     with mock_openai(ROUTE_TO_TOOL, PROPOSE_REFUND):
-        await consumer.handle_chat_request(request())
+        await consumer.handle_run_request(request())
 
 
 async def decide(
@@ -186,7 +185,7 @@ class TestOneTurnDoesNotLeakIntoTheNext:
             "final_result_Answer", {"reasoning": "Already covered."}
         )
         with mock_openai(answer_directly, text_stream("Here you go.")) as recorder:
-            await consumer.handle_chat_request(request())
+            await consumer.handle_run_request(request())
 
         assert "A tool was run" not in recorder.last_user_prompt
 
@@ -205,7 +204,7 @@ class TestMisnamedArguments:
             },
         )
         with mock_openai(ROUTE_TO_TOOL, misnamed):
-            await consumer.handle_chat_request(request())
+            await consumer.handle_run_request(request())
 
         payload = events.last("tool_approval").payload
         assert payload.unknown_arguments == ["customer_email"]

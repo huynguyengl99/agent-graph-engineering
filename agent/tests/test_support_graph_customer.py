@@ -144,3 +144,12 @@ class TestWhatEachAudienceIsOffered:
         )
 
         assert graph.route_decision(state) == "tool"
+
+    def test_the_team_is_never_escalated_to_itself(self) -> None:
+        graph = SupportGraph()
+        state = SupportState(
+            context=Context(thread_id="c", audience=Audience.TEAM),
+            decision=Escalate(reason="Needs a person.", suggested_team="billing"),
+        )
+
+        assert graph.route_decision(state) == "respond"

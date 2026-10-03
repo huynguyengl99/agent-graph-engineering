@@ -87,10 +87,12 @@ class TicketTopic(Topic[TicketFeedEvent]):
         if await handling_of(ticket_id) != Handling.AGENT:
             return
 
-        from helpdesk.tickets.services.triage import start_triage
+        from helpdesk.tickets.services.support import start_run
 
-        await start_triage(
-            ticket_id, user.pk if user is not None and user.is_authenticated else None
+        await start_run(
+            ticket_id,
+            visibility=Visibility.PUBLIC,
+            user_id=user.pk if user is not None and user.is_authenticated else None,
         )
 
     @ws_handler(
@@ -99,7 +101,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
         output_type=NewEventMessage | AgentProgressMessage,
     )
     async def handle_approval_decision(self, message: ApprovalDecisionMessage) -> None:
-        from helpdesk.tickets.services.triage import start_approval
+        from helpdesk.tickets.services.support import start_approval
 
         user = self.scope.get("user")
         await start_approval(
@@ -115,8 +117,8 @@ class TicketTopic(Topic[TicketFeedEvent]):
         output_type=NewEventMessage | AgentProgressMessage,
     )
     async def handle_ask_agent(self, message: AskAgentMessage) -> None:
-        from helpdesk.tickets.services.consult import start_consult
-        from helpdesk.tickets.services.triage import start_triage
+
+        from helpdesk.tickets.services.support import start_run
 
         ticket_id = self.params["ticket_id"]
         user = self.scope.get("user")
@@ -135,15 +137,20 @@ class TicketTopic(Topic[TicketFeedEvent]):
                     payload=NewEventPayload(event=await self._serialize(event))
                 ),
             )
-            await start_consult(ticket_id, question, user_id)
+            await start_run(
+                ticket_id,
+                question=question,
+                visibility=Visibility.INTERNAL,
+                user_id=user_id,
+            )
             return
 
-        await start_triage(
+        await start_run(
             ticket_id,
-            user_id,
             visibility=(
                 Visibility.PUBLIC if message.payload.public else Visibility.INTERNAL
             ),
+            user_id=user_id,
         )
 
     @ws_handler(
@@ -195,7 +202,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
         output_type=NewEventMessage | AgentProgressMessage,
     )
     async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
-        from helpdesk.tickets.services.consult import start_tool_decision
+        from helpdesk.tickets.services.support import start_tool_decision
 
         await start_tool_decision(
             self.params["ticket_id"],

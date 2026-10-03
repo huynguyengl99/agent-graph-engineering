@@ -236,8 +236,11 @@ class SupportGraph(AnswerFeed, BaseGraph):
                 # customer's half of the ticket has nowhere to show it yet. The
                 # decider is told to escalate instead; this is the backstop.
                 return "escalate"
-            case Escalate():
+            case Escalate() if state.context.for_customer:
                 return "escalate"
+            case Escalate():
+                # The team is the human it would be escalating to.
+                return "respond"
             case _:
                 return "respond"
 

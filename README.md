@@ -192,6 +192,40 @@ Backend endpoints:
 - Swagger UI: http://localhost:8000/api/schema/swg/
 - AsyncAPI docs: http://localhost:8000/api/asyncapi/docs/
 
+### Driving it
+
+Two surfaces, two different relationships with the agent. The confusing part is
+that both are "chat", so it is worth being explicit about which is which.
+
+**The ticket thread is the customer conversation.** The agent drafts replies *to
+the customer*, and only the customer asking something starts a run - a staff note
+is addressed to colleagues, and a staff reply has already answered. Every draft
+stops at the approval gate before it is posted.
+
+**The Assistant is your own thread.** Internal, staff-only, never visible to a
+customer, so there is no gate on what it says. Opening it from a ticket with
+**Ask the assistant** carries that ticket as context and gives you **Send to
+ticket**, which hands the answer to the ticket's own gate. Opening one from the
+Assistant tab has no ticket attached - a scratchpad, with nowhere to send an
+answer.
+
+A walk through both, with the two accounts in two windows:
+
+1. As the customer, report a problem and add a message. The console shows the
+   classification and routing decision as they happen.
+2. As staff, watch it park at the gate. Edit the draft, then approve: your text
+   is what gets sent, not the model's. Reload while it is parked - the draft is
+   persisted, not held in the tab.
+3. As staff, add an **internal note**. Nothing runs: it was not addressed to the
+   agent. It is read the next time one does, and the answer prompt says to use
+   what it means without quoting it.
+4. In the Assistant, ask for something irreversible - *"refund the duplicate
+   29.00 charge for demo@example.com"*. It parks on a card whose form is
+   generated from the tool's schema. Correct the amount and approve: the
+   corrected value is what runs.
+5. Check the trace at `/admin/observability/trace/dashboard/`. One tree per run,
+   model calls nested under the node that made them, and what it cost.
+
 ### Regenerate clients after a contract change
 
 ```bash

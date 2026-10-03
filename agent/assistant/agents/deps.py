@@ -57,5 +57,12 @@ class ChatContext:
         if self.ticket is not None:
             parts.append("The agent is looking at this ticket:")
             parts.append(self.ticket.render())
+        else:
+            # Stated rather than left to inference: without it the model assumes
+            # a customer is waiting and answers as though one had written in.
+            parts.append(
+                "No ticket is attached. There is no customer in this "
+                "conversation; the support agent is asking you directly."
+            )
         parts.append(f"Their question: {question}")
         return "\n\n".join(parts)

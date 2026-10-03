@@ -81,11 +81,9 @@ export function ConversationPane({
           <h2 className="text-xl font-semibold">
             {conversation.title || 'Assistant'}
           </h2>
-          {ticketId && (
-            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs uppercase tracking-wide text-gray-600">
-              about a ticket
-            </span>
-          )}
+          <span className="rounded bg-gray-100 px-2 py-0.5 text-xs uppercase tracking-wide text-gray-600">
+            {ticketId ? 'about a ticket' : 'no ticket'}
+          </span>
           <span
             className={`ml-auto text-xs ${
               isReady ? 'text-green-600' : 'text-gray-400'
@@ -95,8 +93,9 @@ export function ConversationPane({
           </span>
         </div>
         <p className="mt-2 text-sm text-gray-600">
-          Internal. Nothing here reaches the customer until you send it to the
-          ticket, where it still needs approval.
+          {ticketId
+            ? 'Your own thread about this ticket. Nothing here reaches the customer until you send an answer to the ticket, where it still needs approval.'
+            : 'Your own thread. Not attached to a ticket, so there is nothing to send an answer to — open one from a ticket with “Ask the assistant” for that.'}
         </p>
       </header>
 

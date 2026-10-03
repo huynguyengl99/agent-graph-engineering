@@ -61,8 +61,13 @@ async def test_a_ticket_linked_conversation_sees_the_ticket() -> None:
 
 
 async def test_a_standalone_conversation_needs_no_ticket() -> None:
+    """Said rather than left out: with nothing about a ticket at all, the model
+    assumes a customer is waiting and answers as though one had written in."""
     context = ChatContext(conversation_id="c-3")
-    assert "ticket" not in context.render(QUESTION).lower()
+    prompt = context.render(QUESTION)
+
+    assert "BEGIN TICKET" not in prompt
+    assert "No ticket is attached" in prompt
 
     deltas, updates = await run(context)
     assert updates["answer"]["answer"]

@@ -11,7 +11,7 @@ just frontend          # :5173
 just e2e               # then this
 ```
 
-It needs a user to log in as. `just e2e-seed` creates one and a couple of
+It needs the two demo accounts. `just seed` creates them and a couple of
 tickets.
 
 Kept out of `just test` on purpose: it writes to the dev database and spends

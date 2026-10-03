@@ -123,13 +123,13 @@ evals *args:
 evals-compare before after:
     cd agent && uv run python -m evals.compare {{before}} {{after}}
 
-# Seed a user and a couple of tickets for the end-to-end smoke
-e2e-seed:
-    @echo "🌱 Seeding e2e fixtures..."
-    cd backend && uv run python manage.py seed_e2e
+# The two accounts the demo needs, and a couple of tickets
+seed:
+    @echo "🌱 Seeding the demo accounts..."
+    cd backend && uv run python manage.py seed_demo
 
 # End-to-end smoke: real services, real models, real browser (spends tokens)
-e2e: e2e-seed
+e2e: seed
     @echo "🌐 Running the end-to-end smoke..."
     @bash scripts/dev.sh up
     cd web/e2e && npm install --silent && node smoke.mjs
@@ -221,11 +221,16 @@ pre-commit:
     cd backend && uv run pre-commit run --all-files
 
 # Everything a fresh clone needs: env files, dependencies, infrastructure, schema, clients
-setup: env install infra-up migrate gen
+setup: env install infra-up migrate gen seed
     @echo ""
     @echo "✅ Setup complete. Next:"
-    @echo "     just createsuperuser   # someone to log in as"
     @echo "     just up                # all three services"
+    @echo ""
+    @echo "   Two accounts, both with password demo-pass-123:"
+    @echo "     demo@example.com       staff - the console: queue, notes, gates"
+    @echo "     customer@example.com   reports problems, sees only their own"
+    @echo "   Open one in a normal window and the other in a private one to"
+    @echo "   watch both sides of a run at once."
     @echo ""
     @echo "   The agent runs on a scripted model until OPENAI_API_KEY is set in agent/.env."
 

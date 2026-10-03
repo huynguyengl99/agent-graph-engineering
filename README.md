@@ -138,14 +138,23 @@ the same, only the reasoning is canned. Set a real key to get real answers.
 ### Setup
 
 ```bash
-just setup           # env files, deps, Docker, migrations, generated clients
-just createsuperuser
+just setup           # env files, deps, Docker, migrations, generated clients, accounts
 ```
 
 `just setup` gives each service the `.env` next to it, from its own
-`.env.example`, and waits for Postgres to accept connections before migrating.
-Each service reads only its own file, so nothing one of them sets can surprise
-another. Set `OPENAI_API_KEY` in `agent/.env` when you want real answers.
+`.env.example`, waits for Postgres to accept connections before migrating, and
+seeds two accounts - both with the password `demo-pass-123`:
+
+| | |
+| --- | --- |
+| `demo@example.com` | staff. The console: the queue, internal notes, both gates, the assistant, graphs, traces. |
+| `customer@example.com` | reports problems. The portal: their own tickets, and only the public half of each thread. |
+
+They are deliberately two people. Sign in as one in a normal window and the
+other in a private one, and you can watch a run from both sides at once: the
+customer asks, the agent drafts, the draft waits for staff, and the approved
+reply appears in the portal. Set `OPENAI_API_KEY` in `agent/.env` when you want
+real answers.
 
 ### Run
 
@@ -277,7 +286,7 @@ these at `/graphs`.
 ## End-to-end
 
 ```bash
-just e2e-seed   # a user and some tickets
+just seed       # the two accounts and some tickets
 just e2e        # with all three services running
 ```
 

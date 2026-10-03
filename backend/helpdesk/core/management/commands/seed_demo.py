@@ -1,4 +1,5 @@
-"""Fixtures for the end-to-end smoke, which needs something to log in as."""
+"""The two accounts the demo needs: someone who reports problems, and someone
+who answers them."""
 
 from typing import Any
 
@@ -21,7 +22,7 @@ TICKETS = [
 
 
 class Command(BaseCommand):
-    help = "Create the demo user and tickets the e2e smoke expects."
+    help = "Create the staff and customer accounts, and a couple of tickets."
 
     def handle(self, *args: Any, **options: Any) -> None:
         user_model = get_user_model()
@@ -50,6 +51,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"{'created' if created else 'updated'} {EMAIL} (staff) and "
-                f"{CUSTOMER_EMAIL}; {Ticket.objects.count()} tickets"
+                f"{CUSTOMER_EMAIL} (customer), password {PASSWORD}; "
+                f"{Ticket.objects.count()} tickets"
             )
         )

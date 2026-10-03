@@ -18,6 +18,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from assistant.agents.deps import Turn
+
 logger = structlog.get_logger(__name__)
 
 SCHEMA = """
@@ -39,15 +41,15 @@ def _load(raw: Any) -> list[ModelMessage]:
     return list(ModelMessagesTypeAdapter.validate_python(raw))
 
 
-def as_messages(turns: list[tuple[str, str]]) -> list[ModelMessage]:
-    """The backend's `(role, content)` rows as model messages. Lossy - a row
-    cannot say which tool was called - so it only ever seeds."""
+def as_messages(turns: list[Turn]) -> list[ModelMessage]:
+    """The thread as model messages. Lossy - a turn cannot say which tool was
+    called - so it only ever seeds."""
     messages: list[ModelMessage] = []
-    for role, content in turns:
-        if role == "assistant":
-            messages.append(ModelResponse(parts=[TextPart(content=content)]))
+    for turn in turns:
+        if turn.role == "assistant":
+            messages.append(ModelResponse(parts=[TextPart(content=turn.content)]))
         else:
-            messages.append(ModelRequest(parts=[UserPromptPart(content=content)]))
+            messages.append(ModelRequest(parts=[UserPromptPart(content=turn.content)]))
     return messages
 
 
@@ -81,7 +83,7 @@ class HistoryStore:
                 (conversation_id, _dump(messages)),
             )
 
-    async def seed(self, conversation_id: str, turns: list[tuple[str, str]]) -> None:
+    async def seed(self, conversation_id: str, turns: list[Turn]) -> None:
         """Start from the backend's record, but only if there is nothing better."""
         if not turns or await self.load(conversation_id):
             return

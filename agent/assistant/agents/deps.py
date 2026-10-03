@@ -1,71 +1,112 @@
 from dataclasses import dataclass, field
+from enum import StrEnum
 from uuid import uuid4
 
 from assistant.guardrails import fence
 
 
+class Audience(StrEnum):
+    """Who the answer is for.
+
+    The one field that decides whether a reply is screened, gated behind a
+    person, and published - so it is stated rather than inferred from which
+    graph happens to be running.
+    """
+
+    CUSTOMER = "customer"
+    TEAM = "team"
+
+
 @dataclass
-class TicketContext:
-    """Everything an agent may read about the ticket it is working on."""
+class Ticket:
+    """The ticket's own facts. Every field was typed by a customer."""
 
     ticket_id: str
     title: str
     description: str
-    history: list[str] = field(default_factory=list)
 
-    @property
-    def trace_key(self) -> str:
-        return self.ticket_id
-
-    def render(self) -> str:
-        # Every field here was typed by a customer, so all of it is fenced.
+    def render(self, history: list["Turn"] | None = None) -> str:
         body = [f"Title: {self.title}", f"Description: {self.description}"]
-        if self.history:
+        if history:
             body.append("Conversation so far:")
-            body.extend(f"- {line}" for line in self.history)
+            body.extend(f"- {turn.content}" for turn in history)
         return fence("TICKET", "\n".join(body))
-
-    def untrusted_text(self) -> str:
-        """Just the customer-written parts, for screening."""
-        return "\n".join([self.title, self.description, *self.history])
 
 
 @dataclass
-class ChatContext:
-    """What the assistant knows about the rep's conversation.
+class Turn:
+    """One thing someone said, in the order it was said."""
 
-    The ticket is optional: a conversation may be opened about one, or be a
-    general question with no ticket at all.
+    role: str
+    content: str
+
+
+@dataclass
+class Context:
+    """What a run is about, and who its answer is for.
+
+    One shape for every graph: a ticket being worked, a question from the team,
+    or both. A subgraph can then be composed by any parent, because the key they
+    share has one type.
     """
 
-    conversation_id: str
-    history: list[tuple[str, str]] = field(default_factory=list)
-    ticket: TicketContext | None = None
-    # One question answered is one run; the conversation is only where it sits.
+    thread_id: str = ""
+    audience: Audience = Audience.TEAM
+    ticket: Ticket | None = None
+    history: list[Turn] = field(default_factory=list)
     run_id: str = field(default_factory=lambda: uuid4().hex)
+
+    def __post_init__(self) -> None:
+        # A checkpoint round trip hands back the plain string it stored, and an
+        # audience that is not the enum answers no to every question about it.
+        self.audience = Audience(self.audience)
 
     @property
     def trace_key(self) -> str:
+        """One question answered is one run; the thread is only where it sits."""
         return self.run_id
 
-    def render(self, question: str) -> str:
-        """The ticket and the question, and deliberately not the history.
+    @property
+    def ticket_id(self) -> str:
+        return self.ticket.ticket_id if self.ticket else ""
 
-        Earlier turns reach the model as its own message history, so repeating
-        them here as "user: ... assistant: ..." would send each one twice and
-        flatten a tool call into a line of prose. `history` survives to seed that
-        store for a conversation the agent has not answered before.
+    @property
+    def for_customer(self) -> bool:
+        return self.audience == Audience.CUSTOMER
+
+    def render(self, question: str = "", *, with_history: bool = False) -> str:
+        """The ticket, and what is being asked of the model.
+
+        `with_history` because a single-pass run has no message history of its
+        own, so the thread has to be in the prompt; a conversation already sends
+        it as messages, and repeating it there would send each turn twice.
         """
         parts: list[str] = []
+
         if self.ticket is not None:
-            parts.append("The agent is looking at this ticket:")
-            parts.append(self.ticket.render())
-        else:
+            if question:
+                parts.append("The agent is looking at this ticket:")
+            parts.append(self.ticket.render(self.history if with_history else None))
+        elif not self.for_customer:
             # Stated rather than left to inference: without it the model assumes
             # a customer is waiting and answers as though one had written in.
             parts.append(
                 "No ticket is attached. There is no customer in this "
                 "conversation; the support agent is asking you directly."
             )
-        parts.append(f"Their question: {question}")
+
+        if question:
+            parts.append(f"Their question: {question}")
         return "\n\n".join(parts)
+
+    def untrusted_text(self) -> str:
+        """Just the customer-written parts, for screening."""
+        if self.ticket is None:
+            return ""
+        return "\n".join(
+            [
+                self.ticket.title,
+                self.ticket.description,
+                *(t.content for t in self.history),
+            ]
+        )

@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel
 
-from assistant.agents.deps import ChatContext
+from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
 from assistant.outputs.chat import ChatRoute
 
@@ -14,7 +14,7 @@ class ChatState(BaseModel):
     instance is what clears the last turn's tool result.
     """
 
-    context: ChatContext
+    context: Context
     question: str = ""
     route: ChatRoute | None = None
     answer: str = ""

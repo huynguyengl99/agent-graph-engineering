@@ -1,8 +1,9 @@
 """Guards around untrusted customer text and customer-facing output."""
 
-from assistant.agents.deps import TicketContext
 from assistant.guardrails import fence, screen_input, screen_reply
 from assistant.guardrails.input import FENCE
+
+from tests.helpers.contexts import ticket_context
 
 TICKET = "aaaaaaaa-1111-2222-3333-444444444444"
 OTHER = "bbbbbbbb-5555-6666-7777-888888888888"
@@ -10,7 +11,7 @@ OTHER = "bbbbbbbb-5555-6666-7777-888888888888"
 
 class TestInputFencing:
     def test_customer_text_is_labelled_as_data(self) -> None:
-        rendered = TicketContext(
+        rendered = ticket_context(
             ticket_id="t-1", title="Help", description="It broke"
         ).render()
 

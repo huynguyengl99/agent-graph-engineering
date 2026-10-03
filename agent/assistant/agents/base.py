@@ -4,7 +4,7 @@ from typing import Any, ClassVar
 from pydantic_ai.messages import ModelMessage
 
 from assistant.agents.config import AgentConfig, ModelPurpose
-from assistant.agents.deps import TicketContext
+from assistant.agents.deps import Context
 from assistant.agents.factory import AgentFactory
 
 
@@ -18,7 +18,7 @@ class BaseAgent[OutputT]:
     purpose: ClassVar[ModelPurpose]
     instructions: ClassVar[str]
     output_type: ClassVar[Any]
-    deps_type: ClassVar[Any] = TicketContext
+    deps_type: ClassVar[Any] = Context
 
     def __init__(self, config: AgentConfig) -> None:
         self.config = config

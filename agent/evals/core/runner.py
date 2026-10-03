@@ -4,8 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from assistant.agents import AgentConfig, TicketContext
-from assistant.agents.deps import ChatContext
+from assistant.agents import AgentConfig, Audience, Context, Ticket, Turn
 from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.states import ChatState, TriageState
@@ -49,11 +48,11 @@ async def run_trial(scenario: Scenario, config: AgentConfig) -> Observation:
 async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
     """The rep-facing graph, driven to the tool gate or to an answer."""
     conversation_id = str(uuid.uuid4())
-    context = ChatContext(
-        conversation_id=conversation_id,
-        history=[("user", turn) for turn in scenario.history],
+    context = Context(
+        thread_id=conversation_id,
+        history=[Turn("user", turn) for turn in scenario.history],
         ticket=(
-            TicketContext(
+            Ticket(
                 ticket_id=conversation_id,
                 title=scenario.ticket,
                 description=scenario.ticket,
@@ -94,11 +93,15 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
 
 async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
     ticket_id = str(uuid.uuid4())
-    context = TicketContext(
-        ticket_id=ticket_id,
-        title=scenario.title,
-        description=scenario.description,
-        history=list(scenario.history),
+    context = Context(
+        thread_id=ticket_id,
+        audience=Audience.CUSTOMER,
+        ticket=Ticket(
+            ticket_id=ticket_id,
+            title=scenario.title,
+            description=scenario.description,
+        ),
+        history=[Turn(role="thread", content=line) for line in scenario.history],
     )
     runnable: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 

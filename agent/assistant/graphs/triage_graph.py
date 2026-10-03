@@ -56,7 +56,9 @@ class TriageGraph(AnswerFeed, BaseGraph):
         context = state.context
         # Recorded, not refused: see assistant/guardrails/input.py.
         attempts = screen_input(context.untrusted_text())
-        classification = await self.classifier.run(context.render(), context)
+        classification = await self.classifier.run(
+            context.render(with_history=True), context
+        )
         await self.emit(
             ClassifiedMessage(
                 payload=ClassifiedPayload(
@@ -74,7 +76,7 @@ class TriageGraph(AnswerFeed, BaseGraph):
 
     async def decide(self, state: TriageState) -> Update:
         context = state.context
-        decision = await self.decider.run(context.render(), context)
+        decision = await self.decider.run(context.render(with_history=True), context)
         await self.emit(
             DecidedMessage(
                 payload=DecidedPayload(
@@ -107,7 +109,7 @@ class TriageGraph(AnswerFeed, BaseGraph):
 
     async def respond(self, state: TriageState) -> Update:
         context = state.context
-        prompt = context.render()
+        prompt = context.render(with_history=True)
 
         snippets = state.kb_snippets
         if snippets:

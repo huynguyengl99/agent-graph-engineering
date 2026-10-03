@@ -3,7 +3,7 @@
 A second turn is answered by a model that was there for the first.
 """
 
-from assistant.agents.deps import ChatContext
+from assistant.agents import Context, Turn
 from assistant.conversations import MemoryHistoryStore, as_messages, history
 from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.states import ChatState
@@ -18,8 +18,8 @@ ANSWER_DIRECTLY = tool_call(
 )
 
 
-def context() -> ChatContext:
-    return ChatContext(conversation_id=CONVERSATION)
+def context() -> Context:
+    return Context(thread_id=CONVERSATION)
 
 
 async def ask(question: str) -> None:
@@ -70,7 +70,8 @@ class TestSeeding:
         somewhere, and the backend's rows are the only record of it."""
         store = MemoryHistoryStore()
         await store.seed(
-            CONVERSATION, [("user", "Is this refundable?"), ("assistant", "14 days.")]
+            CONVERSATION,
+            [Turn("user", "Is this refundable?"), Turn("assistant", "14 days.")],
         )
 
         stored = await store.load(CONVERSATION)
@@ -78,8 +79,10 @@ class TestSeeding:
 
     async def test_seeding_never_overwrites_what_the_model_said(self) -> None:
         store = MemoryHistoryStore()
-        await store.replace(CONVERSATION, as_messages([("user", "The real one.")]))
-        await store.seed(CONVERSATION, [("user", "Stale."), ("assistant", "Stale.")])
+        await store.replace(CONVERSATION, as_messages([Turn("user", "The real one.")]))
+        await store.seed(
+            CONVERSATION, [Turn("user", "Stale."), Turn("assistant", "Stale.")]
+        )
 
         stored = await store.load(CONVERSATION)
         assert len(stored) == 1
@@ -87,7 +90,9 @@ class TestSeeding:
 
 class TestConversion:
     def test_roles_map_to_requests_and_responses(self) -> None:
-        messages = as_messages([("user", "a"), ("assistant", "b"), ("user", "c")])
+        messages = as_messages(
+            [Turn("user", "a"), Turn("assistant", "b"), Turn("user", "c")]
+        )
         assert [type(m).__name__ for m in messages] == [
             "ModelRequest",
             "ModelResponse",

@@ -2,7 +2,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from assistant.agents import AgentConfig
-from assistant.agents.deps import ChatContext, TicketContext
+from assistant.agents.deps import Context
 from assistant.agents.refiner import RefinerAgent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import KnowledgeState, Update
@@ -15,23 +15,15 @@ from assistant.tracing.nodes import Node
 MAX_ATTEMPTS = 2
 
 
-def _searchable(context: TicketContext | ChatContext) -> str:
+def _searchable(context: Context) -> str:
     """Raw text to search when no query was asked for. Unfenced on purpose: the
     fence boilerplate matches articles."""
-    match context:
-        case TicketContext():
-            return context.untrusted_text()
-        case ChatContext():
-            return context.ticket.untrusted_text() if context.ticket else ""
+    return context.untrusted_text()
 
 
-def _described(context: TicketContext | ChatContext) -> str:
+def _described(context: Context) -> str:
     """Fenced context for the refiner, which reads it as data."""
-    match context:
-        case TicketContext():
-            return context.render()
-        case ChatContext():
-            return context.ticket.render() if context.ticket else ""
+    return context.ticket.render() if context.ticket else ""
 
 
 class KnowledgeGraph(BaseGraph):

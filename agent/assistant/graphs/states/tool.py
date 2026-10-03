@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel
 
-from assistant.agents.deps import ChatContext
+from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
 from assistant.outputs.tools import ToolDecision
 
@@ -10,7 +10,7 @@ from assistant.outputs.tools import ToolDecision
 class ToolState(BaseModel):
     """Choosing a tool, clearing it with a human, and running it."""
 
-    context: ChatContext
+    context: Context
     request: str = ""
 
     decision: ToolDecision | None = None

@@ -7,8 +7,7 @@ seen the tool and the arguments, and what they saw is what runs.
 from typing import Any
 
 import pytest
-from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
-from assistant.agents.deps import ChatContext
+from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.states import ToolState
 from assistant.graphs.tool_graph import ToolGraph
@@ -71,7 +70,7 @@ async def propose(
         )
         state = await compiled.ainvoke(
             {
-                "context": ChatContext(conversation_id=thread),
+                "context": Context(thread_id=thread),
                 "request": "Refund the duplicate charge for demo@example.com.",
             },
             config=config,
@@ -240,7 +239,7 @@ class TestMisnamedArguments:
         graph = ToolGraph(openai_config())
         done = await graph.execute(
             ToolState(
-                context=ChatContext(conversation_id="c-signature"),
+                context=Context(thread_id="c-signature"),
                 tool="issue_refund",
                 arguments={
                     "email": "demo@example.com",

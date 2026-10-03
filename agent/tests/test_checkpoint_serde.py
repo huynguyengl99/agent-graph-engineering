@@ -6,12 +6,15 @@ key, so a router reads no route and takes its fallback branch.
 
 from typing import Any, get_args
 
+from assistant.agents import Audience, Context
 from assistant.graphs.checkpointer import CHECKPOINTED, serde
 from assistant.graphs.states import ChatState, DeliveryState, ToolState, TriageState
 from assistant.outputs.chat import AnswerFromContext, ConsultKnowledgeBase, RunTool
 from assistant.outputs.tools import NoToolNeeded, ToolProposal
 from assistant.outputs.triage import Classification, TicketAnswer
 from pydantic import BaseModel
+
+from tests.helpers.contexts import ticket_context
 
 SAMPLES: list[BaseModel] = [
     Classification(category="billing", priority="low", reasoning="Invoice."),
@@ -75,7 +78,7 @@ class TestAGraphGetsItsModelsBack:
     async def test_a_resumed_run_holds_models_not_dicts(self) -> None:
         import uuid
 
-        from assistant.agents import AgentConfig, TicketContext
+        from assistant.agents import AgentConfig
         from assistant.graphs.triage_graph import build_triage_graph
         from assistant.outputs.triage import AnswerDirectly
 
@@ -96,7 +99,7 @@ class TestAGraphGetsItsModelsBack:
             graph = build_triage_graph(AgentConfig.resolve())
             await graph.ainvoke(
                 {
-                    "context": TicketContext(
+                    "context": ticket_context(
                         ticket_id=thread, title="Charged twice", description="Two."
                     )
                 },
@@ -104,7 +107,7 @@ class TestAGraphGetsItsModelsBack:
             )
             values = (await graph.aget_state(config)).values  # type: ignore[arg-type]
 
-        assert isinstance(values["context"], TicketContext)
+        assert isinstance(values["context"], Context)
         assert isinstance(values["answer"], TicketAnswer)
         assert isinstance(values["classification"], Classification)
         assert isinstance(values["decision"], AnswerDirectly)
@@ -114,3 +117,14 @@ def _models_in(annotation: Any) -> list[type[BaseModel]]:
     """The pydantic models an annotation can hold, unions included."""
     candidates = get_args(annotation) or (annotation,)
     return [c for c in candidates if isinstance(c, type) and issubclass(c, BaseModel)]
+
+
+def test_an_audience_survives_the_round_trip() -> None:
+    """It comes back as the plain string it was stored as, and a run that cannot
+    tell it is customer-facing skips the screen and the gate."""
+    restored = serde.loads_typed(
+        serde.dumps_typed(ticket_context(ticket_id="t-1", title="x", description="y"))
+    )
+
+    assert restored.audience is Audience.CUSTOMER
+    assert restored.for_customer

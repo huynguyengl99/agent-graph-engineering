@@ -9,10 +9,10 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from assistant.agents import TicketContext
 from assistant.messages.triage import TriageRequestMessage, TriageRequestPayload
 from assistant.ws.topics import TriageTopic
 
+from tests.helpers.contexts import ticket_context
 from tests.helpers.events import Recorded, recording
 from tests.helpers.openai_mock import mock_openai, tool_call
 
@@ -56,7 +56,7 @@ async def test_every_graph_step_is_emitted_in_order(
         ),
     ):
         await consumer._run_graph(
-            TicketContext(
+            ticket_context(
                 ticket_id="t-1",
                 title="Charged twice this month",
                 description="My card shows two charges.",

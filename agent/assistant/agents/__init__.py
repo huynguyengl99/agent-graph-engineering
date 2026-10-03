@@ -3,7 +3,7 @@ from assistant.agents.base import BaseAgent
 from assistant.agents.classifier import ClassifierAgent
 from assistant.agents.config import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.decider import DecisionAgent
-from assistant.agents.deps import TicketContext
+from assistant.agents.deps import Audience, Context, Ticket, Turn
 
 __all__ = [
     "AgentConfig",
@@ -13,5 +13,8 @@ __all__ = [
     "DecisionAgent",
     "ModelConfig",
     "ModelPurpose",
-    "TicketContext",
+    "Audience",
+    "Context",
+    "Ticket",
+    "Turn",
 ]

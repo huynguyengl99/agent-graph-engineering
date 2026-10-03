@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import BaseModel
 
-from assistant.agents.deps import ChatContext, TicketContext
+from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
 
 
@@ -14,7 +14,7 @@ class KnowledgeState(BaseModel):
     which is why `knowledge_graph` reads it through helpers that match on type.
     """
 
-    context: TicketContext | ChatContext
+    context: Context
     kb_snippets: Annotated[list[str], last_wins] = []
 
     kb_query: str = ""

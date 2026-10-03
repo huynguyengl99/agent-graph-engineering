@@ -5,8 +5,7 @@ not reasoned about."""
 from typing import Any
 
 import pytest
-from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
-from assistant.agents.deps import ChatContext
+from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.tools.core import get_tool
@@ -63,7 +62,7 @@ async def park(thread: str) -> tuple[Any, dict[str, Any]]:
         )
         await compiled.ainvoke(
             {
-                "context": ChatContext(conversation_id=thread),
+                "context": Context(thread_id=thread),
                 "request": "Refund the duplicate charge.",
             },
             config=config,
@@ -164,7 +163,7 @@ class TestNormalRuns:
             )
             done = await compiled.ainvoke(
                 {
-                    "context": ChatContext(conversation_id="t-readonly"),
+                    "context": Context(thread_id="t-readonly"),
                     "request": "What plan are they on?",
                 },
                 config=config,

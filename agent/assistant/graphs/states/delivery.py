@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import BaseModel
 
-from assistant.agents.deps import TicketContext
+from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
 from assistant.outputs.triage import TicketAnswer
 
@@ -15,7 +15,7 @@ class DeliveryState(BaseModel):
     reaches here without one is miswired.
     """
 
-    context: TicketContext
+    context: Context
     answer: TicketAnswer
 
     guardrail_findings: Annotated[list[str], last_wins] = []

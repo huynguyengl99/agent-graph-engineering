@@ -7,11 +7,13 @@ fresh thread id and never sees it.
 
 from typing import Any
 
-from assistant.agents import AgentConfig, ModelConfig, ModelPurpose, TicketContext
+from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import build_triage_graph
 from langgraph.types import Command
+
+from tests.helpers.contexts import ticket_context
 
 TICKET = "aaaaaaaa-1111-2222-3333-444444444444"
 
@@ -21,8 +23,8 @@ def scripted() -> AgentConfig:
     return AgentConfig(models=dict.fromkeys(ModelPurpose, model))
 
 
-def context() -> TicketContext:
-    return TicketContext(
+def context() -> Context:
+    return ticket_context(
         ticket_id=TICKET, title="Charged twice", description="Two charges."
     )
 

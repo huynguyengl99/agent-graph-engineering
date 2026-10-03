@@ -1,7 +1,8 @@
-from assistant.agents import TicketContext
+from assistant.agents import Context
 from assistant.graphs.triage_graph import build_triage_graph
 from assistant.outputs.triage import Escalate, SearchKnowledgeBase
 
+from tests.helpers.contexts import ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 CLASSIFY = tool_call(
@@ -19,13 +20,13 @@ def config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
 
 
-def ticket(**overrides: str) -> TicketContext:
+def ticket(**overrides: str) -> Context:
     defaults = {
         "ticket_id": "t-1",
         "title": "Why was I charged twice?",
         "description": "My card shows two charges this month.",
     }
-    return TicketContext(**{**defaults, **overrides})
+    return ticket_context(**{**defaults, **overrides})
 
 
 async def test_knowledge_base_branch_grounds_the_answer() -> None:
@@ -111,3 +112,11 @@ async def test_classification_is_typed_not_parsed() -> None:
     classification = state["classification"]
     assert classification.category == "billing"
     assert classification.priority == "medium"
+
+
+async def test_the_thread_reaches_the_prompt() -> None:
+    """A triage run is one pass with no message history, so what was already
+    said has to be in the prompt or the agent answers the ticket twice."""
+    context = ticket_context(history=["I was charged twice.", "Any update?"])
+
+    assert "Any update?" in context.render(with_history=True)

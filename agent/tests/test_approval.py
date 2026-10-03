@@ -1,9 +1,10 @@
 """The human-in-the-loop gate: pause, then approve, reject, or edit."""
 
-from assistant.agents import TicketContext
+from assistant.agents import Context
 from assistant.graphs.triage_graph import build_triage_graph
 from langgraph.types import Command
 
+from tests.helpers.contexts import ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 DRAFT = "You were charged twice because of proration."
@@ -13,8 +14,8 @@ def config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
 
 
-def ticket() -> TicketContext:
-    return TicketContext(
+def ticket() -> Context:
+    return ticket_context(
         ticket_id="t-1",
         title="Why was I charged twice?",
         description="My card shows two charges.",

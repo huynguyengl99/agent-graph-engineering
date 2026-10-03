@@ -8,7 +8,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from assistant.agents.config import AgentConfig
-from assistant.agents.deps import ChatContext, TicketContext
+from assistant.agents.deps import Audience, Context, Ticket, Turn
 from assistant.conversations import history
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
@@ -87,11 +87,12 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
             await self._fail(self.params["conversation_id"])
 
     async def _answer(self, payload: ChatRequestPayload) -> None:
-        context = ChatContext(
-            conversation_id=self.params["conversation_id"],
-            history=[(turn.role, turn.content) for turn in payload.history],
+        context = Context(
+            thread_id=self.params["conversation_id"],
+            audience=Audience.TEAM,
+            history=[Turn(turn.role, turn.content) for turn in payload.history],
             ticket=(
-                TicketContext(
+                Ticket(
                     ticket_id=payload.ticket.ticket_id,
                     title=payload.ticket.title,
                     description=payload.ticket.description,

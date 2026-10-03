@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import BaseModel
 
-from assistant.agents import TicketContext
+from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
 from assistant.outputs.triage import Classification, TicketAnswer, TriageDecision
 
@@ -14,7 +14,7 @@ class TriageState(BaseModel):
     handed its own types. Everything but the ticket defaults.
     """
 
-    context: TicketContext
+    context: Context
     classification: Classification | None = None
     decision: TriageDecision | None = None
     # Seeded here and read by the knowledge subgraph. Its own bookkeeping

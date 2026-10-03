@@ -1,10 +1,12 @@
 """The no-key path is how most people will first run this repo."""
 
 import pytest
-from assistant.agents import AgentConfig, ModelConfig, ModelPurpose, TicketContext
+from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
 from assistant.graphs.states import TriageState
 from assistant.graphs.triage_graph import TriageGraph
 from assistant.outputs.triage import SearchKnowledgeBase
+
+from tests.helpers.contexts import ticket_context
 
 
 @pytest.fixture
@@ -16,7 +18,7 @@ def scripted_config() -> AgentConfig:
 
 
 async def run(config: AgentConfig, title: str, description: str) -> TriageState:
-    context = TicketContext(ticket_id="t-1", title=title, description=description)
+    context = ticket_context(ticket_id="t-1", title=title, description=description)
     graph = TriageGraph(config).build().compile()
     return await graph.ainvoke({"context": context})
 

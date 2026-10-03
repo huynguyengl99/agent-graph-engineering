@@ -6,13 +6,15 @@ has to reach an interrupt inside a subgraph and the run has to finish there.
 
 from typing import Any
 
-from assistant.agents import AgentConfig, ModelConfig, ModelPurpose, TicketContext
+from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import MAX_ATTEMPTS, KnowledgeGraph
 from assistant.graphs.triage_graph import TriageGraph, build_triage_graph
 from langgraph.types import Command
+
+from tests.helpers.contexts import ticket_context
 
 TICKET = "aaaaaaaa-1111-2222-3333-444444444444"
 
@@ -22,8 +24,8 @@ def scripted() -> AgentConfig:
     return AgentConfig(models=dict.fromkeys(ModelPurpose, model))
 
 
-def ticket(title: str, description: str) -> TicketContext:
-    return TicketContext(ticket_id=TICKET, title=title, description=description)
+def ticket(title: str, description: str) -> Context:
+    return ticket_context(ticket_id=TICKET, title=title, description=description)
 
 
 class TestKnowledgeSubgraph:

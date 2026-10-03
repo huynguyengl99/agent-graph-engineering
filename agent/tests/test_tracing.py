@@ -1,11 +1,11 @@
 """Tracing has to answer 'what happened to this one ticket', not 'list calls'."""
 
 import pytest
-from assistant.agents import TicketContext
 from assistant.graphs.triage_graph import build_triage_graph
 from assistant.tracing import setup_tracing, trace_store
 from langgraph.types import Command
 
+from tests.helpers.contexts import ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 
@@ -47,7 +47,9 @@ def names(nodes: list[dict]) -> list[str]:
     return flat
 
 
-async def run(ticket_id: str) -> None:
+async def run(ticket_id: str) -> str:
+    """Returns the key the run was filed under: one run, one trace."""
+    context = ticket_context(ticket_id=ticket_id, title="t", description="d")
     with mock_openai(
         tool_call(
             "final_result",
@@ -62,15 +64,15 @@ async def run(ticket_id: str) -> None:
         ),
     ):
         await build_triage_graph().ainvoke(
-            {"context": TicketContext(ticket_id=ticket_id, title="t", description="d")},
-            config=config(ticket_id),
+            {"context": context}, config=config(ticket_id)
         )
+    return context.trace_key
 
 
 async def test_trace_records_the_route_that_was_taken() -> None:
-    await run("t-route")
+    run_key = await run("t-route")
 
-    flat = names(trace_store.tree("t-route"))
+    flat = names(trace_store.tree(run_key))
 
     assert "node.classify" in flat
     assert "node.decide" in flat
@@ -82,9 +84,9 @@ async def test_trace_records_the_route_that_was_taken() -> None:
 
 async def test_model_calls_nest_under_the_node_that_made_them() -> None:
     """A flat list of completions is what the series complains about."""
-    await run("t-nest")
+    run_key = await run("t-nest")
 
-    classify = find(trace_store.tree("t-nest"), "node.classify")
+    classify = find(trace_store.tree(run_key), "node.classify")
 
     assert classify["children"], "the model call should be a child of the node"
     assert any(AGENT_SPAN in child["name"] for child in classify["children"])
@@ -92,9 +94,9 @@ async def test_model_calls_nest_under_the_node_that_made_them() -> None:
 
 async def test_model_call_spans_carry_usage() -> None:
     """Pydantic AI's own attributes survive nesting under the node span."""
-    await run("t-attrs")
+    run_key = await run("t-attrs")
 
-    classify = find(trace_store.tree("t-attrs"), "node.classify")
+    classify = find(trace_store.tree(run_key), "node.classify")
     runs = [c for c in classify["children"] if AGENT_SPAN in c["name"]]
 
     assert runs, f"no {AGENT_SPAN!r} span under the node"
@@ -103,24 +105,25 @@ async def test_model_call_spans_carry_usage() -> None:
     assert "final_result" in attributes
 
 
-async def test_traces_are_isolated_per_ticket() -> None:
-    await run("t-one")
-    await run("t-two")
+async def test_traces_are_isolated_per_run() -> None:
+    one = await run("t-one")
+    two = await run("t-two")
 
-    assert trace_store.tree("t-one")
-    assert trace_store.tree("t-two")
+    assert one != two, "two runs on one ticket are two traces"
+    assert trace_store.tree(one)
+    assert trace_store.tree(two)
     assert trace_store.tree("t-unknown") == []
 
 
 async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
-    await run("t-resume")
-    before = len(names(trace_store.tree("t-resume")))
+    run_key = await run("t-resume")
+    before = len(names(trace_store.tree(run_key)))
 
     await build_triage_graph().ainvoke(
         Command(resume={"approved": True}), config=config("t-resume")
     )
 
-    flat = names(trace_store.tree("t-resume"))
+    flat = names(trace_store.tree(run_key))
     assert len(flat) > before
     # The irreversible step is visible in the same ticket's trace.
     assert "node.send_reply" in flat
@@ -129,9 +132,9 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
 async def test_a_run_is_one_trace_not_one_per_node() -> None:
     """Compiling a graph is what gives the run its root, so no caller can leave
     it out."""
-    await run("t-root")
+    run_key = await run("t-root")
 
-    tree = trace_store.tree("t-root")
+    tree = trace_store.tree(run_key)
 
     assert len(tree) == 1, "a run should have exactly one root"
     assert tree[0]["name"] == "triage run"
@@ -155,18 +158,15 @@ async def test_a_streamed_run_is_one_trace_too() -> None:
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),
     ):
+        context = ticket_context(ticket_id="t-stream", title="t", description="d")
         async for _ in build_triage_graph().astream(
-            {
-                "context": TicketContext(
-                    ticket_id="t-stream", title="t", description="d"
-                )
-            },
+            {"context": context},
             config=config("t-stream"),
             stream_mode="updates",
         ):
             pass
 
-    tree = trace_store.tree("t-stream")
+    tree = trace_store.tree(context.trace_key)
 
     assert [root["name"] for root in tree] == ["triage run"]
     assert "node.classify" in names(tree)

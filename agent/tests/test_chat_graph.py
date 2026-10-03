@@ -6,8 +6,14 @@ produced, not in one block when the node returns.
 
 from typing import Any
 
-from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
-from assistant.agents.deps import ChatContext, TicketContext
+from assistant.agents import (
+    AgentConfig,
+    Context,
+    ModelConfig,
+    ModelPurpose,
+    Ticket,
+    Turn,
+)
 from assistant.graphs.chat_graph import ChatGraph
 from assistant.outputs.chat import AnswerFromContext, ConsultKnowledgeBase
 
@@ -21,7 +27,7 @@ def scripted() -> AgentConfig:
     return AgentConfig(models=dict.fromkeys(ModelPurpose, model))
 
 
-async def run(context: ChatContext) -> tuple[list[str], dict[str, Any]]:
+async def run(context: Context) -> tuple[list[str], dict[str, Any]]:
     graph = ChatGraph(scripted()).build().compile()
     deltas: list[str] = []
     updates: dict[str, Any] = {}
@@ -37,7 +43,7 @@ async def run(context: ChatContext) -> tuple[list[str], dict[str, Any]]:
 
 
 async def test_the_answer_arrives_as_deltas_not_one_block() -> None:
-    deltas, updates = await run(ChatContext(conversation_id="c-1"))
+    deltas, updates = await run(Context(thread_id="c-1"))
 
     assert len(deltas) > 1, "a single delta means nothing is actually streaming"
     # What streamed and what was saved must be the same text.
@@ -45,9 +51,9 @@ async def test_the_answer_arrives_as_deltas_not_one_block() -> None:
 
 
 async def test_a_ticket_linked_conversation_sees_the_ticket() -> None:
-    context = ChatContext(
-        conversation_id="c-2",
-        ticket=TicketContext(
+    context = Context(
+        thread_id="c-2",
+        ticket=Ticket(
             ticket_id="t-9",
             title="Charged twice this month",
             description="Two charges on my card.",
@@ -63,7 +69,7 @@ async def test_a_ticket_linked_conversation_sees_the_ticket() -> None:
 async def test_a_standalone_conversation_needs_no_ticket() -> None:
     """Said rather than left out: with nothing about a ticket at all, the model
     assumes a customer is waiting and answers as though one had written in."""
-    context = ChatContext(conversation_id="c-3")
+    context = Context(thread_id="c-3")
     prompt = context.render(QUESTION)
 
     assert "BEGIN TICKET" not in prompt
@@ -79,9 +85,12 @@ async def test_history_is_not_flattened_into_the_prompt() -> None:
     Repeating it here would send every earlier turn twice, and would turn a tool
     call the model made into a line of prose about it.
     """
-    context = ChatContext(
-        conversation_id="c-4",
-        history=[("user", "Is this refundable?"), ("assistant", "Within 14 days.")],
+    context = Context(
+        thread_id="c-4",
+        history=[
+            Turn("user", "Is this refundable?"),
+            Turn("assistant", "Within 14 days."),
+        ],
     )
     prompt = context.render(QUESTION)
 
@@ -111,7 +120,7 @@ class TestRouting:
             return dict(
                 await graph.ainvoke(
                     {
-                        "context": ChatContext(conversation_id="c-route"),
+                        "context": Context(thread_id="c-route"),
                         "question": "What is our refund window on annual plans?",
                     }
                 )
@@ -179,7 +188,7 @@ async def test_the_answer_is_grounded_in_what_retrieval_found() -> None:
             .compile()
             .ainvoke(
                 {
-                    "context": ChatContext(conversation_id="c-ground"),
+                    "context": Context(thread_id="c-ground"),
                     "question": "What is our refund window?",
                 }
             )

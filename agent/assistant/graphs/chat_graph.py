@@ -46,7 +46,7 @@ class ChatGraph(BaseGraph):
         decision = await self.router.run(
             context.render(state.question),
             context,
-            await history().load(context.conversation_id),
+            await history().load(context.thread_id),
         )
 
         update: Update = {"route": decision}
@@ -67,7 +67,7 @@ class ChatGraph(BaseGraph):
         await self.emit(
             ToolRanMessage(
                 payload=ToolRanPayload(
-                    conversation_id=state.context.conversation_id,
+                    conversation_id=state.context.thread_id,
                     tool=state.tool or "",
                     arguments=state.arguments or {},
                     result=state.result or "",
@@ -107,7 +107,7 @@ class ChatGraph(BaseGraph):
 
         parts: list[str] = []
         async for delta in self.chat.stream(
-            prompt, context, await history().load(context.conversation_id)
+            prompt, context, await history().load(context.thread_id)
         ):
             parts.append(delta)
             writer({"delta": delta})
@@ -115,11 +115,11 @@ class ChatGraph(BaseGraph):
         answer = "".join(parts)
         # Everything this turn saw, the model's own reply included, so the next
         # turn reads its actions as the calls they were rather than as prose.
-        await history().replace(context.conversation_id, self.chat.messages)
+        await history().replace(context.thread_id, self.chat.messages)
         await self.emit(
             ChatCompleteMessage(
                 payload=ChatCompletePayload(
-                    conversation_id=context.conversation_id, content=answer
+                    conversation_id=context.thread_id, content=answer
                 )
             )
         )

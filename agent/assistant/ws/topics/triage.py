@@ -7,7 +7,7 @@ from chanx.messages.base import BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from assistant.agents import TicketContext
+from assistant.agents import Audience, Context, Ticket, Turn
 from assistant.agents.config import AgentConfig
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
@@ -88,11 +88,15 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
     )
     async def handle_triage_request(self, message: TriageRequestMessage) -> None:
         payload = message.payload
-        context = TicketContext(
-            ticket_id=self.params["ticket_id"],
-            title=payload.title,
-            description=payload.description,
-            history=payload.history,
+        context = Context(
+            thread_id=self.params["ticket_id"],
+            audience=Audience.CUSTOMER,
+            ticket=Ticket(
+                ticket_id=self.params["ticket_id"],
+                title=payload.title,
+                description=payload.description,
+            ),
+            history=[Turn(role="thread", content=line) for line in payload.history],
         )
 
         try:
@@ -139,7 +143,7 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
         )
 
     async def _run_graph(
-        self, context: TicketContext, agent_config: AgentConfig | None = None
+        self, context: Context, agent_config: AgentConfig | None = None
     ) -> None:
         # A whole state, not an update: the thread is the ticket, and every
         # field but it defaults, which is what clears the last run's receipt.

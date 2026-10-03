@@ -36,13 +36,13 @@ async def test_asyncapi_spec_lists_the_triage_channel(
     response = await client.get("/asyncapi.json")
     assert response.status_code == 200
     spec = response.json()
-    assert "triage" in json_dumps_lower(spec)
+    assert "support" in json_dumps_lower(spec)
 
 
 async def test_graph_diagram_is_generated_from_the_running_graph(
     client: httpx.AsyncClient,
 ) -> None:
-    response = await client.get("/graphs/triage.mermaid")
+    response = await client.get("/graphs/support.mermaid")
     assert response.status_code == 200
     diagram = response.text
     for node in ("classify", "decide", "knowledge", "escalate", "respond", "delivery"):
@@ -59,17 +59,17 @@ async def test_every_graph_is_listed_with_its_kind(client: httpx.AsyncClient) ->
     response = await client.get("/graphs")
     graphs = {g["name"]: g for g in response.json()["graphs"]}
 
-    assert {"triage", "chat", "knowledge", "delivery"} <= set(graphs)
+    assert {"support", "knowledge", "delivery", "tool"} <= set(graphs)
     # A caller starts these; the other two are composed into a parent.
-    assert graphs["triage"]["subgraph"] is False
+    assert graphs["support"]["subgraph"] is False
     assert graphs["delivery"]["subgraph"] is True
 
 
 async def test_xray_is_the_difference_between_a_box_and_the_flow(
     client: httpx.AsyncClient,
 ) -> None:
-    expanded = (await client.get("/graphs/triage.mermaid")).text
-    flat = (await client.get("/graphs/triage.mermaid?xray=false")).text
+    expanded = (await client.get("/graphs/support.mermaid")).text
+    flat = (await client.get("/graphs/support.mermaid?xray=false")).text
 
     assert "await_approval" in expanded, "xray should expand the subgraphs"
     assert "await_approval" not in flat
@@ -85,7 +85,7 @@ async def test_an_unknown_graph_is_a_404(client: httpx.AsyncClient) -> None:
 async def test_graph_introspection_needs_the_token(
     anonymous: httpx.AsyncClient,
 ) -> None:
-    assert (await anonymous.get("/graphs/triage.mermaid")).status_code == 401
+    assert (await anonymous.get("/graphs/support.mermaid")).status_code == 401
 
 
 async def test_health_and_the_contract_stay_open(

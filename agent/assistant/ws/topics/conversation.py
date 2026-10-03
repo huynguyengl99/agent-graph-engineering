@@ -12,8 +12,8 @@ from assistant.agents.deps import Audience, Context, Ticket, Turn
 from assistant.conversations import history
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
-from assistant.graphs.chat_graph import ChatGraph, build_chat_graph
-from assistant.graphs.states import ChatState
+from assistant.graphs.states import SupportState
+from assistant.graphs.support_graph import SupportGraph, build_support_graph
 from assistant.messages.chat import (
     ChatCompleteMessage,
     ChatErrorMessage,
@@ -102,7 +102,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
             ),
         )
 
-        graph = build_chat_graph(
+        graph = build_support_graph(
             AgentConfig.from_slugs(
                 payload.models.model_dump() if payload.models else None
             ),
@@ -116,7 +116,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
         # result, and a cancelled call must not report it as a success.
         await self._consume(
             graph,
-            ChatState(context=context, question=payload.question),
+            SupportState(context=context, question=payload.question),
             self.params["conversation_id"],
         )
 
@@ -130,7 +130,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
     )
     async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
         payload = message.payload
-        graph = build_chat_graph(AgentConfig.resolve(), emitter=emitter_for(self))
+        graph = build_support_graph(AgentConfig.resolve(), emitter=emitter_for(self))
         resume = {
             "decision": "approve" if payload.approved else "cancel",
             "arguments": payload.arguments,
@@ -158,7 +158,9 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
 
     async def _consume(self, graph: Any, start: Any, conversation_id: str) -> None:
         config: RunnableConfig = {
-            "configurable": {"thread_id": ChatGraph.thread(conversation_id)},
+            "configurable": {
+                "thread_id": SupportGraph.thread(f"team:{conversation_id}")
+            },
             "recursion_limit": settings.graph_recursion_limit,
         }
         stream: Any = graph.astream(

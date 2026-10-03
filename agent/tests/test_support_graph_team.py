@@ -14,8 +14,8 @@ from assistant.agents import (
     Ticket,
     Turn,
 )
-from assistant.graphs.chat_graph import ChatGraph
-from assistant.outputs.chat import AnswerFromContext, ConsultKnowledgeBase
+from assistant.graphs.support_graph import SupportGraph
+from assistant.outputs.support import Answer, SearchKnowledgeBase
 
 from tests.helpers.openai_mock import mock_openai, text_stream, tool_call
 
@@ -28,7 +28,7 @@ def scripted() -> AgentConfig:
 
 
 async def run(context: Context) -> tuple[list[str], dict[str, Any]]:
-    graph = ChatGraph(scripted()).build().compile()
+    graph = SupportGraph(scripted()).build().compile()
     deltas: list[str] = []
     updates: dict[str, Any] = {}
     async for mode, chunk in graph.astream(
@@ -47,7 +47,7 @@ async def test_the_answer_arrives_as_deltas_not_one_block() -> None:
 
     assert len(deltas) > 1, "a single delta means nothing is actually streaming"
     # What streamed and what was saved must be the same text.
-    assert "".join(deltas) == updates["answer"]["answer"]
+    assert "".join(deltas) == updates["respond"]["answer"].content
 
 
 async def test_a_ticket_linked_conversation_sees_the_ticket() -> None:
@@ -76,7 +76,7 @@ async def test_a_standalone_conversation_needs_no_ticket() -> None:
     assert "No ticket is attached" in prompt
 
     deltas, updates = await run(context)
-    assert updates["answer"]["answer"]
+    assert updates["respond"]["answer"].content
 
 
 async def test_history_is_not_flattened_into_the_prompt() -> None:
@@ -116,7 +116,7 @@ class TestRouting:
                     ModelPurpose, ModelConfig(provider="openai", name="gpt-4o")
                 )
             )
-            graph = ChatGraph(config).build().compile()
+            graph = SupportGraph(config).build().compile()
             return dict(
                 await graph.ainvoke(
                     {
@@ -129,50 +129,49 @@ class TestRouting:
     async def test_a_policy_question_goes_through_the_knowledge_base(self) -> None:
         state = await self.run_routed(
             tool_call(
-                "final_result_ConsultKnowledgeBase",
+                "final_result_SearchKnowledgeBase",
                 {"query": "refund policy annual", "reasoning": "Documented."},
             )
         )
 
-        assert isinstance(state["route"], ConsultKnowledgeBase)
+        assert isinstance(state["decision"], SearchKnowledgeBase)
         assert state["kb_snippets"], "the retrieval subgraph should have run"
         assert any("kb-003" in s for s in state["kb_snippets"])
 
     async def test_a_question_answerable_from_context_skips_retrieval(self) -> None:
         state = await self.run_routed(
             tool_call(
-                "final_result_AnswerFromContext",
+                "final_result_Answer",
                 {"reasoning": "Already in the thread."},
             )
         )
 
-        assert isinstance(state["route"], AnswerFromContext)
+        assert isinstance(state["decision"], Answer)
         assert not state.get("kb_snippets")
 
 
 def test_the_retrieval_subgraph_has_two_parents() -> None:
     """Which is what makes it a subgraph rather than a node."""
-    from assistant.graphs.triage_graph import TriageGraph
+    from assistant.graphs.support_graph import SupportGraph
 
-    chat_nodes = set(ChatGraph().build().compile().get_graph().nodes)
-    triage_nodes = set(TriageGraph().build().compile().get_graph().nodes)
+    nodes = set(SupportGraph().build().compile().get_graph().nodes)
 
-    assert "knowledge" in chat_nodes
-    assert "knowledge" in triage_nodes
+    assert "knowledge" in nodes
+    assert "tool" in nodes
 
 
 async def test_the_answer_is_grounded_in_what_retrieval_found() -> None:
     """Snippets have to reach the answering prompt, or the lookup was theatre."""
     seen: list[str] = []
 
-    class Capturing(ChatGraph):
-        async def answer(self, state: Any) -> Any:
+    class Capturing(SupportGraph):
+        async def respond(self, state: Any) -> Any:
             seen.append(str(state.kb_snippets))
-            return await super().answer(state)
+            return await super().respond(state)
 
     with mock_openai(
         tool_call(
-            "final_result_ConsultKnowledgeBase",
+            "final_result_SearchKnowledgeBase",
             {"query": "refund policy annual", "reasoning": "Documented."},
         ),
         text_stream("Per [kb-003]."),

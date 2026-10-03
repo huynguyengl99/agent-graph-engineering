@@ -5,17 +5,15 @@ A second turn is answered by a model that was there for the first.
 
 from assistant.agents import Context, Turn
 from assistant.conversations import MemoryHistoryStore, as_messages, history
-from assistant.graphs.chat_graph import ChatGraph
-from assistant.graphs.states import ChatState
+from assistant.graphs.states import SupportState
+from assistant.graphs.support_graph import SupportGraph
 from pydantic_ai.messages import ModelRequest, ModelResponse
 
 from tests.helpers.openai_mock import mock_openai, text_stream, tool_call
 
 CONVERSATION = "c-history"
 
-ANSWER_DIRECTLY = tool_call(
-    "final_result_AnswerFromContext", {"reasoning": "Already covered."}
-)
+ANSWER_DIRECTLY = tool_call("final_result_Answer", {"reasoning": "Already covered."})
 
 
 def context() -> Context:
@@ -24,13 +22,13 @@ def context() -> Context:
 
 async def ask(question: str) -> None:
     with mock_openai(ANSWER_DIRECTLY, text_stream("Because of proration.")):
-        graph = ChatGraph().compile(
+        graph = SupportGraph().compile(
             __import__(
                 "assistant.graphs.checkpointer", fromlist=["memory_checkpointer"]
             ).memory_checkpointer()
         )
         await graph.ainvoke(
-            ChatState(context=context(), question=question),
+            SupportState(context=context(), question=question),
             config={"configurable": {"thread_id": CONVERSATION}},
         )
 
@@ -48,13 +46,13 @@ class TestTurnsAccumulate:
         await ask("Why was I charged twice?")
 
         with mock_openai(ANSWER_DIRECTLY, text_stream("Within 14 days.")) as recorder:
-            graph = ChatGraph().compile(
+            graph = SupportGraph().compile(
                 __import__(
                     "assistant.graphs.checkpointer", fromlist=["memory_checkpointer"]
                 ).memory_checkpointer()
             )
             await graph.ainvoke(
-                ChatState(context=context(), question="Is it refundable?"),
+                SupportState(context=context(), question="Is it refundable?"),
                 config={"configurable": {"thread_id": CONVERSATION}},
             )
 

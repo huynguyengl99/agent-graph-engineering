@@ -6,10 +6,10 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
+from assistant.agents import AgentConfig, Audience, ModelConfig, ModelPurpose
 from assistant.agents.factory import model_settings
 from assistant.core.config import settings
-from assistant.graphs.chat_graph import ChatGraph
+from assistant.graphs.support_graph import SupportGraph
 from assistant.ws.topics import ConversationTopic
 
 
@@ -64,7 +64,9 @@ class TestRecursionLimit:
         asyncio.run(Consumer()._consume(Graph(), {}, "c-1"))
 
         assert captured["recursion_limit"] == settings.graph_recursion_limit
-        assert captured["configurable"] == {"thread_id": ChatGraph.thread("c-1")}
+        assert captured["configurable"] == {
+            "thread_id": SupportGraph.thread(f"{Audience.TEAM}:c-1")
+        }
 
     def test_the_default_is_a_backstop_not_a_budget(self) -> None:
         assert settings.graph_recursion_limit >= 100

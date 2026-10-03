@@ -7,7 +7,7 @@ purpose and nothing else.
 
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
 from assistant.agents.factory import model_settings
-from assistant.graphs.triage_graph import TriageGraph
+from assistant.graphs.support_graph import SupportGraph
 
 
 def test_defaults_put_routing_on_the_cheap_model() -> None:
@@ -33,7 +33,7 @@ def test_a_user_override_moves_only_its_own_purpose() -> None:
 
 
 def test_steps_are_bound_to_purposes_not_models() -> None:
-    graph = TriageGraph(
+    graph = SupportGraph(
         AgentConfig.resolve(
             {
                 ModelPurpose.DECISION: ModelConfig(
@@ -50,8 +50,8 @@ def test_steps_are_bound_to_purposes_not_models() -> None:
 
 
 def test_config_does_not_change_the_topology() -> None:
-    cheap = TriageGraph(AgentConfig.resolve())
-    swapped = TriageGraph(
+    cheap = SupportGraph(AgentConfig.resolve())
+    swapped = SupportGraph(
         AgentConfig.resolve(
             {
                 ModelPurpose.ANSWER: ModelConfig(

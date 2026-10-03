@@ -1,7 +1,7 @@
 """The human-in-the-loop gate: pause, then approve, reject, or edit."""
 
 from assistant.agents import Context
-from assistant.graphs.triage_graph import build_triage_graph
+from assistant.graphs.support_graph import build_support_graph
 from langgraph.types import Command
 
 from tests.helpers.contexts import ticket_context
@@ -29,10 +29,10 @@ async def start(thread: str) -> dict:
             "final_result",
             {"category": "billing", "priority": "medium", "reasoning": "Invoice."},
         ),
-        tool_call("final_result_AnswerDirectly", {"reasoning": "Known answer."}),
+        tool_call("final_result_Answer", {"reasoning": "Known answer."}),
         tool_call("final_result", {"content": DRAFT, "requires_approval": False}),
     ):
-        return await build_triage_graph().ainvoke(
+        return await build_support_graph().ainvoke(
             {"context": ticket()}, config=config(thread)
         )
 
@@ -52,7 +52,7 @@ async def test_approval_sends_the_reply() -> None:
     thread = "approve"
     await start(thread)
 
-    state = await build_triage_graph().ainvoke(
+    state = await build_support_graph().ainvoke(
         Command(resume={"approved": True}), config=config(thread)
     )
 
@@ -64,7 +64,7 @@ async def test_rejection_leaves_the_customer_untouched() -> None:
     thread = "reject"
     await start(thread)
 
-    state = await build_triage_graph().ainvoke(
+    state = await build_support_graph().ainvoke(
         Command(resume={"approved": False}), config=config(thread)
     )
 
@@ -78,7 +78,7 @@ async def test_reviewer_can_edit_before_sending() -> None:
     await start(thread)
     edited = "Rewritten by a human reviewer."
 
-    state = await build_triage_graph().ainvoke(
+    state = await build_support_graph().ainvoke(
         Command(resume={"approved": True, "content": edited}),
         config=config(thread),
     )
@@ -93,7 +93,7 @@ async def test_resume_finds_the_run_without_replaying_the_llm() -> None:
     await start(thread)
 
     # No mock installed: any provider call here would raise.
-    state = await build_triage_graph().ainvoke(
+    state = await build_support_graph().ainvoke(
         Command(resume={"approved": True}), config=config(thread)
     )
     assert state["delivery_receipt"] is not None

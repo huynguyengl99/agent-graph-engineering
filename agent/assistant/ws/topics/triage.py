@@ -11,8 +11,8 @@ from assistant.agents import Audience, Context, Ticket, Turn
 from assistant.agents.config import AgentConfig
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
-from assistant.graphs.states import TriageState
-from assistant.graphs.triage_graph import TriageGraph, build_triage_graph
+from assistant.graphs.states import SupportState
+from assistant.graphs.support_graph import SupportGraph, build_support_graph
 from assistant.messages.triage import (
     AnswerMessage,
     ApprovalDecisionMessage,
@@ -147,12 +147,14 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
     ) -> None:
         # A whole state, not an update: the thread is the ticket, and every
         # field but it defaults, which is what clears the last run's receipt.
-        await self._drive(context.ticket_id, TriageState(context=context), agent_config)
+        await self._drive(
+            context.ticket_id, SupportState(context=context), agent_config
+        )
 
     async def _drive(
         self,
         ticket_id: str,
-        payload: TriageState | Command[Any],
+        payload: SupportState | Command[Any],
         agent_config: AgentConfig | None = None,
     ) -> None:
         """Stream one graph run, whether it is a fresh start or a resume.
@@ -161,13 +163,15 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
         still finds the paused run.
         """
         config: RunnableConfig = {
-            "configurable": {"thread_id": TriageGraph.thread(ticket_id)},
+            "configurable": {
+                "thread_id": SupportGraph.thread(f"{Audience.CUSTOMER}:{ticket_id}")
+            },
             "recursion_limit": settings.graph_recursion_limit,
         }
 
         # Built per run: the topology is fixed, but which model fills each
         # purpose comes from the requesting user.
-        graph = build_triage_graph(
+        graph = build_support_graph(
             agent_config or AgentConfig.resolve(), emitter=emitter_for(self)
         )
 

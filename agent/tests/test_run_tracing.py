@@ -1,7 +1,7 @@
 """One question answered is one trace; the conversation is where it belongs."""
 
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
-from assistant.graphs.chat_graph import ChatGraph
+from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
 
 
@@ -11,7 +11,7 @@ def scripted() -> AgentConfig:
 
 
 async def ask(question: str, context: Context) -> str:
-    graph = ChatGraph(scripted()).compile()
+    graph = SupportGraph(scripted()).compile()
     await graph.ainvoke(
         {"context": context, "question": question},
         config={"configurable": {"thread_id": context.thread_id}},
@@ -28,7 +28,7 @@ async def test_each_turn_is_its_own_trace() -> None:
 
     assert first != second
     for run in (first, second):
-        assert [root["name"] for root in trace_store.tree(run)] == ["chat run"]
+        assert [root["name"] for root in trace_store.tree(run)] == ["support run"]
 
 
 async def test_a_turn_says_which_conversation_it_was() -> None:
@@ -38,6 +38,6 @@ async def test_a_turn_says_which_conversation_it_was() -> None:
     run = await ask("hello", Context(thread_id="conv-42"))
 
     assert trace_store.summary(run)["thread"] == "conv-42"
-    assert "node.answer" in [
+    assert "node.respond" in [
         child["name"] for child in trace_store.tree(run)[0]["children"]
     ]

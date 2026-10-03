@@ -1,11 +1,11 @@
 from assistant.events import Emitter
 from assistant.messages.triage import AnswerMessage, AnswerPayload
-from assistant.outputs.triage import TicketAnswer
+from assistant.outputs.support import TicketAnswer
 
 
 class AnswerFeed:
-    """Emitting the settled answer, shared because two graphs settle on one:
-    triage's `respond` and `escalate`, and delivery when a draft is rejected."""
+    """Emitting the settled answer, shared because three places settle on one:
+    `respond`, `escalate`, and delivery when a draft is rejected."""
 
     emit: Emitter
 

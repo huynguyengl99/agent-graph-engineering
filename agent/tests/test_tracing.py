@@ -1,7 +1,7 @@
 """Tracing has to answer 'what happened to this one ticket', not 'list calls'."""
 
 import pytest
-from assistant.graphs.triage_graph import build_triage_graph
+from assistant.graphs.support_graph import build_support_graph
 from assistant.tracing import setup_tracing, trace_store
 from langgraph.types import Command
 
@@ -63,7 +63,7 @@ async def run(ticket_id: str) -> str:
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),
     ):
-        await build_triage_graph().ainvoke(
+        await build_support_graph().ainvoke(
             {"context": context}, config=config(ticket_id)
         )
     return context.trace_key
@@ -119,7 +119,7 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
     run_key = await run("t-resume")
     before = len(names(trace_store.tree(run_key)))
 
-    await build_triage_graph().ainvoke(
+    await build_support_graph().ainvoke(
         Command(resume={"approved": True}), config=config("t-resume")
     )
 
@@ -137,7 +137,7 @@ async def test_a_run_is_one_trace_not_one_per_node() -> None:
     tree = trace_store.tree(run_key)
 
     assert len(tree) == 1, "a run should have exactly one root"
-    assert tree[0]["name"] == "triage run"
+    assert tree[0]["name"] == "support run"
     children = [child["name"] for child in tree[0]["children"]]
     assert "node.classify" in children
     assert "node.decide" in children
@@ -159,7 +159,7 @@ async def test_a_streamed_run_is_one_trace_too() -> None:
         ),
     ):
         context = ticket_context(ticket_id="t-stream", title="t", description="d")
-        async for _ in build_triage_graph().astream(
+        async for _ in build_support_graph().astream(
             {"context": context},
             config=config("t-stream"),
             stream_mode="updates",
@@ -168,5 +168,5 @@ async def test_a_streamed_run_is_one_trace_too() -> None:
 
     tree = trace_store.tree(context.trace_key)
 
-    assert [root["name"] for root in tree] == ["triage run"]
+    assert [root["name"] for root in tree] == ["support run"]
     assert "node.classify" in names(tree)

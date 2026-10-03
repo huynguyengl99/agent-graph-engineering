@@ -23,9 +23,8 @@ from psycopg_pool import AsyncConnectionPool
 
 from assistant.agents.deps import Context, Ticket, Turn
 from assistant.core.config import settings
-from assistant.outputs.chat import ChatRoute
+from assistant.outputs.support import Classification, Decision, TicketAnswer
 from assistant.outputs.tools import ToolDecision
-from assistant.outputs.triage import Classification, TicketAnswer, TriageDecision
 
 logger = structlog.get_logger(__name__)
 
@@ -38,8 +37,7 @@ CHECKPOINTED: tuple[Any, ...] = (
     Turn,
     Classification,
     TicketAnswer,
-    *get_args(TriageDecision),
-    *get_args(ChatRoute),
+    *get_args(Decision),
     *get_args(ToolDecision),
 )
 

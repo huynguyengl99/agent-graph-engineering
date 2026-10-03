@@ -3,7 +3,7 @@ from typing import Literal
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
 
-from assistant.outputs.triage import Category, Priority
+from assistant.outputs.support import Category, Priority
 
 
 class ModelOverrides(BaseModel):

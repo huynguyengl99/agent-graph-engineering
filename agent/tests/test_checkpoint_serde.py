@@ -8,10 +8,15 @@ from typing import Any, get_args
 
 from assistant.agents import Audience, Context
 from assistant.graphs.checkpointer import CHECKPOINTED, serde
-from assistant.graphs.states import ChatState, DeliveryState, ToolState, TriageState
-from assistant.outputs.chat import AnswerFromContext, ConsultKnowledgeBase, RunTool
+from assistant.graphs.states import DeliveryState, SupportState, ToolState
+from assistant.outputs.support import (
+    Answer,
+    Classification,
+    RunTool,
+    SearchKnowledgeBase,
+    TicketAnswer,
+)
 from assistant.outputs.tools import NoToolNeeded, ToolProposal
-from assistant.outputs.triage import Classification, TicketAnswer
 from pydantic import BaseModel
 
 from tests.helpers.contexts import ticket_context
@@ -19,8 +24,8 @@ from tests.helpers.contexts import ticket_context
 SAMPLES: list[BaseModel] = [
     Classification(category="billing", priority="low", reasoning="Invoice."),
     TicketAnswer(content="Settled.", requires_approval=True),
-    AnswerFromContext(reasoning="Already covered."),
-    ConsultKnowledgeBase(query="refund policy", reasoning="Documented."),
+    Answer(reasoning="Already covered."),
+    SearchKnowledgeBase(query="refund policy", reasoning="Documented."),
     RunTool(reasoning="They asked for a refund."),
     ToolProposal(
         tool="issue_refund", arguments={"amount": 29.0}, reasoning="Duplicate."
@@ -57,7 +62,7 @@ class TestTheAllowlistCoversTheStates:
 
     def test_every_union_member_is_allow_listed(self) -> None:
         listed = {(m.__module__, m.__name__) for m in CHECKPOINTED}
-        for state in (TriageState, ChatState, ToolState, DeliveryState):
+        for state in (SupportState, SupportState, ToolState, DeliveryState):
             for annotation in state.__annotations__.values():
                 for model in _models_in(annotation):
                     assert (model.__module__, model.__name__) in listed, (
@@ -79,8 +84,8 @@ class TestAGraphGetsItsModelsBack:
         import uuid
 
         from assistant.agents import AgentConfig
-        from assistant.graphs.triage_graph import build_triage_graph
-        from assistant.outputs.triage import AnswerDirectly
+        from assistant.graphs.support_graph import build_support_graph
+        from assistant.outputs.support import Answer
 
         from tests.helpers.openai_mock import mock_openai, tool_call
 
@@ -91,12 +96,12 @@ class TestAGraphGetsItsModelsBack:
                 "final_result",
                 {"category": "billing", "priority": "low", "reasoning": "Invoice."},
             ),
-            tool_call("final_result_AnswerDirectly", {"reasoning": "Known."}),
+            tool_call("final_result_Answer", {"reasoning": "Known."}),
             tool_call(
                 "final_result", {"content": "Proration.", "requires_approval": False}
             ),
         ):
-            graph = build_triage_graph(AgentConfig.resolve())
+            graph = build_support_graph(AgentConfig.resolve())
             await graph.ainvoke(
                 {
                     "context": ticket_context(
@@ -110,7 +115,7 @@ class TestAGraphGetsItsModelsBack:
         assert isinstance(values["context"], Context)
         assert isinstance(values["answer"], TicketAnswer)
         assert isinstance(values["classification"], Classification)
-        assert isinstance(values["decision"], AnswerDirectly)
+        assert isinstance(values["decision"], Answer)
 
 
 def _models_in(annotation: Any) -> list[type[BaseModel]]:

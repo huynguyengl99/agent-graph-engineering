@@ -49,7 +49,7 @@ async def test_every_graph_step_is_emitted_in_order(
                 "reasoning": "Invoice question.",
             },
         ),
-        tool_call("final_result_AnswerDirectly", {"reasoning": "Known answer."}),
+        tool_call("final_result_Answer", {"reasoning": "Known answer."}),
         tool_call(
             "final_result",
             {"content": "Two charges means proration.", "requires_approval": False},

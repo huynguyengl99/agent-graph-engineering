@@ -8,7 +8,7 @@ $0.00. This one goes through the HTTP layer, where the parsing actually happens.
 from assistant.agents import AgentConfig, ModelPurpose
 from assistant.agents.config import ModelConfig
 from assistant.graphs.checkpointer import memory_checkpointer
-from assistant.graphs.triage_graph import build_triage_graph
+from assistant.graphs.support_graph import build_support_graph
 from assistant.tracing import setup_tracing, trace_store
 
 from tests.helpers.contexts import ticket_context
@@ -31,7 +31,7 @@ async def test_token_counts_survive_the_provider_response() -> None:
     )
     with mock_openai(
         CLASSIFY,
-        tool_call("final_result_AnswerDirectly", {"reasoning": "Known."}),
+        tool_call("final_result_Answer", {"reasoning": "Known."}),
         tool_call(
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),
@@ -39,7 +39,7 @@ async def test_token_counts_survive_the_provider_response() -> None:
         context = ticket_context(
             ticket_id="usage-1", title="Charged twice", description="Two."
         )
-        graph = build_triage_graph(config, memory_checkpointer())
+        graph = build_support_graph(config, memory_checkpointer())
         await graph.ainvoke(
             {"context": context},
             config={"configurable": {"thread_id": "usage-1"}},

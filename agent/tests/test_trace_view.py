@@ -6,7 +6,7 @@ what goes on one is a privacy decision, not a formatting one."""
 from typing import Any
 
 import pytest
-from assistant.outputs.chat import ConsultKnowledgeBase
+from assistant.outputs.support import SearchKnowledgeBase
 from assistant.tracing.nodes import _decisions
 from assistant.tracing.readable import prepare
 
@@ -29,10 +29,10 @@ class TestWhatASpanRecords:
     def test_a_typed_output_is_recorded_as_its_class(self) -> None:
         """The class is the decision; its fields may be prose."""
         recorded = _decisions(
-            {"route": ConsultKnowledgeBase(query="refund window", reasoning="x" * 200)}
+            {"route": SearchKnowledgeBase(query="refund window", reasoning="x" * 200)}
         )
 
-        assert recorded == {"route": "ConsultKnowledgeBase"}
+        assert recorded == {"route": "SearchKnowledgeBase"}
 
     def test_containers_are_left_alone(self) -> None:
         recorded = _decisions({"kb_snippets": ["a", "b"], "arguments": {"amount": 9}})
@@ -147,7 +147,7 @@ class TestFramesThatOnlyWrap:
     def test_a_run_with_one_node_is_still_a_run(self) -> None:
         roots = [
             {
-                "name": "triage run",
+                "name": "support run",
                 "duration_ms": 30.0,
                 "attributes": {},
                 "children": self.frame([self.call()]),
@@ -156,5 +156,5 @@ class TestFramesThatOnlyWrap:
 
         [run] = prepare(roots)
 
-        assert run["name"] == "triage run"
+        assert run["name"] == "support run"
         assert [child["name"] for child in run["children"]] == ["node.decide"]

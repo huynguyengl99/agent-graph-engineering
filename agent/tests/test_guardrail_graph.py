@@ -8,7 +8,7 @@ from typing import Any
 
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.delivery_graph import DeliveryGraph
-from assistant.graphs.triage_graph import TriageGraph
+from assistant.graphs.support_graph import SupportGraph
 
 from tests.helpers.contexts import ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -36,10 +36,10 @@ async def run_with_reply(reply: str) -> dict[str, Any]:
             "final_result",
             {"category": "billing", "priority": "medium", "reasoning": "Invoice."},
         ),
-        tool_call("final_result_AnswerDirectly", {"reasoning": "Known."}),
+        tool_call("final_result_Answer", {"reasoning": "Known."}),
         tool_call("final_result", {"content": reply, "requires_approval": False}),
     ):
-        graph = TriageGraph().build().compile()
+        graph = SupportGraph().build().compile()
         return await graph.ainvoke({"context": ticket()})
 
 
@@ -79,13 +79,13 @@ async def test_an_injection_attempt_is_recorded_but_does_not_stop_the_run() -> N
             "final_result",
             {"category": "billing", "priority": "high", "reasoning": "Refund ask."},
         ),
-        tool_call("final_result_AnswerDirectly", {"reasoning": "Known."}),
+        tool_call("final_result_Answer", {"reasoning": "Known."}),
         tool_call(
             "final_result",
             {"content": "I cannot issue refunds directly.", "requires_approval": False},
         ),
     ):
-        graph = TriageGraph().build().compile()
+        graph = SupportGraph().build().compile()
         state = await graph.ainvoke(
             {
                 "context": ticket_context(
@@ -115,4 +115,4 @@ def test_the_guard_is_a_node_on_the_only_path_to_a_customer() -> None:
 
     assert "screen" in delivery
     assert "send_reply" in delivery
-    assert "send_reply" not in TriageGraph().nodes()
+    assert "send_reply" not in SupportGraph().nodes()

@@ -7,15 +7,13 @@ intended pressure.
 
 from assistant.agents import AgentConfig
 from assistant.graphs.base import BaseGraph
-from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import KnowledgeGraph
+from assistant.graphs.support_graph import SupportGraph
 from assistant.graphs.tool_graph import ToolGraph
-from assistant.graphs.triage_graph import TriageGraph
 
 GRAPHS: dict[str, type[BaseGraph]] = {
-    "triage": TriageGraph,
-    "chat": ChatGraph,
+    "support": SupportGraph,
     "knowledge": KnowledgeGraph,
     "delivery": DeliveryGraph,
     "tool": ToolGraph,

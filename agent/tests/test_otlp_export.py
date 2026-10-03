@@ -69,7 +69,7 @@ async def test_spans_reach_an_otlp_collector(
     provider = TracerProvider(resource=Resource.create({"service.name": "test"}))
     provider.add_span_processor(processor)
 
-    with provider.get_tracer("test").start_as_current_span("node.answer"):
+    with provider.get_tracer("test").start_as_current_span("node.respond"):
         pass
     provider.force_flush(timeout_millis=5000)
 

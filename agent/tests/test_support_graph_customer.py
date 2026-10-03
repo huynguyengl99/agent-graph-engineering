@@ -1,6 +1,6 @@
 from assistant.agents import Context
-from assistant.graphs.triage_graph import build_triage_graph
-from assistant.outputs.triage import Escalate, SearchKnowledgeBase
+from assistant.graphs.support_graph import build_support_graph
+from assistant.outputs.support import Escalate, SearchKnowledgeBase
 
 from tests.helpers.contexts import ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -45,7 +45,7 @@ async def test_knowledge_base_branch_grounds_the_answer() -> None:
             },
         ),
     ) as route:
-        state = await build_triage_graph().ainvoke(
+        state = await build_support_graph().ainvoke(
             {"context": ticket()}, config=config(thread)
         )
 
@@ -60,7 +60,7 @@ async def test_customer_facing_answers_always_require_approval() -> None:
     thread = "approval"
     with mock_openai(
         CLASSIFY,
-        tool_call("final_result_AnswerDirectly", {"reasoning": "Simple question."}),
+        tool_call("final_result_Answer", {"reasoning": "Simple question."}),
         tool_call(
             "final_result",
             # The model says no approval needed; the graph overrides it.
@@ -70,7 +70,7 @@ async def test_customer_facing_answers_always_require_approval() -> None:
             },
         ),
     ):
-        state = await build_triage_graph().ainvoke(
+        state = await build_support_graph().ainvoke(
             {"context": ticket()}, config=config(thread)
         )
 
@@ -86,7 +86,7 @@ async def test_escalation_skips_the_answer_agent() -> None:
             {"reason": "Needs a refund decision.", "suggested_team": "billing"},
         ),
     ) as route:
-        state = await build_triage_graph().ainvoke(
+        state = await build_support_graph().ainvoke(
             {"context": ticket()}, config=config(thread)
         )
 
@@ -105,7 +105,7 @@ async def test_classification_is_typed_not_parsed() -> None:
             "final_result_Escalate", {"reason": "x", "suggested_team": "billing"}
         ),
     ):
-        state = await build_triage_graph().ainvoke(
+        state = await build_support_graph().ainvoke(
             {"context": ticket()}, config=config(thread)
         )
 

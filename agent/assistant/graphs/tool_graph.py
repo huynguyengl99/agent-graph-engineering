@@ -54,13 +54,13 @@ class ToolGraph(BaseGraph):
         )
         decision = await self.planner.run(prompt, context)
 
-        update: Update = {"decision": decision}
+        update: Update = {"plan": decision}
         if isinstance(decision, ToolProposal):
             if decision.tool not in all_tools():
                 # A hallucinated tool id never reaches a human, let alone a
                 # call: it is a planning failure, reported as one.
                 return {
-                    "decision": decision,
+                    "plan": decision,
                     "tool_error": f"No such tool: {decision.tool!r}.",
                 }
             meta = metadata_for(decision.tool)

@@ -2,9 +2,9 @@
 
 import pytest
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
-from assistant.graphs.states import TriageState
-from assistant.graphs.triage_graph import TriageGraph
-from assistant.outputs.triage import SearchKnowledgeBase
+from assistant.graphs.states import SupportState
+from assistant.graphs.support_graph import SupportGraph
+from assistant.outputs.support import SearchKnowledgeBase
 
 from tests.helpers.contexts import ticket_context
 
@@ -17,9 +17,9 @@ def scripted_config() -> AgentConfig:
     return AgentConfig(models=dict.fromkeys(ModelPurpose, model))
 
 
-async def run(config: AgentConfig, title: str, description: str) -> TriageState:
+async def run(config: AgentConfig, title: str, description: str) -> SupportState:
     context = ticket_context(ticket_id="t-1", title=title, description=description)
-    graph = TriageGraph(config).build().compile()
+    graph = SupportGraph(config).build().compile()
     return await graph.ainvoke({"context": context})
 
 

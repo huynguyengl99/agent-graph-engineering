@@ -89,7 +89,7 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
             "final_result",
             {"category": "billing", "priority": "low", "reasoning": "Invoice."},
         ),
-        tool_call("final_result_AnswerDirectly", {"reasoning": "Known."}),
+        tool_call("final_result_Answer", {"reasoning": "Known."}),
         tool_call(
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),

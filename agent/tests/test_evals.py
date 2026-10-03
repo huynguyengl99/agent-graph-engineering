@@ -157,4 +157,4 @@ class TestAnEvalRunIsOneTrace:
 
         run = trace_store.runs()[-1]
         roots = trace_store.tree(run)
-        assert [root["name"] for root in roots] == ["triage run"]
+        assert [root["name"] for root in roots] == ["support run"]

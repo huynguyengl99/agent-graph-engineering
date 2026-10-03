@@ -6,12 +6,17 @@ has to reach an interrupt inside a subgraph and the run has to finish there.
 
 from typing import Any
 
-from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
-from assistant.graphs.chat_graph import ChatGraph
+from assistant.agents import (
+    AgentConfig,
+    Audience,
+    Context,
+    ModelConfig,
+    ModelPurpose,
+)
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import MAX_ATTEMPTS, KnowledgeGraph
-from assistant.graphs.triage_graph import TriageGraph, build_triage_graph
+from assistant.graphs.support_graph import SupportGraph, build_support_graph
 from langgraph.types import Command
 
 from tests.helpers.contexts import ticket_context
@@ -59,21 +64,27 @@ class TestKnowledgeSubgraph:
 
 class TestComposition:
     def test_the_parent_owns_only_its_own_steps(self) -> None:
-        parent = TriageGraph().nodes()
+        parent = SupportGraph().nodes()
 
-        assert set(parent) == {"classify", "decide", "escalate", "respond"}
+        assert set(parent) == {
+            "classify",
+            "decide",
+            "escalate",
+            "report_tool",
+            "respond",
+        }
         # The gate is one level down, and there is no other route to it.
         assert "send_reply" in DeliveryGraph().nodes()
 
     def test_subgraphs_appear_as_nodes_in_the_parent(self) -> None:
-        graph = TriageGraph().build().compile().get_graph()
+        graph = SupportGraph().build().compile().get_graph()
         names = set(graph.nodes)
 
         assert {"knowledge", "delivery"} <= names
 
     def test_xray_expands_the_subgraphs(self) -> None:
         """Without xray the diagram shows two opaque boxes."""
-        compiled = TriageGraph().build().compile()
+        compiled = SupportGraph().build().compile()
 
         flat = compiled.get_graph().draw_mermaid()
         expanded = compiled.get_graph(xray=True).draw_mermaid()
@@ -87,7 +98,7 @@ class TestApprovalThroughASubgraph:
     """The gate moved down a level; resume still has to find it."""
 
     async def build(self) -> Any:
-        return build_triage_graph(scripted(), memory_checkpointer())
+        return build_support_graph(scripted(), memory_checkpointer())
 
     async def test_a_run_parks_inside_the_delivery_subgraph(self) -> None:
         graph = await self.build()
@@ -149,12 +160,19 @@ class TestApprovalThroughASubgraph:
         assert state["delivery_receipt"]
 
 
-class TestACheckpointThreadBelongsToOneGraph:
-    """Keyed on the ticket alone, a consult about a ticket and its triage shared
-    a thread, and the next run died validating the other's state."""
+class TestACheckpointThreadBelongsToOneRun:
+    """Keyed on the ticket alone, a customer's run and the team's run about it
+    shared a thread, and the next one died validating the other's state."""
 
-    def test_two_graphs_never_share_one(self) -> None:
-        assert ChatGraph.thread("abc") != TriageGraph.thread("abc")
+    def test_the_two_audiences_never_share_one(self) -> None:
+        for_customer = SupportGraph.thread_for(
+            Context(thread_id="abc", audience=Audience.CUSTOMER)
+        )
+        for_team = SupportGraph.thread_for(
+            Context(thread_id="abc", audience=Audience.TEAM)
+        )
+
+        assert for_customer != for_team
 
     def test_the_key_is_still_in_it(self) -> None:
-        assert "abc" in TriageGraph.thread("abc")
+        assert "abc" in SupportGraph.thread_for(Context(thread_id="abc"))

@@ -5,10 +5,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from assistant.agents import AgentConfig, Audience, Context, Ticket, Turn
-from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.checkpointer import memory_checkpointer
-from assistant.graphs.states import ChatState, TriageState
-from assistant.graphs.triage_graph import TriageGraph
+from assistant.graphs.states import SupportState
+from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
 from assistant.tracing.cost import RunCost
 from langchain_core.runnables import RunnableConfig
@@ -65,10 +64,10 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
 
     # A checkpointer of its own: the tool gate interrupts, and an eval drives
     # the graph without the service's Postgres saver.
-    graph = ChatGraph(config).compile(memory_checkpointer())
+    graph = SupportGraph(config).compile(memory_checkpointer())
     try:
         state = await graph.ainvoke(
-            ChatState(context=context, question=scenario.question), config=runnable
+            SupportState(context=context, question=scenario.question), config=runnable
         )
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite
         return Observation(error=f"{type(exc).__name__}: {exc}")
@@ -81,12 +80,12 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
         (i.value for i in interrupts if isinstance(i.value, dict)), {}
     )
 
-    route = state.get("route")
+    route = state.get("decision")
     return Observation(
         route=type(route).__name__ if route is not None else None,
         tool=str(proposal.get("tool") or state.get("tool") or "") or None,
         parked=bool(interrupts),
-        answer=str(state.get("answer") or ""),
+        answer=getattr(state.get("answer"), "content", "") or "",
         cost=trace_store.cost(context.trace_key),
     )
 
@@ -105,9 +104,9 @@ async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
     )
     runnable: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 
-    graph = TriageGraph(config).compile()
+    graph = SupportGraph(config).compile(memory_checkpointer())
     try:
-        state = await graph.ainvoke(TriageState(context=context), config=runnable)
+        state = await graph.ainvoke(SupportState(context=context), config=runnable)
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite
         return Observation(error=f"{type(exc).__name__}: {exc}")
 

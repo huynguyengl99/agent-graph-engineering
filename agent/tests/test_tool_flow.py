@@ -183,7 +183,7 @@ class TestOneTurnDoesNotLeakIntoTheNext:
         await decide(consumer, approved=True, arguments={})
 
         answer_directly = tool_call(
-            "final_result_AnswerFromContext", {"reasoning": "Already covered."}
+            "final_result_Answer", {"reasoning": "Already covered."}
         )
         with mock_openai(answer_directly, text_stream("Here you go.")) as recorder:
             await consumer.handle_chat_request(request())
@@ -312,8 +312,8 @@ class TestTheParkAndTheResumeAreOneRun:
 
         assert trace_store.runs() == [run], "the resume opened a trace of its own"
         assert [root["name"] for root in trace_store.tree(run)] == [
-            "chat run",
-            "chat run resumed",
+            "support run",
+            "support run resumed",
         ]
 
 

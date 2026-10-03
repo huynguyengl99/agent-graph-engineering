@@ -15,7 +15,6 @@ from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import SupportState
 from assistant.graphs.support_graph import SupportGraph, build_support_graph
 from assistant.messages.chat import (
-    ChatCompleteMessage,
     ChatErrorMessage,
     ChatErrorPayload,
     ChatRequestMessage,
@@ -25,24 +24,15 @@ from assistant.messages.chat import (
     ToolApprovalMessage,
     ToolApprovalPayload,
     ToolDecisionMessage,
-    ToolRanMessage,
 )
+from assistant.messages.support import SupportEvent
 from assistant.ws.feed import emitter_for
 from assistant.ws.replay import Replays
 
 logger = structlog.get_logger(__name__)
 
 
-ChatFeedEvent = (
-    ChatTokenMessage
-    | ChatCompleteMessage
-    | ToolApprovalMessage
-    | ToolRanMessage
-    | ChatErrorMessage
-)
-
-
-class ConversationTopic(Replays, Topic[ChatFeedEvent]):
+class ConversationTopic(Replays, Topic[SupportEvent]):
     """A rep's thread with the assistant, addressed as `conversation:<id>`.
 
     Nothing here reaches a customer. A reply only becomes irreversible when it
@@ -53,9 +43,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
     channel_layer_alias = LAYER_ALIAS
     # The nodes broadcast, and an event with no handler is dropped with a log
     # line. Derived from the feed so the two cannot drift.
-    passthrough_events: ClassVar[list[type[BaseMessage]]] = list(
-        get_args(ChatFeedEvent)
-    )
+    passthrough_events: ClassVar[list[type[BaseMessage]]] = list(get_args(SupportEvent))
 
     async def authorize(self, **params: str) -> bool:
         """Rep-facing, so nothing here is gated. Only a reply leaving for a
@@ -68,13 +56,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
             "Runs the chat graph and forwards the answer as it is produced, "
             "then sends the finished text once."
         ),
-        output_type=(
-            ChatTokenMessage
-            | ChatCompleteMessage
-            | ToolApprovalMessage
-            | ToolRanMessage
-            | ChatErrorMessage
-        ),
+        output_type=SupportEvent,
     )
     async def handle_chat_request(self, message: ChatRequestMessage) -> None:
         payload = message.payload
@@ -126,7 +108,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
             "Resumes a run parked at the tool gate. Corrected arguments "
             "replace the proposed ones, so what the reviewer saw is what runs."
         ),
-        output_type=ChatTokenMessage | ChatCompleteMessage | ChatErrorMessage,
+        output_type=SupportEvent,
     )
     async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
         payload = message.payload

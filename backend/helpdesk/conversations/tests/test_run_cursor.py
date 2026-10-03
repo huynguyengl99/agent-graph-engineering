@@ -4,9 +4,11 @@ This side of it: remembering how far it got, and not redoing work when it asks.
 """
 
 from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
+    ChatRequestPayload,
+)
+from helpdesk.agent_client.shared.messages import (
     ChatCompleteMessage,
     ChatCompletePayload,
-    ChatRequestPayload,
 )
 from helpdesk.conversations.factories import ConversationFactory
 from helpdesk.conversations.models import Message

@@ -2,35 +2,22 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from ..shared.messages import ModelOverrides, ReplayRequestMessage
-
-
-class ChatCompletePayload(BaseModel):
-    """ChatCompletePayload"""
-
-    conversation_id: str
-    content: str
-
-
-class ChatCompleteMessage(BaseModel):
-    """The finished answer, for persistence."""
-
-    action: Literal["chat_complete"] = "chat_complete"
-    payload: ChatCompletePayload
-
-
-class ChatErrorPayload(BaseModel):
-    """ChatErrorPayload"""
-
-    conversation_id: str
-    message: str
-
-
-class ChatErrorMessage(BaseModel):
-    """ChatErrorMessage"""
-
-    action: Literal["chat_error"] = "chat_error"
-    payload: ChatErrorPayload
+from ..shared.messages import (
+    AnswerMessage,
+    ApprovalRequiredMessage,
+    ChatCompleteMessage,
+    ChatErrorMessage,
+    ChatTokenMessage,
+    ClassifiedMessage,
+    DecidedMessage,
+    ModelOverrides,
+    ReplayRequestMessage,
+    ReplyBlockedMessage,
+    ReplySentMessage,
+    ToolApprovalMessage,
+    ToolRanMessage,
+    TriageErrorMessage,
+)
 
 
 class ChatTicket(BaseModel):
@@ -39,20 +26,6 @@ class ChatTicket(BaseModel):
     ticket_id: str
     title: str
     description: str
-
-
-class ChatTokenPayload(BaseModel):
-    """ChatTokenPayload"""
-
-    conversation_id: str
-    delta: str
-
-
-class ChatTokenMessage(BaseModel):
-    """One delta of the answer, forwarded as the graph produces it."""
-
-    action: Literal["chat_token"] = "chat_token"
-    payload: ChatTokenPayload
 
 
 class ChatTurn(BaseModel):
@@ -79,24 +52,6 @@ class ChatRequestMessage(BaseModel):
     payload: ChatRequestPayload
 
 
-class ToolApprovalPayload(BaseModel):
-    """ToolApprovalPayload"""
-
-    conversation_id: str
-    tool: str
-    description: str
-    arguments: dict[str, Any] = {}
-    arguments_schema: dict[str, Any] = {}
-    unknown_arguments: list[str] = []
-
-
-class ToolApprovalMessage(BaseModel):
-    """A tool is waiting on a human. Nothing has run."""
-
-    action: Literal["tool_approval"] = "tool_approval"
-    payload: ToolApprovalPayload
-
-
 class ToolDecisionPayload(BaseModel):
     """ToolDecisionPayload"""
 
@@ -112,29 +67,18 @@ class ToolDecisionMessage(BaseModel):
     payload: ToolDecisionPayload
 
 
-class ToolRanPayload(BaseModel):
-    """ToolRanPayload"""
-
-    conversation_id: str
-    tool: str
-    arguments: dict[str, Any] = {}
-    result: str = ""
-    error: str = ""
-    cancelled: bool = False
-
-
-class ToolRanMessage(BaseModel):
-    """What a tool did, once it has done it."""
-
-    action: Literal["tool_ran"] = "tool_ran"
-    payload: ToolRanPayload
-
-
 IncomingMessage = (
-    ChatTokenMessage
+    ClassifiedMessage
+    | DecidedMessage
+    | AnswerMessage
+    | ApprovalRequiredMessage
+    | ReplySentMessage
+    | ReplyBlockedMessage
+    | ChatTokenMessage
     | ChatCompleteMessage
     | ToolApprovalMessage
     | ToolRanMessage
+    | TriageErrorMessage
     | ChatErrorMessage
 )
 OutgoingMessage = ChatRequestMessage | ReplayRequestMessage | ToolDecisionMessage

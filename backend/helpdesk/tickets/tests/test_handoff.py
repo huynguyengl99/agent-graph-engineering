@@ -9,22 +9,24 @@ from django.test import override_settings
 
 from helpdesk.accounts.factories import UserFactory
 from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
+    ChatRequestPayload,
+)
+from helpdesk.agent_client.agent_hub_triage_topic.messages import (
+    TriageRequestPayload,
+)
+from helpdesk.agent_client.shared.messages import (
+    ApprovalRequiredMessage,
+    ApprovalRequiredPayload,
     ChatCompleteMessage,
     ChatCompletePayload,
-    ChatRequestPayload,
+    ReplySentMessage,
+    ReplySentPayload,
     ToolApprovalMessage,
     ToolApprovalPayload,
     ToolRanMessage,
     ToolRanPayload,
-)
-from helpdesk.agent_client.agent_hub_triage_topic.messages import (
-    ApprovalRequiredMessage,
-    ApprovalRequiredPayload,
-    ReplySentMessage,
-    ReplySentPayload,
     TriageErrorMessage,
     TriageErrorPayload,
-    TriageRequestPayload,
 )
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase

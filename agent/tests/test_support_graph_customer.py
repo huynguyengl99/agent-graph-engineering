@@ -1,6 +1,7 @@
-from assistant.agents import Context
-from assistant.graphs.support_graph import build_support_graph
-from assistant.outputs.support import Escalate, SearchKnowledgeBase
+from assistant.agents import Audience, Context
+from assistant.graphs.states import SupportState
+from assistant.graphs.support_graph import SupportGraph, build_support_graph
+from assistant.outputs.support import Escalate, RunTool, SearchKnowledgeBase
 
 from tests.helpers.contexts import ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -120,3 +121,26 @@ async def test_the_thread_reaches_the_prompt() -> None:
     context = ticket_context(history=["I was charged twice.", "Any update?"])
 
     assert "Any update?" in context.render(with_history=True)
+
+
+class TestWhatEachAudienceIsOffered:
+    """One decider for two audiences, so the branches that do not apply to one
+    of them have to be closed rather than merely discouraged."""
+
+    def test_a_customer_run_never_parks_on_a_tool(self) -> None:
+        graph = SupportGraph()
+        state = SupportState(
+            context=Context(thread_id="t", audience=Audience.CUSTOMER),
+            decision=RunTool(reasoning="Refund it."),
+        )
+
+        assert graph.route_decision(state) == "escalate"
+
+    def test_the_team_gets_the_gate(self) -> None:
+        graph = SupportGraph()
+        state = SupportState(
+            context=Context(thread_id="c", audience=Audience.TEAM),
+            decision=RunTool(reasoning="Refund it."),
+        )
+
+        assert graph.route_decision(state) == "tool"

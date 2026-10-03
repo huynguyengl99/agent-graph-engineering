@@ -8,6 +8,9 @@ real message models, the real group envelope, and real persistence.
 from channels.db import database_sync_to_async
 
 from helpdesk.agent_client.agent_hub_triage_topic.messages import (
+    TriageRequestPayload,
+)
+from helpdesk.agent_client.shared.messages import (
     AnswerMessage,
     AnswerPayload,
     ApprovalRequiredMessage,
@@ -20,7 +23,6 @@ from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     ReplySentPayload,
     TriageErrorMessage,
     TriageErrorPayload,
-    TriageRequestPayload,
 )
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase

@@ -13,15 +13,11 @@ from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import SupportState
 from assistant.graphs.support_graph import SupportGraph, build_support_graph
+from assistant.messages.support import SupportEvent
 from assistant.messages.triage import (
-    AnswerMessage,
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
-    ClassifiedMessage,
-    DecidedMessage,
-    ReplyBlockedMessage,
-    ReplySentMessage,
     TriageErrorMessage,
     TriageErrorPayload,
     TriageRequestMessage,
@@ -37,18 +33,7 @@ def _slugs(overrides: Any) -> dict[str, str | None] | None:
     return overrides.model_dump() if overrides is not None else None
 
 
-TriageFeedEvent = (
-    ClassifiedMessage
-    | DecidedMessage
-    | AnswerMessage
-    | ApprovalRequiredMessage
-    | ReplySentMessage
-    | ReplyBlockedMessage
-    | TriageErrorMessage
-)
-
-
-class TriageTopic(Replays, Topic[TriageFeedEvent]):
+class TriageTopic(Replays, Topic[SupportEvent]):
     """One ticket's triage run, addressed as `triage:<ticket_id>`.
 
     A topic rather than a channel so the run belongs to the ticket instead of to
@@ -61,9 +46,7 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
     channel_layer_alias = LAYER_ALIAS
     # The nodes broadcast, and an event with no handler is dropped with a log
     # line. Derived from the feed so the two cannot drift.
-    passthrough_events: ClassVar[list[type[BaseMessage]]] = list(
-        get_args(TriageFeedEvent)
-    )
+    passthrough_events: ClassVar[list[type[BaseMessage]]] = list(get_args(SupportEvent))
 
     async def authorize(self, **params: str) -> bool:
         """The socket is already authenticated: only the backend can reach this
@@ -76,15 +59,7 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
             "Runs the triage graph. Emits the classification and the routing "
             "decision as they happen, then the proposed answer."
         ),
-        output_type=(
-            ClassifiedMessage
-            | DecidedMessage
-            | AnswerMessage
-            | ApprovalRequiredMessage
-            | ReplySentMessage
-            | ReplyBlockedMessage
-            | TriageErrorMessage
-        ),
+        output_type=SupportEvent,
     )
     async def handle_triage_request(self, message: TriageRequestMessage) -> None:
         payload = message.payload
@@ -110,7 +85,7 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
     @ws_handler(
         summary="Approve or reject a drafted reply",
         description="Resumes a run paused at the approval interrupt.",
-        output_type=ReplySentMessage | AnswerMessage | TriageErrorMessage,
+        output_type=SupportEvent,
     )
     async def handle_approval_decision(self, message: ApprovalDecisionMessage) -> None:
         payload = message.payload

@@ -124,16 +124,17 @@ class SupportGraph(AnswerFeed, BaseGraph):
 
     async def escalate(self, state: SupportState) -> Update:
         decision = state.decision
-        assert isinstance(decision, Escalate)
+        team = getattr(decision, "suggested_team", "general")
+        reason = getattr(decision, "reason", None) or getattr(decision, "reasoning", "")
         answer = TicketAnswer(
             content=(
                 "Thanks for reaching out. I am handing this to a specialist on "
-                f"our {decision.suggested_team} team, who will follow up here."
+                f"our {team} team, who will follow up here."
             ),
             requires_approval=False,
         )
         await self.answered(state.context.ticket_id, answer)
-        return {"escalation_reason": decision.reason, "answer": answer}
+        return {"escalation_reason": reason, "answer": answer}
 
     async def report_tool(self, state: SupportState) -> Update:
         """What ran, before the model turns it into prose."""
@@ -228,8 +229,13 @@ class SupportGraph(AnswerFeed, BaseGraph):
         match state.decision:
             case SearchKnowledgeBase():
                 return "knowledge"
-            case RunTool():
+            case RunTool() if not state.context.for_customer:
                 return "tool"
+            case RunTool():
+                # The gate a tool parks on is reviewed by the team, and the
+                # customer's half of the ticket has nowhere to show it yet. The
+                # decider is told to escalate instead; this is the backstop.
+                return "escalate"
             case Escalate():
                 return "escalate"
             case _:

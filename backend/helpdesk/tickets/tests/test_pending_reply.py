@@ -4,11 +4,13 @@ sent. Both used to depend on state that did not outlive the socket."""
 from unittest.mock import patch
 
 from helpdesk.agent_client.agent_hub_triage_topic.messages import (
+    TriageRequestPayload,
+)
+from helpdesk.agent_client.shared.messages import (
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     ReplySentMessage,
     ReplySentPayload,
-    TriageRequestPayload,
 )
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.auth_api_test_case import AuthAPITestCase

@@ -11,12 +11,14 @@ from typing import Any
 from unittest.mock import patch
 
 from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
+    ChatRequestPayload,
+    ToolDecisionPayload,
+)
+from helpdesk.agent_client.shared.messages import (
     ChatCompleteMessage,
     ChatCompletePayload,
-    ChatRequestPayload,
     ToolApprovalMessage,
     ToolApprovalPayload,
-    ToolDecisionPayload,
 )
 from helpdesk.conversations.factories import ConversationFactory
 from helpdesk.conversations.messages import ToolDecisionMessage as FEToolDecisionMessage

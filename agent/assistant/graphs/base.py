@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -8,6 +8,7 @@ from assistant.agents.config import AgentConfig
 from assistant.agents.factory import AgentFactory
 from assistant.events import Emitter, silent
 from assistant.tracing.nodes import Node, traced
+from assistant.tracing.runs import TracedRun
 
 logger = structlog.get_logger(__name__)
 
@@ -45,6 +46,11 @@ class BaseGraph:
             graph.add_node(name, traced(name, node))
 
     def compile(
-        self, checkpointer: BaseCheckpointSaver[Any]
+        self, checkpointer: BaseCheckpointSaver[Any] | None = None
     ) -> CompiledStateGraph[Any, Any, Any, Any]:
-        return self.build().compile(checkpointer=checkpointer)
+        """Wrapped, so the run's root span comes with the graph instead of
+        being remembered by whoever drives it."""
+        compiled = self.build().compile(checkpointer=checkpointer)
+        return cast(
+            CompiledStateGraph[Any, Any, Any, Any], TracedRun(self.name, compiled)
+        )

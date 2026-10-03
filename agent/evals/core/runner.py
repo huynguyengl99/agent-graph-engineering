@@ -102,7 +102,7 @@ async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
     )
     runnable: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 
-    graph = TriageGraph(config).build().compile()
+    graph = TriageGraph(config).compile()
     try:
         state = await graph.ainvoke(TriageState(context=context), config=runnable)
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite

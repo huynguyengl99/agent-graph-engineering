@@ -3,7 +3,7 @@
 import pytest
 from assistant.agents import TicketContext
 from assistant.graphs.triage_graph import build_triage_graph
-from assistant.tracing import run_span, setup_tracing, trace_store
+from assistant.tracing import setup_tracing, trace_store
 from langgraph.types import Command
 
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -26,6 +26,16 @@ AGENT_SPAN = "invoke_agent"
 
 def config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
+
+
+def find(nodes: list[dict], name: str) -> dict:
+    """The named span wherever it sits, now that a run has a root above it."""
+    for node in nodes:
+        if node["name"] == name:
+            return node
+        if found := find(node["children"], name):
+            return found
+    return {}
 
 
 def names(nodes: list[dict]) -> list[str]:
@@ -74,8 +84,7 @@ async def test_model_calls_nest_under_the_node_that_made_them() -> None:
     """A flat list of completions is what the series complains about."""
     await run("t-nest")
 
-    tree = trace_store.tree("t-nest")
-    classify = next(n for n in tree if n["name"] == "node.classify")
+    classify = find(trace_store.tree("t-nest"), "node.classify")
 
     assert classify["children"], "the model call should be a child of the node"
     assert any(AGENT_SPAN in child["name"] for child in classify["children"])
@@ -85,8 +94,7 @@ async def test_model_call_spans_carry_usage() -> None:
     """Pydantic AI's own attributes survive nesting under the node span."""
     await run("t-attrs")
 
-    tree = trace_store.tree("t-attrs")
-    classify = next(n for n in tree if n["name"] == "node.classify")
+    classify = find(trace_store.tree("t-attrs"), "node.classify")
     runs = [c for c in classify["children"] if AGENT_SPAN in c["name"]]
 
     assert runs, f"no {AGENT_SPAN!r} span under the node"
@@ -119,12 +127,10 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
 
 
 async def test_a_run_is_one_trace_not_one_per_node() -> None:
-    """Without a root span every node opens its own trace, and a backend shows
-    one ticket as a dozen unrelated entries: the flat list of model calls this
-    project exists to complain about."""
-    trace_store.clear()
-    with run_span("triage", "t-root"):
-        await run("t-root")
+    """Compiling a graph is what gives the run its root, so no caller can leave
+    it out: without one every node opens its own trace and a backend shows one
+    ticket as a dozen unrelated entries."""
+    await run("t-root")
 
     tree = trace_store.tree("t-root")
 
@@ -133,3 +139,36 @@ async def test_a_run_is_one_trace_not_one_per_node() -> None:
     children = [child["name"] for child in tree[0]["children"]]
     assert "node.classify" in children
     assert "node.decide" in children
+
+
+async def test_a_streamed_run_is_one_trace_too() -> None:
+    """The span has to stay open across the yields: nodes run as the stream is
+    consumed, not when `astream` is called."""
+    with mock_openai(
+        tool_call(
+            "final_result",
+            {"category": "billing", "priority": "medium", "reasoning": "Invoice."},
+        ),
+        tool_call(
+            "final_result_SearchKnowledgeBase",
+            {"query": "invoice", "reasoning": "Documented."},
+        ),
+        tool_call(
+            "final_result", {"content": "Proration.", "requires_approval": False}
+        ),
+    ):
+        async for _ in build_triage_graph().astream(
+            {
+                "context": TicketContext(
+                    ticket_id="t-stream", title="t", description="d"
+                )
+            },
+            config=config("t-stream"),
+            stream_mode="updates",
+        ):
+            pass
+
+    tree = trace_store.tree("t-stream")
+
+    assert [root["name"] for root in tree] == ["triage run"]
+    assert "node.classify" in names(tree)

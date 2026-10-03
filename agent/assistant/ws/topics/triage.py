@@ -26,7 +26,6 @@ from assistant.messages.triage import (
     TriageErrorPayload,
     TriageRequestMessage,
 )
-from assistant.tracing import run_span
 from assistant.ws.feed import emitter_for
 from assistant.ws.replay import Replays
 
@@ -168,8 +167,7 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
             agent_config or AgentConfig.resolve(), emitter=emitter_for(self)
         )
 
-        with run_span("triage", ticket_id):
-            await self._stream(graph, payload, config, ticket_id)
+        await self._stream(graph, payload, config, ticket_id)
 
     async def _stream(
         self, graph: Any, payload: Any, config: RunnableConfig, ticket_id: str

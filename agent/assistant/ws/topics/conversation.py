@@ -26,7 +26,6 @@ from assistant.messages.chat import (
     ToolApprovalPayload,
     ToolDecisionMessage,
 )
-from assistant.tracing import run_span
 from assistant.ws.feed import emitter_for
 from assistant.ws.replay import Replays
 
@@ -106,14 +105,13 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
         # Only used when this service has no history of its own yet.
         await history().seed(self.params["conversation_id"], context.history)
 
-        with run_span("chat", self.params["conversation_id"]):
-            # A whole state, not an update: the thread holds the last turn's
-            # tool result, and a cancelled call must not report it as a success.
-            await self._consume(
-                graph,
-                ChatState(context=context, question=payload.question),
-                self.params["conversation_id"],
-            )
+        # A whole state, not an update: the thread holds the last turn's tool
+        # result, and a cancelled call must not report it as a success.
+        await self._consume(
+            graph,
+            ChatState(context=context, question=payload.question),
+            self.params["conversation_id"],
+        )
 
     @ws_handler(
         summary="Approve, correct, or cancel a proposed tool call",
@@ -131,10 +129,9 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
             "arguments": payload.arguments,
         }
         try:
-            with run_span("chat", self.params["conversation_id"]):
-                await self._consume(
-                    graph, Command(resume=resume), self.params["conversation_id"]
-                )
+            await self._consume(
+                graph, Command(resume=resume), self.params["conversation_id"]
+            )
         except Exception:
             logger.exception(
                 "chat.resume_failed", conversation_id=self.params["conversation_id"]

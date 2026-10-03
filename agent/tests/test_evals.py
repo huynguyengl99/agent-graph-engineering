@@ -129,3 +129,32 @@ class TestFlakyDetection:
         checks = score(Expect(category="billing"), [observation(category="billing")])
 
         assert checks["category"].unanimous is True
+
+
+class TestAnEvalRunIsOneTrace:
+    """An eval that traces as loose nodes is the flat list of model calls this
+    project exists to complain about, looked at from the inside."""
+
+    async def test_the_run_has_a_single_root(self) -> None:
+        from assistant.agents import AgentConfig, ModelConfig, ModelPurpose
+        from assistant.tracing import trace_store
+        from evals.core.runner import run_trial
+        from evals.core.scenario import Scenario
+
+        scripted = AgentConfig(
+            models=dict.fromkeys(
+                ModelPurpose, ModelConfig(provider="unconfigured", name="none")
+            )
+        )
+        scenario = Scenario(
+            name="t",
+            title="Charged twice",
+            description="Two charges on my card.",
+            expect=Expect(),
+        )
+
+        await run_trial(scenario, scripted)
+
+        run = trace_store.runs()[-1]
+        roots = trace_store.tree(run)
+        assert [root["name"] for root in roots] == ["triage run"]

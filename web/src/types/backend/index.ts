@@ -353,7 +353,8 @@ export type TicketEventPolymorphic =
   | StatusChangeEventTyped
   | AssignmentEventTyped
   | AIResponseEventTyped
-  | HandoffEventTyped;
+  | HandoffEventTyped
+  | ToolCallEventTyped;
 
 /** * `open` - Open * `in_progress` - In Progress * `resolved` - Resolved * `closed` - Closed */
 export type TicketStatusEnum = "open" | "in_progress" | "resolved" | "closed";
@@ -378,6 +379,32 @@ export interface TicketUpdateRequest {
 
 export interface TokenVerifyRequest {
   token: string;
+}
+
+export interface ToolCallEvent {
+  id: number;
+  eventType: string;
+  createdBy: User;
+  visibility?: VisibilityEnum;
+  createdAt: string;
+  tool: string;
+  arguments: Record<string, unknown>;
+  result?: string;
+  error?: string;
+  cancelled?: boolean;
+}
+
+export interface ToolCallEventTyped {
+  id: number;
+  eventType: "tool_call";
+  createdBy: User;
+  visibility?: VisibilityEnum;
+  createdAt: string;
+  tool: string;
+  arguments: Record<string, unknown>;
+  result?: string;
+  error?: string;
+  cancelled?: boolean;
 }
 
 /** User serializer for API responses. */

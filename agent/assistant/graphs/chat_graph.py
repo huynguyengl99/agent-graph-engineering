@@ -12,7 +12,12 @@ from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.knowledge_graph import build_knowledge_graph
 from assistant.graphs.states import ChatState, Update
 from assistant.graphs.tool_graph import build_tool_graph
-from assistant.messages.chat import ChatCompleteMessage, ChatCompletePayload
+from assistant.messages.chat import (
+    ChatCompleteMessage,
+    ChatCompletePayload,
+    ToolRanMessage,
+    ToolRanPayload,
+)
 from assistant.outputs.chat import ConsultKnowledgeBase, RunTool
 from assistant.tracing.nodes import Node
 
@@ -52,6 +57,26 @@ class ChatGraph(BaseGraph):
             # The tool subgraph plans against the rep's own words.
             update["request"] = state.question
         return update
+
+    async def report_tool(self, state: ChatState) -> Update:
+        """What ran, before the model turns it into prose.
+
+        The reviewer approved an action, so the ticket records the action, not
+        only the sentence written about it afterwards.
+        """
+        await self.emit(
+            ToolRanMessage(
+                payload=ToolRanPayload(
+                    conversation_id=state.context.conversation_id,
+                    tool=state.tool or "",
+                    arguments=state.arguments or {},
+                    result=state.result or "",
+                    error=state.tool_error or "",
+                    cancelled=bool(state.cancelled),
+                )
+            )
+        )
+        return {}
 
     async def answer(self, state: ChatState) -> Update:
         context = state.context
@@ -110,7 +135,11 @@ class ChatGraph(BaseGraph):
                 return "answer"
 
     def nodes(self) -> dict[str, Node]:
-        return {"route": self.route, "answer": self.answer}
+        return {
+            "route": self.route,
+            "report_tool": self.report_tool,
+            "answer": self.answer,
+        }
 
     def build(self) -> StateGraph[ChatState, None, ChatState, ChatState]:
         graph: StateGraph[ChatState, None, ChatState, ChatState] = StateGraph(ChatState)
@@ -129,7 +158,8 @@ class ChatGraph(BaseGraph):
             {"knowledge": "knowledge", "tool": "tool", "answer": "answer"},
         )
         graph.add_edge("knowledge", "answer")
-        graph.add_edge("tool", "answer")
+        graph.add_edge("tool", "report_tool")
+        graph.add_edge("report_tool", "answer")
         graph.add_edge("answer", END)
 
         return graph

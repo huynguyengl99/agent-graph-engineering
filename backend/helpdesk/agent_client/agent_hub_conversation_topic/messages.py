@@ -112,7 +112,29 @@ class ToolDecisionMessage(BaseModel):
     payload: ToolDecisionPayload
 
 
+class ToolRanPayload(BaseModel):
+    """ToolRanPayload"""
+
+    conversation_id: str
+    tool: str
+    arguments: dict[str, Any] = {}
+    result: str = ""
+    error: str = ""
+    cancelled: bool = False
+
+
+class ToolRanMessage(BaseModel):
+    """What a tool did, once it has done it."""
+
+    action: Literal["tool_ran"] = "tool_ran"
+    payload: ToolRanPayload
+
+
 IncomingMessage = (
-    ChatTokenMessage | ChatCompleteMessage | ToolApprovalMessage | ChatErrorMessage
+    ChatTokenMessage
+    | ChatCompleteMessage
+    | ToolApprovalMessage
+    | ToolRanMessage
+    | ChatErrorMessage
 )
 OutgoingMessage = ChatRequestMessage | ReplayRequestMessage | ToolDecisionMessage

@@ -25,6 +25,7 @@ from assistant.messages.chat import (
     ToolApprovalMessage,
     ToolApprovalPayload,
     ToolDecisionMessage,
+    ToolRanMessage,
 )
 from assistant.ws.feed import emitter_for
 from assistant.ws.replay import Replays
@@ -33,7 +34,11 @@ logger = structlog.get_logger(__name__)
 
 
 ChatFeedEvent = (
-    ChatTokenMessage | ChatCompleteMessage | ToolApprovalMessage | ChatErrorMessage
+    ChatTokenMessage
+    | ChatCompleteMessage
+    | ToolApprovalMessage
+    | ToolRanMessage
+    | ChatErrorMessage
 )
 
 
@@ -67,6 +72,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
             ChatTokenMessage
             | ChatCompleteMessage
             | ToolApprovalMessage
+            | ToolRanMessage
             | ChatErrorMessage
         ),
     )

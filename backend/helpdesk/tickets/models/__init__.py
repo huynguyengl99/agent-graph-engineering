@@ -7,6 +7,7 @@ from .events import (
     HandoffEvent,
     StatusChangeEvent,
     TicketEvent,
+    ToolCallEvent,
     Visibility,
 )
 from .pending_reply import PendingReply
@@ -25,6 +26,7 @@ __all__ = [
     "AssignmentEvent",
     "AIResponseEvent",
     "HandoffEvent",
+    "ToolCallEvent",
     "PendingReply",
     "PendingToolCall",
 ]

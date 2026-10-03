@@ -315,3 +315,32 @@ class TestTheParkAndTheResumeAreOneRun:
             "chat run",
             "chat run resumed",
         ]
+
+
+class TestTheTicketRecordsWhatRan:
+    """A reviewer approved an action, so what is recorded is the action, not
+    only the sentence written about it afterwards."""
+
+    async def test_an_approved_call_is_reported(
+        self, consumer: DetachedTopic, events: Recorded
+    ) -> None:
+        await park(consumer)
+
+        await decide(consumer, approved=True, arguments={})
+
+        ran = events.last("tool_ran").payload
+        assert ran.tool == "issue_refund"
+        assert ran.arguments["amount"] == 29.0
+        assert ran.result
+        assert not ran.cancelled
+
+    async def test_a_cancelled_one_says_so(
+        self, consumer: DetachedTopic, events: Recorded
+    ) -> None:
+        await park(consumer)
+
+        await decide(consumer, approved=False, arguments={})
+
+        ran = events.last("tool_ran").payload
+        assert ran.cancelled
+        assert not ran.result

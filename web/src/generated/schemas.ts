@@ -166,7 +166,8 @@ export interface NewEventPayload {
     | StatusChangeEvent
     | AssignmentEvent
     | AIResponseEvent
-    | HandoffEvent;
+    | HandoffEvent
+    | ToolCallEvent;
 }
 
 /** Simple ping message to check WebSocket connection status. */
@@ -249,6 +250,19 @@ export interface ToolApprovalPayload {
   arguments?: Record<string, unknown>;
   argumentsSchema?: Record<string, unknown>;
   unknownArguments?: Array<string>;
+}
+
+export interface ToolCallEvent {
+  id: number;
+  createdBy?: EventUser | null;
+  visibility?: 'internal' | 'public';
+  createdAt: string;
+  eventType: 'tool_call';
+  tool: string;
+  arguments?: Record<string, unknown>;
+  result?: string;
+  error?: string;
+  cancelled?: boolean;
 }
 
 /** Approve, correct, or cancel a tool the assistant proposed. */

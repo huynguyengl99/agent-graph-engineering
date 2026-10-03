@@ -14,6 +14,7 @@ from helpdesk.tickets.models import (
     HandoffEvent,
     StatusChangeEvent,
     TicketEvent,
+    ToolCallEvent,
 )
 
 WireTicketEventAdapter: TypeAdapter[WireTicketEvent] = TypeAdapter(WireTicketEvent)
@@ -80,6 +81,23 @@ class HandoffEventSerializer(TicketEventBaseSerializer):
         return data
 
 
+class ToolCallEventSerializer(TicketEventBaseSerializer):
+    # Declared, so the OpenAPI document says "object" where the AsyncAPI one
+    # does. A bare JSONField generates `unknown`, and the two clients then
+    # disagree about the same row.
+    arguments = serializers.DictField(read_only=True)
+
+    class Meta(TicketEventBaseSerializer.Meta):
+        model = ToolCallEvent
+        fields = TicketEventBaseSerializer.Meta.fields + [
+            "tool",
+            "arguments",
+            "result",
+            "error",
+            "cancelled",
+        ]
+
+
 class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[misc]
     """Serializes each event subclass and tags it with `event_type`.
 
@@ -92,6 +110,7 @@ class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[m
         AssignmentEvent: AssignmentEventSerializer,
         AIResponseEvent: AIResponseEventSerializer,
         HandoffEvent: HandoffEventSerializer,
+        ToolCallEvent: ToolCallEventSerializer,
     }
     resource_type_field_name = "event_type"
 

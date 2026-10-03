@@ -7,7 +7,7 @@ the REST client does. Typed everywhere except the realtime boundary would be a
 strange place to give up.
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -59,7 +59,21 @@ class HandoffEvent(BaseEvent):
     reason: str = ""
 
 
+class ToolCallEvent(BaseEvent):
+    event_type: Literal["tool_call"] = "tool_call"
+    tool: str
+    arguments: dict[str, Any] = {}
+    result: str = ""
+    error: str = ""
+    cancelled: bool = False
+
+
 TicketEvent = Annotated[
-    CommentEvent | StatusChangeEvent | AssignmentEvent | AIResponseEvent | HandoffEvent,
+    CommentEvent
+    | StatusChangeEvent
+    | AssignmentEvent
+    | AIResponseEvent
+    | HandoffEvent
+    | ToolCallEvent,
     Field(discriminator="event_type"),
 ]

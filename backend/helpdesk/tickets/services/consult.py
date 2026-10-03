@@ -30,6 +30,7 @@ from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
     ToolApprovalPayload,
     ToolDecisionMessage,
     ToolDecisionPayload,
+    ToolRanMessage,
 )
 from helpdesk.agent_client.shared.messages import (
     ModelOverrides,
@@ -51,6 +52,7 @@ from helpdesk.tickets.models import (
     CommentEvent,
     PendingToolCall,
     Ticket,
+    ToolCallEvent,
     Visibility,
 )
 from helpdesk.tickets.serializers.event import serialize_event
@@ -109,6 +111,15 @@ class TicketConsultClient(AgentClient):
 
     async def on_event(self, message: IncomingMessage) -> None:
         match message:
+            case ToolRanMessage(payload=payload):
+                await broadcast(
+                    self.group,
+                    NewEventMessage(
+                        payload=NewEventPayload(
+                            event=await self._persist_tool_call(payload)
+                        )
+                    ),
+                )
             case ChatCompleteMessage(payload=payload):
                 event = await self._persist(payload.content)
                 await broadcast(
@@ -164,6 +175,22 @@ class TicketConsultClient(AgentClient):
     @database_sync_to_async
     def forget_proposal(ticket_id: str) -> None:
         PendingToolCall.objects.filter(ticket_id=ticket_id).delete()
+
+    @database_sync_to_async
+    def _persist_tool_call(self, payload: Any) -> Any:
+        """The record of the action, which is the team's whatever the answer
+        written about it afterwards is for."""
+        return serialize_event(
+            ToolCallEvent.objects.create(
+                ticket_id=self.ticket_id,
+                tool=payload.tool,
+                arguments=payload.arguments,
+                result=payload.result,
+                error=payload.error,
+                cancelled=payload.cancelled,
+                visibility=Visibility.INTERNAL,
+            )
+        )
 
     @database_sync_to_async
     def _persist(self, content: str) -> Any:

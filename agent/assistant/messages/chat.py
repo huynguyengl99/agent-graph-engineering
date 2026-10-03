@@ -96,6 +96,23 @@ class ToolDecisionMessage(BaseMessage):
     payload: ToolDecisionPayload
 
 
+class ToolRanPayload(BaseModel):
+    conversation_id: str
+    tool: str
+    # What ran, which is the proposal plus whatever the reviewer corrected.
+    arguments: dict[str, Any] = {}
+    result: str = ""
+    error: str = ""
+    cancelled: bool = False
+
+
+class ToolRanMessage(BaseMessage):
+    """What a tool did, once it has done it."""
+
+    action: Literal["tool_ran"] = "tool_ran"
+    payload: ToolRanPayload
+
+
 class ChatErrorPayload(BaseModel):
     conversation_id: str
     message: str

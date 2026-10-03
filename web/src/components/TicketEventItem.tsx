@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { TicketEvent } from '@/lib/types';
 
 /**
@@ -54,6 +55,9 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
         </Row>
       );
 
+    case 'tool_call':
+      return <ToolCall event={event} when={when} />;
+
     case 'handoff':
       return (
         <Row tone="meta" label={HANDLING[event.handling].title} when={when}>
@@ -89,6 +93,63 @@ export const HANDLING = {
     action: 'Hand back to the assistant',
   },
 } as const;
+
+function ToolCall({
+  event,
+  when,
+}: {
+  event: Extract<TicketEvent, { eventType: 'tool_call' }>;
+  when: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const outcome = event.cancelled
+    ? { label: 'cancelled', tone: 'bg-gray-200 text-gray-700' }
+    : event.error
+      ? { label: 'failed', tone: 'bg-red-100 text-red-800' }
+      : { label: 'ran', tone: 'bg-emerald-100 text-emerald-800' };
+
+  return (
+    <li className="ml-10 rounded-lg border border-l-4 border-amber-300 border-l-amber-400 bg-white px-4 py-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-baseline gap-2 text-left"
+      >
+        <span className="text-gray-400">{open ? '▾' : '▸'}</span>
+        <code className="text-sm font-medium">{event.tool}</code>
+        <span
+          className={`rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${outcome.tone}`}
+        >
+          {outcome.label}
+        </span>
+        <span className="ml-auto text-xs text-gray-500">{when}</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2 text-xs">
+          <Block
+            label="Arguments"
+            body={JSON.stringify(event.arguments, null, 2)}
+          />
+          {event.result && <Block label="Result" body={event.result} />}
+          {event.error && <Block label="Error" body={event.error} />}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function Block({ label, body }: { label: string; body: string }) {
+  return (
+    <div>
+      <p className="font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-gray-50 p-2">
+        {body}
+      </pre>
+    </div>
+  );
+}
 
 const TONES = {
   neutral: 'bg-white border-gray-200',

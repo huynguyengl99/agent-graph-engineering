@@ -1,7 +1,7 @@
 """Who answers a ticket, as it changes hands."""
 
 import asyncio
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 from channels.db import database_sync_to_async
@@ -14,6 +14,8 @@ from helpdesk.agent_client.agent_hub_conversation_topic.messages import (
     ChatRequestPayload,
     ToolApprovalMessage,
     ToolApprovalPayload,
+    ToolRanMessage,
+    ToolRanPayload,
 )
 from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     ApprovalRequiredMessage,
@@ -43,6 +45,7 @@ from helpdesk.tickets.models import (
     Handling,
     PendingToolCall,
     Ticket,
+    ToolCallEvent,
     Visibility,
 )
 from helpdesk.tickets.serializers.event import serialize_event
@@ -471,3 +474,52 @@ class TestIntroducingTheHandover(WebsocketTestCase):
         await self.switch(on=False, said="")
 
         assert await handling_of(str(self.ticket.id)) == Handling.WITH_STAFF
+
+
+class TestRecordingWhatRan(WebsocketTestCase):
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        self.ticket = TicketFactory.create(created_by=self.user)
+
+    async def ran(self, **fields: Any) -> ToolCallEvent:
+        client = TicketConsultClient(
+            str(self.ticket.id),
+            ChatRequestPayload(conversation_id=str(self.ticket.id), question="refund?"),
+        )
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+        await client.on_event(
+            ToolRanMessage(
+                payload=ToolRanPayload(conversation_id=str(self.ticket.id), **fields)
+            )
+        )
+        return await ToolCallEvent.objects.aget(ticket_id=self.ticket.id)
+
+    async def test_the_arguments_that_actually_ran_are_kept(self) -> None:
+        """A reviewer may have corrected them, and the correction is the
+        decision."""
+        event = await self.ran(
+            tool="issue_refund",
+            arguments={"amount": 19.0, "email": "a@b.c"},
+            result="refund_1 issued",
+        )
+
+        assert event.tool == "issue_refund"
+        assert event.arguments["amount"] == 19.0
+        assert event.result == "refund_1 issued"
+
+    async def test_it_is_the_teams_record(self) -> None:
+        """The customer is told in words by the reply, not shown the call."""
+        event = await self.ran(tool="issue_refund", result="done")
+
+        assert event.visibility == Visibility.INTERNAL
+
+    async def test_a_cancelled_call_is_recorded_too(self) -> None:
+        event = await self.ran(tool="issue_refund", cancelled=True)
+
+        assert event.cancelled
+        assert not event.result

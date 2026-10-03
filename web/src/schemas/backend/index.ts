@@ -304,6 +304,18 @@ const ToolCallEventTyped = z
     cancelled: z.boolean().optional(),
   })
   .passthrough();
+const ReasoningEventTyped = z
+  .object({
+    id: z.number().int(),
+    eventType: z.literal("reasoning"),
+    createdBy: User.nullable(),
+    visibility: VisibilityEnum.optional(),
+    createdAt: z.string().datetime({ offset: true }),
+    content: z.string(),
+    decision: z.string().max(60).optional(),
+    modelName: z.string().max(100).optional(),
+  })
+  .passthrough();
 const TicketEventPolymorphic = z.discriminatedUnion("eventType", [
   CommentEventTyped,
   StatusChangeEventTyped,
@@ -311,6 +323,7 @@ const TicketEventPolymorphic = z.discriminatedUnion("eventType", [
   AIResponseEventTyped,
   HandoffEventTyped,
   ToolCallEventTyped,
+  ReasoningEventTyped,
 ]);
 const PaginatedTicketEventPolymorphicList = z
   .object({
@@ -376,6 +389,7 @@ export const schemas = {
   AIResponseEventTyped,
   HandoffEventTyped,
   ToolCallEventTyped,
+  ReasoningEventTyped,
   TicketEventPolymorphic,
   PaginatedTicketEventPolymorphicList,
   CommentEventCreateRequest,

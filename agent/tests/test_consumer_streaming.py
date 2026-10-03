@@ -27,6 +27,11 @@ class DetachedTopic(SupportTopic):
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
         self.params = {"audience": "customer", "thread_id": "t-1"}
         self.topic = "support:customer:t-1"
+        self.sent: list[Any] = []
+
+    async def send_message(self, message: Any, **kwargs: Any) -> None:
+        """Reasoning deltas go to the asking socket; there is none here."""
+        self.sent.append(message)
 
 
 @pytest.fixture

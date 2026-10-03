@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, ClassVar
 
 from pydantic_ai.messages import ModelMessage
@@ -38,6 +38,41 @@ class BaseAgent[OutputT]:
         result = await self.agent.run(prompt, deps=deps, message_history=history)
         self.messages = list(result.all_messages())
         return result.output  # type: ignore[no-any-return]
+
+    async def reason_aloud(
+        self,
+        prompt: str,
+        deps: Any,
+        history: list[ModelMessage] | None = None,
+        *,
+        on_delta: Callable[[str], Awaitable[None]],
+    ) -> OutputT:
+        """The decision, with its reasoning reported as it is written.
+
+        Structured output arrives as a series of partial objects, so a reader
+        can watch the model think rather than waiting for the branch it picked.
+        The deltas are diffed here because a partial carries the whole field
+        each time, not what changed.
+        """
+        said = ""
+        output: Any = None
+        async with self.agent.run_stream(
+            prompt, deps=deps, message_history=history
+        ) as result:
+            async for partial in result.stream_output(debounce_by=None):
+                output = partial
+                # `Escalate` calls it a reason; everything else calls it
+                # reasoning. Both are the model explaining itself.
+                reasoning = str(
+                    getattr(partial, "reasoning", None)
+                    or getattr(partial, "reason", None)
+                    or ""
+                )
+                if delta := reasoning[len(said) :]:
+                    await on_delta(delta)
+                    said = reasoning
+            self.messages = list(result.all_messages())
+        return output  # type: ignore[no-any-return]
 
     async def stream(
         self, prompt: str, deps: Any, history: list[ModelMessage] | None = None

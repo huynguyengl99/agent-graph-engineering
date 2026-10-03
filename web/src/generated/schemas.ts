@@ -167,7 +167,8 @@ export interface NewEventPayload {
     | AssignmentEvent
     | AIResponseEvent
     | HandoffEvent
-    | ToolCallEvent;
+    | ToolCallEvent
+    | ReasoningEvent;
 }
 
 /** Simple ping message to check WebSocket connection status. */
@@ -180,6 +181,27 @@ export interface PingMessage {
 export interface PongMessage {
   action: 'pong';
   payload?: null;
+}
+
+export interface ReasoningDeltaMessage {
+  action: 'reasoning_delta';
+  payload: ReasoningDeltaPayload;
+}
+
+/** A piece of the agent's reasoning, as it is written. Staff only. */
+export interface ReasoningDeltaPayload {
+  delta: string;
+}
+
+export interface ReasoningEvent {
+  id: number;
+  createdBy?: EventUser | null;
+  visibility?: 'internal' | 'public';
+  createdAt: string;
+  eventType: 'reasoning';
+  content: string;
+  decision?: string;
+  modelName?: string;
 }
 
 /** A human posts a comment on the ticket. */

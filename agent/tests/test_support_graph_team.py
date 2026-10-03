@@ -28,6 +28,8 @@ def scripted() -> AgentConfig:
 
 
 async def run(context: Context) -> tuple[list[str], dict[str, Any]]:
+    """The answer's deltas. The same channel carries the decider's reasoning,
+    which is a different thing being written."""
     graph = SupportGraph(scripted()).build().compile()
     deltas: list[str] = []
     updates: dict[str, Any] = {}
@@ -36,7 +38,8 @@ async def run(context: Context) -> tuple[list[str], dict[str, Any]]:
         stream_mode=["updates", "custom"],
     ):
         if mode == "custom":
-            deltas.append(chunk["delta"])
+            if chunk.get("kind") == "answer":
+                deltas.append(chunk["delta"])
         else:
             updates.update(chunk)
     return deltas, updates

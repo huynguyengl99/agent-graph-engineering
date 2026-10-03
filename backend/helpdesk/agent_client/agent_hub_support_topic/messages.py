@@ -133,6 +133,36 @@ class ApprovalDecisionMessage(BaseModel):
     payload: ApprovalDecisionPayload
 
 
+class ReasonedPayload(BaseModel):
+    """ReasonedPayload"""
+
+    thread_id: str
+    content: str
+    decision: str
+    model: str = ""
+
+
+class ReasonedMessage(BaseModel):
+    """The finished reasoning, for the record."""
+
+    action: Literal["reasoned"] = "reasoned"
+    payload: ReasonedPayload
+
+
+class ReasoningDeltaPayload(BaseModel):
+    """ReasoningDeltaPayload"""
+
+    thread_id: str
+    delta: str
+
+
+class ReasoningDeltaMessage(BaseModel):
+    """A piece of the model's reasoning, as it is written."""
+
+    action: Literal["reasoning_delta"] = "reasoning_delta"
+    payload: ReasoningDeltaPayload
+
+
 class ReplayRequestPayload(BaseModel):
     """ReplayRequestPayload"""
 
@@ -292,6 +322,8 @@ IncomingMessage = (
     | ToolRanMessage
     | TriageErrorMessage
     | ChatErrorMessage
+    | ReasoningDeltaMessage
+    | ReasonedMessage
 )
 OutgoingMessage = (
     ApprovalDecisionMessage

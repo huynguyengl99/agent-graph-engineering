@@ -40,6 +40,7 @@ from helpdesk.tickets.models import (
     CommentEvent,
     Handling,
     PendingToolCall,
+    ReasoningEvent,
     Ticket,
     ToolCallEvent,
     Visibility,
@@ -500,3 +501,45 @@ class TestRecordingWhatRan(WebsocketTestCase):
 
         assert event.cancelled
         assert not event.result
+
+
+class TestReasoningIsTheTeams(WebsocketTestCase):
+    """Persisted, because why a run took a branch is worth keeping - and
+    internal, because the customer asked a question, not for the workings."""
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.ticket = TicketFactory.create(created_by=self.user)
+
+    async def test_it_is_kept_with_the_decision_that_followed(self) -> None:
+        sink = relay(str(self.ticket.id)).sink
+
+        await sink.reasoned(
+            "They want a refund, which needs a person.", "Escalate", "gpt-4o"
+        )
+
+        event = await ReasoningEvent.objects.aget(ticket_id=self.ticket.id)
+        assert event.decision == "Escalate"
+        assert event.model_name == "gpt-4o"
+
+    async def test_a_customer_started_run_still_keeps_it_internal(self) -> None:
+        sink = relay(str(self.ticket.id), Visibility.PUBLIC).sink
+
+        await sink.reasoned(
+            "Documented in the help centre.", "SearchKnowledgeBase", "x"
+        )
+
+        event = await ReasoningEvent.objects.aget(ticket_id=self.ticket.id)
+        assert event.visibility == Visibility.INTERNAL
+
+    async def test_nothing_is_kept_when_there_was_no_reasoning(self) -> None:
+        sink = relay(str(self.ticket.id)).sink
+
+        await sink.reasoned("", "Answer", "x")
+
+        assert not await ReasoningEvent.objects.filter(
+            ticket_id=self.ticket.id
+        ).aexists()

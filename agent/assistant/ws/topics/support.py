@@ -23,7 +23,12 @@ from assistant.messages.chat import (
     ToolApprovalPayload,
     ToolDecisionMessage,
 )
-from assistant.messages.support import RunRequestMessage, SupportEvent
+from assistant.messages.support import (
+    ReasoningDeltaMessage,
+    ReasoningDeltaPayload,
+    RunRequestMessage,
+    SupportEvent,
+)
 from assistant.messages.triage import (
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
@@ -177,11 +182,17 @@ class SupportTopic(Replays, Topic[SupportEvent]):
                 # Deltas stay on the writer and on this socket: the iteration
                 # producing them is already their order, which a fan-out would
                 # have to rebuild with a sequence number.
+                delta = str(chunk["delta"])
                 await self.send_message(
-                    ChatTokenMessage(
+                    ReasoningDeltaMessage(
+                        payload=ReasoningDeltaPayload(
+                            thread_id=self.thread_id, delta=delta
+                        )
+                    )
+                    if chunk.get("kind") == "reasoning"
+                    else ChatTokenMessage(
                         payload=ChatTokenPayload(
-                            conversation_id=self.thread_id,
-                            delta=str(chunk["delta"]),
+                            conversation_id=self.thread_id, delta=delta
                         )
                     )
                 )

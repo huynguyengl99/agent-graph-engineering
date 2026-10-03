@@ -59,6 +59,13 @@ class HandoffEvent(BaseEvent):
     reason: str = ""
 
 
+class ReasoningEvent(BaseEvent):
+    event_type: Literal["reasoning"] = "reasoning"
+    content: str
+    decision: str = ""
+    model_name: str = ""
+
+
 class ToolCallEvent(BaseEvent):
     event_type: Literal["tool_call"] = "tool_call"
     tool: str
@@ -74,6 +81,7 @@ TicketEvent = Annotated[
     | AssignmentEvent
     | AIResponseEvent
     | HandoffEvent
-    | ToolCallEvent,
+    | ToolCallEvent
+    | ReasoningEvent,
     Field(discriminator="event_type"),
 ]

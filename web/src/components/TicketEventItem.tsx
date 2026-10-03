@@ -55,6 +55,15 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
         </Row>
       );
 
+    case 'reasoning':
+      return (
+        <Thinking
+          content={event.content}
+          decision={event.decision}
+          when={when}
+        />
+      );
+
     case 'tool_call':
       return <ToolCall event={event} when={when} />;
 
@@ -93,6 +102,44 @@ export const HANDLING = {
     action: 'Hand back to the assistant',
   },
 } as const;
+
+export function Thinking({
+  content,
+  decision,
+  when,
+  live,
+}: {
+  content: string;
+  decision?: string;
+  when?: string;
+  /** Still being written, so it opens itself and has nothing to fold yet. */
+  live?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const showing = live || open;
+
+  return (
+    <li className="ml-10 rounded-lg border border-l-4 border-gray-200 border-l-gray-300 bg-white px-4 py-2">
+      <button
+        onClick={() => !live && setOpen(!open)}
+        className="flex w-full items-baseline gap-2 text-left text-sm text-gray-500"
+      >
+        {!live && <span className="text-gray-400">{open ? '▾' : '▸'}</span>}
+        <span className="italic">
+          {live
+            ? 'Thinking…'
+            : `Thought this through${decision ? ` → ${decision}` : ''}`}
+        </span>
+        {when && <span className="ml-auto text-xs">{when}</span>}
+      </button>
+      {showing && (
+        <p className="mt-1 whitespace-pre-wrap text-sm italic text-gray-600">
+          {content}
+        </p>
+      )}
+    </li>
+  );
+}
 
 function ToolCall({
   event,

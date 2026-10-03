@@ -16,6 +16,7 @@ import type {
   NewEventMessage,
   PingMessage,
   PongMessage,
+  ReasoningDeltaMessage,
   SendMessageMessage,
   SetAgentMessage,
   TicketTopicToolDecisionMessage,
@@ -40,6 +41,7 @@ export type HubTicketTopicToClient =
   | AgentProgressMessage
   | ApprovalRequiredMessage
   | NewEventMessage
+  | ReasoningDeltaMessage
   | TicketUpdatedMessage
   | ToolProposalMessage;
 export type HubConversationTopicToServer =

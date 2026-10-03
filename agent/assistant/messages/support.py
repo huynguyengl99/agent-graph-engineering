@@ -23,23 +23,6 @@ from assistant.messages.triage import (
     TriageErrorMessage,
 )
 
-# One graph, so one set of events: a topic that declared only half of them
-# dropped the other half with a validation error nobody was watching for.
-SupportEvent = (
-    ClassifiedMessage
-    | DecidedMessage
-    | AnswerMessage
-    | ApprovalRequiredMessage
-    | ReplySentMessage
-    | ReplyBlockedMessage
-    | ChatTokenMessage
-    | ChatCompleteMessage
-    | ToolApprovalMessage
-    | ToolRanMessage
-    | TriageErrorMessage
-    | ChatErrorMessage
-)
-
 
 class TicketRef(BaseModel):
     """The ticket a run is about. Absent for a question with no ticket behind it."""
@@ -76,3 +59,48 @@ class RunRequestMessage(BaseMessage):
 
     action: Literal["run_request"] = "run_request"
     payload: RunRequestPayload
+
+
+class ReasoningDeltaPayload(BaseModel):
+    thread_id: str
+    delta: str
+
+
+class ReasoningDeltaMessage(BaseMessage):
+    """A piece of the model's reasoning, as it is written."""
+
+    action: Literal["reasoning_delta"] = "reasoning_delta"
+    payload: ReasoningDeltaPayload
+
+
+class ReasonedPayload(BaseModel):
+    thread_id: str
+    content: str
+    decision: str
+    model: str = ""
+
+
+class ReasonedMessage(BaseMessage):
+    """The finished reasoning, for the record."""
+
+    action: Literal["reasoned"] = "reasoned"
+    payload: ReasonedPayload
+
+# One graph, so one set of events: a topic that declared only half of them
+# dropped the other half with a validation error nobody was watching for.
+SupportEvent = (
+    ClassifiedMessage
+    | DecidedMessage
+    | AnswerMessage
+    | ApprovalRequiredMessage
+    | ReplySentMessage
+    | ReplyBlockedMessage
+    | ChatTokenMessage
+    | ChatCompleteMessage
+    | ToolApprovalMessage
+    | ToolRanMessage
+    | TriageErrorMessage
+    | ChatErrorMessage
+    | ReasoningDeltaMessage
+    | ReasonedMessage
+)

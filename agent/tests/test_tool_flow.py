@@ -56,6 +56,12 @@ class DetachedTopic(SupportTopic):
         self.sent.append(message)
 
     @property
+    def reasoning(self) -> str:
+        return "".join(
+            m.payload.delta for m in self.sent if m.action == "reasoning_delta"
+        )
+
+    @property
     def deltas(self) -> list[str]:
         return [m.payload.delta for m in self.sent if m.action == "chat_token"]
 
@@ -343,3 +349,19 @@ class TestTheTicketRecordsWhatRan:
         ran = events.last("tool_ran").payload
         assert ran.cancelled
         assert not ran.result
+
+
+class TestReasoningIsReported:
+    """The branch a run takes is visible while it is being chosen, not only
+    after it is taken."""
+
+    async def test_the_reasoning_streams_then_settles(
+        self, consumer: DetachedTopic, events: Recorded
+    ) -> None:
+        await park(consumer)
+
+        assert consumer.reasoning, "no reasoning reached the socket"
+        reasoned = events.last("reasoned").payload
+        assert reasoned.content
+        assert reasoned.decision
+        assert reasoned.model, "the model that reasoned is part of the record"

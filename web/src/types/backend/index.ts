@@ -277,6 +277,28 @@ export type PriorityEnum = "low" | "medium" | "high" | "urgent";
 /** * `decision` - Decision * `answer` - Answer */
 export type PurposeEnum = "decision" | "answer";
 
+export interface ReasoningEvent {
+  id: number;
+  eventType: string;
+  createdBy: User;
+  visibility?: VisibilityEnum;
+  createdAt: string;
+  content: string;
+  decision?: string;
+  modelName?: string;
+}
+
+export interface ReasoningEventTyped {
+  id: number;
+  eventType: "reasoning";
+  createdBy: User;
+  visibility?: VisibilityEnum;
+  createdAt: string;
+  content: string;
+  decision?: string;
+  modelName?: string;
+}
+
 /** User registration with email verification. */
 export interface Register {
   detail: string;
@@ -354,7 +376,8 @@ export type TicketEventPolymorphic =
   | AssignmentEventTyped
   | AIResponseEventTyped
   | HandoffEventTyped
-  | ToolCallEventTyped;
+  | ToolCallEventTyped
+  | ReasoningEventTyped;
 
 /** * `open` - Open * `in_progress` - In Progress * `resolved` - Resolved * `closed` - Closed */
 export type TicketStatusEnum = "open" | "in_progress" | "resolved" | "closed";

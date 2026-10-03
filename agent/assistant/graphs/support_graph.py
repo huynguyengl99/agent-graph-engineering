@@ -13,6 +13,7 @@ from assistant.agents import (
     DecisionAgent,
 )
 from assistant.agents.chat import TeamAgent
+from assistant.agents.config import ModelPurpose
 from assistant.conversations import history
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
@@ -29,6 +30,7 @@ from assistant.messages.chat import (
     ToolRanMessage,
     ToolRanPayload,
 )
+from assistant.messages.support import ReasonedMessage, ReasonedPayload
 from assistant.messages.triage import (
     ClassifiedMessage,
     ClassifiedPayload,
@@ -99,8 +101,29 @@ class SupportGraph(AnswerFeed, BaseGraph):
     async def decide(self, state: SupportState) -> Update:
         context = state.context
         prompt = context.render(state.question, with_history=context.for_customer)
-        decision = await self.decider.run(
-            prompt, context, await self._history(state) if state.question else None
+
+        # Structured output arrives in pieces, so the reasoning behind a branch
+        # is readable while it is being written rather than after it is taken.
+        writer = get_stream_writer()
+
+        async def aloud(delta: str) -> None:
+            writer({"kind": "reasoning", "delta": delta})
+
+        decision = await self.decider.reason_aloud(
+            prompt,
+            context,
+            await self._history(state) if state.question else None,
+            on_delta=aloud,
+        )
+        await self.emit(
+            ReasonedMessage(
+                payload=ReasonedPayload(
+                    thread_id=context.thread_id,
+                    content=_reasoning(decision),
+                    decision=type(decision).__name__,
+                    model=self.config.models[ModelPurpose.DECISION].slug,
+                )
+            )
         )
         await self.emit(
             DecidedMessage(
@@ -177,7 +200,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
             self._prompt(state), context, await self._history(state)
         ):
             parts.append(delta)
-            writer({"delta": delta})
+            writer({"kind": "answer", "delta": delta})
 
         answer = "".join(parts)
         # Everything this turn saw, the model's own reply included, so the next

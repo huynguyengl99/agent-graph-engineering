@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import type { Ticket, TicketEvent } from '@/lib/types';
-import { HANDLING, Row, TicketEventItem } from './TicketEventItem';
+import { HANDLING, Row, Thinking, TicketEventItem } from './TicketEventItem';
 import { placeholdersIn } from '@/lib/placeholders';
 import { ApprovalPanel } from './ApprovalPanel';
 import { ToolApprovalCard, type Proposal } from './ToolApprovalCard';
@@ -35,6 +35,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   );
   const [publish, setPublish] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [thinking, setThinking] = useState('');
   const [status, setStatus] = useState<Status>(ticket.status ?? 'open');
   const [priority, setPriority] = useState<Priority>(
     ticket.priority ?? 'medium',
@@ -65,6 +66,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const onNewEvent = useCallback((event: TicketEvent) => {
     setEvents((current) => [...current, event]);
     if (event.eventType === 'handoff') setHandling(event.handling);
+    if (event.eventType === 'reasoning') setThinking('');
     if (event.eventType === 'ai_response') {
       setAsking(false);
       setProposal(null);
@@ -74,6 +76,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
       setProgress([]);
       setPendingApproval(null);
     }
+  }, []);
+
+  // Cleared when the finished reasoning arrives as an event of its own.
+  const onReasoning = useCallback((delta: string) => {
+    setThinking((text) => text + delta);
   }, []);
 
   const onTicketUpdated = useCallback((now: string, graded: string) => {
@@ -111,6 +118,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     onApprovalRequired,
     onToolProposal,
     onTicketUpdated,
+    onReasoning,
   });
 
   const decide = useCallback(
@@ -231,6 +239,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
               event={event}
             />
           ))}
+          {thinking && <Thinking content={thinking} live />}
         </ul>
 
         {progress.length > 0 && (

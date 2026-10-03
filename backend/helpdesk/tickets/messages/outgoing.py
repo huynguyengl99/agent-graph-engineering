@@ -90,3 +90,14 @@ class TicketUpdatedMessage(BaseMessage):
 
     action: Literal["ticket_updated"] = "ticket_updated"
     payload: TicketUpdatedPayload
+
+
+class ReasoningDeltaPayload(BaseModel):
+    """A piece of the agent's reasoning, as it is written. Staff only."""
+
+    delta: str
+
+
+class ReasoningDeltaMessage(BaseMessage):
+    action: Literal["reasoning_delta"] = "reasoning_delta"
+    payload: ReasoningDeltaPayload

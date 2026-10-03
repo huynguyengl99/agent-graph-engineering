@@ -28,6 +28,8 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ClassifiedMessage,
     DecidedMessage,
     IncomingMessage,
+    ReasonedMessage,
+    ReasoningDeltaMessage,
     ReplayRequestMessage,
     ReplayRequestPayload,
     ReplyBlockedMessage,
@@ -72,6 +74,8 @@ class Sink:
     async def answered(self, content: str) -> None: ...
     async def tool_proposed(self, payload: Any) -> None: ...
     async def tool_ran(self, payload: Any) -> None: ...
+    async def reasoning_delta(self, delta: str) -> None: ...
+    async def reasoned(self, content: str, decision: str, model: str) -> None: ...
     async def failed(self, message: str) -> None: ...
 
 
@@ -142,7 +146,7 @@ class SupportRun(AgentClient):
             return
         await super().disconnect(code, reason)
 
-    async def on_event(self, message: IncomingMessage) -> None:
+    async def on_event(self, message: IncomingMessage) -> None:  # noqa: PLR0912
         match message:
             case ClassifiedMessage(payload=p):
                 await self.sink.classified(p.category, p.priority, p.reasoning)
@@ -161,6 +165,10 @@ class SupportRun(AgentClient):
                 await self.disconnect()
             case ChatTokenMessage(payload=p):
                 await self.sink.token(p.delta)
+            case ReasoningDeltaMessage(payload=p):
+                await self.sink.reasoning_delta(p.delta)
+            case ReasonedMessage(payload=p):
+                await self.sink.reasoned(p.content, p.decision, p.model)
             case ToolApprovalMessage(payload=p):
                 await self.sink.tool_proposed(p)
                 await self.disconnect()

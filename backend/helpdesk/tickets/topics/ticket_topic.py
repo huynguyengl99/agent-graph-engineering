@@ -14,6 +14,7 @@ from helpdesk.tickets.messages import (
     AskAgentMessage,
     NewEventMessage,
     NewEventPayload,
+    ReasoningDeltaMessage,
     SendMessageMessage,
     SetAgentMessage,
     TicketUpdatedMessage,
@@ -34,6 +35,7 @@ TicketFeedEvent = (
     | ApprovalRequiredMessage
     | ToolProposalMessage
     | TicketUpdatedMessage
+    | ReasoningDeltaMessage
 )
 
 
@@ -266,6 +268,13 @@ class TicketTopic(Topic[TicketFeedEvent]):
         self, event: ApprovalRequiredMessage
     ) -> ApprovalRequiredMessage | None:
         """A draft that has not been approved has not been sent."""
+        return event if self._staff else None
+
+    @event_handler
+    async def handle_reasoning(
+        self, event: ReasoningDeltaMessage
+    ) -> ReasoningDeltaMessage | None:
+        """The workings are the team's, even on a run the customer started."""
         return event if self._staff else None
 
     @event_handler

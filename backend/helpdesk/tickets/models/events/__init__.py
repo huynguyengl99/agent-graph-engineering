@@ -5,6 +5,7 @@ from .assignment import AssignmentEvent
 from .base import TicketEvent, Visibility
 from .comment import CommentEvent
 from .handoff import HandoffEvent
+from .reasoning import ReasoningEvent
 from .status_change import StatusChangeEvent
 from .tool_call import ToolCallEvent
 
@@ -16,5 +17,6 @@ __all__ = [
     "AssignmentEvent",
     "AIResponseEvent",
     "HandoffEvent",
+    "ReasoningEvent",
     "ToolCallEvent",
 ]

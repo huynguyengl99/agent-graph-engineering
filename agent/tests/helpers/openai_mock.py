@@ -146,6 +146,67 @@ class Recorder:
         return ""
 
 
+def _sse_completion(body: dict[str, Any]) -> str:
+    """A queued completion, served as the stream it was asked for.
+
+    Tool arguments go out in pieces so a reader watching a decision being made
+    sees it being written, which is the behaviour under test.
+    """
+    message = body["choices"][0]["message"]
+    calls = message.get("tool_calls") or []
+    frames: list[dict[str, Any]] = []
+
+    if calls:
+        call = calls[0]
+        arguments = call["function"]["arguments"]
+        pieces = [arguments[i : i + 12] for i in range(0, len(arguments), 12)] or [""]
+        for index, piece in enumerate(pieces):
+            function: dict[str, Any] = {"arguments": piece}
+            if index == 0:
+                function["name"] = call["function"]["name"]
+            frames.append(
+                {"tool_calls": [{"index": 0, "id": call["id"], "function": function}]}
+            )
+    else:
+        frames.append({"content": message.get("content") or ""})
+
+    chunks = [
+        json.dumps(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": body.get("model", "gpt-4o"),
+                "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+            }
+        )
+        for delta in frames
+    ]
+    chunks.append(
+        json.dumps(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": body.get("model", "gpt-4o"),
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "tool_calls" if calls else "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                },
+            }
+        )
+    )
+    return "".join(f"data: {chunk}\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+
+
 @contextmanager
 def mock_openai(*responses: dict[str, Any]) -> Iterator[Recorder]:
     """Serve the given completions in order, one per LLM call."""
@@ -167,6 +228,15 @@ def mock_openai(*responses: dict[str, Any]) -> Iterator[Recorder]:
             return httpx2.Response(
                 200,
                 text=_sse(body["__sse__"]),
+                headers={"content-type": "text/event-stream"},
+            )
+        if recorder.bodies[-1].get("stream"):
+            # A structured answer can be asked for as a stream too, and the
+            # fake has to answer the request it was given: a completion body
+            # on a streaming request fails as "ended without content".
+            return httpx2.Response(
+                200,
+                text=_sse_completion(body),
                 headers={"content-type": "text/event-stream"},
             )
         return httpx2.Response(200, json=body)

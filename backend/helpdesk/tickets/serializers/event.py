@@ -12,6 +12,7 @@ from helpdesk.tickets.models import (
     AssignmentEvent,
     CommentEvent,
     HandoffEvent,
+    ReasoningEvent,
     StatusChangeEvent,
     TicketEvent,
     ToolCallEvent,
@@ -98,6 +99,16 @@ class ToolCallEventSerializer(TicketEventBaseSerializer):
         ]
 
 
+class ReasoningEventSerializer(TicketEventBaseSerializer):
+    class Meta(TicketEventBaseSerializer.Meta):
+        model = ReasoningEvent
+        fields = TicketEventBaseSerializer.Meta.fields + [
+            "content",
+            "decision",
+            "model_name",
+        ]
+
+
 class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[misc]
     """Serializes each event subclass and tags it with `event_type`.
 
@@ -111,6 +122,7 @@ class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[m
         AIResponseEvent: AIResponseEventSerializer,
         HandoffEvent: HandoffEventSerializer,
         ToolCallEvent: ToolCallEventSerializer,
+        ReasoningEvent: ReasoningEventSerializer,
     }
     resource_type_field_name = "event_type"
 

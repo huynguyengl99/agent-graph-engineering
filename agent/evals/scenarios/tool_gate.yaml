@@ -9,7 +9,7 @@
   question: Refund the duplicate 29.00 charge for demo@example.com.
   ticket: Charged twice this month - my card shows two charges of 29.00 for the same plan.
   expect:
-    route: RunTool
+    decision: RunTool
     tool: issue_refund
     parked: true
 
@@ -20,7 +20,7 @@
   question: Refund the duplicate charge for demo@example.com.
   ticket: Charged twice this month - my card shows two charges for the same plan.
   expect:
-    route: RunTool
+    decision: RunTool
     parked: false
 
 - name: tool-gate-a-read-only-tool-does-not-stop
@@ -28,7 +28,7 @@
   question: Look up the subscription for demo@example.com.
   ticket: Charged twice this month - my card shows two charges for the same plan.
   expect:
-    route: RunTool
+    decision: RunTool
     tool: look_up_subscription
     parked: false
 
@@ -37,7 +37,7 @@
   # Asking what would happen is not asking for it.
   question: What happens if I refund a duplicate charge - does the customer get an email?
   expect:
-    route: ConsultKnowledgeBase
+    decision: SearchKnowledgeBase
     parked: false
 
 - name: tool-gate-a-plain-question-answers-from-context
@@ -45,5 +45,5 @@
   question: Summarise what this ticket is about.
   ticket: Charged twice this month - my card shows two charges for the same plan.
   expect:
-    route: AnswerFromContext
+    decision: Answer
     parked: false

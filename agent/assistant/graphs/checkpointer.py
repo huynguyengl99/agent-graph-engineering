@@ -21,7 +21,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from psycopg_pool import AsyncConnectionPool
 
-from assistant.agents.deps import Context, Ticket, Turn
+from assistant.agents.deps import Audience, Context, Ticket, Turn
 from assistant.core.config import settings
 from assistant.outputs.support import Classification, Decision, TicketAnswer
 from assistant.outputs.tools import ToolDecision
@@ -32,6 +32,7 @@ logger = structlog.get_logger(__name__)
 # than an error, so a router reads no route and takes its fallback branch.
 # Derived from the unions, because listing it by hand is what went wrong.
 CHECKPOINTED: tuple[Any, ...] = (
+    Audience,
     Context,
     Ticket,
     Turn,

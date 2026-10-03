@@ -86,6 +86,7 @@ class ReasonedMessage(BaseMessage):
     action: Literal["reasoned"] = "reasoned"
     payload: ReasonedPayload
 
+
 # One graph, so one set of events: a topic that declared only half of them
 # dropped the other half with a validation error nobody was watching for.
 SupportEvent = (

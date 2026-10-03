@@ -49,6 +49,14 @@ class Escalate(BaseModel):
 
 # Adding a capability means a member here and a branch in the graph, not another
 # `if` in a handler.
+#
+# Which members are offered is the audience's: answering the customer there are
+# no tools to reach for, and answering the team there is nobody to escalate to.
+# Enforced by the schema rather than asked for in the prompt, because a branch
+# the model cannot name is one it cannot take.
+CustomerDecision = Answer | SearchKnowledgeBase | Escalate
+TeamDecision = Answer | SearchKnowledgeBase | RunTool
+
 Decision = Answer | SearchKnowledgeBase | RunTool | Escalate
 
 

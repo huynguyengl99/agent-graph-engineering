@@ -27,8 +27,6 @@ class Observation:
     blocked: bool = False
     findings: list[str] = field(default_factory=list)
     answer: str = ""
-    # Chat only.
-    route: str | None = None
     tool: str | None = None
     parked: bool = False
     cost: RunCost = field(default_factory=RunCost)
@@ -80,9 +78,9 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
         (i.value for i in interrupts if isinstance(i.value, dict)), {}
     )
 
-    route = state.get("decision")
+    decision = state.get("decision")
     return Observation(
-        route=type(route).__name__ if route is not None else None,
+        decision=type(decision).__name__ if decision is not None else None,
         tool=str(proposal.get("tool") or state.get("tool") or "") or None,
         parked=bool(interrupts),
         answer=getattr(state.get("answer"), "content", "") or "",

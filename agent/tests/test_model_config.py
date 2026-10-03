@@ -45,7 +45,8 @@ def test_steps_are_bound_to_purposes_not_models() -> None:
 
     # Classification and routing are decisions; customer prose is not.
     assert graph.classifier.purpose is ModelPurpose.DECISION
-    assert graph.decider.purpose is ModelPurpose.DECISION
+    for decider in graph.deciders.values():
+        assert decider.purpose is ModelPurpose.DECISION
     assert graph.answerer.purpose is ModelPurpose.ANSWER
 
 

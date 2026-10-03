@@ -8,8 +8,7 @@ from pydantic import BaseModel, model_validator
 
 Category = Literal["technical", "billing", "account", "general"]
 Priority = Literal["low", "medium", "high", "urgent"]
-Decision = Literal["AnswerDirectly", "SearchKnowledgeBase", "Escalate", "DraftReply"]
-Route = Literal["AnswerFromContext", "ConsultKnowledgeBase", "RunTool"]
+Decision = Literal["Answer", "SearchKnowledgeBase", "RunTool", "Escalate"]
 
 
 class AnswerExpect(BaseModel):
@@ -30,9 +29,8 @@ class Expect(BaseModel):
     findings: list[str] = []
     answer: AnswerExpect | None = None
 
-    # Chat scenarios. `route` is the rep-facing router's choice; `tool` is what
-    # the planner named; `parked` is whether the run stopped for a human.
-    route: Route | None = None
+    # `tool` is what the planner named; `parked` is whether the run stopped
+    # for a human.
     tool: str | None = None
     parked: bool | None = None
 

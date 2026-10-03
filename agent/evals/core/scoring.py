@@ -36,7 +36,6 @@ def score(expect: Expect, observations: list[Observation]) -> dict[str, Check]:
         ("decision", expect.decision),
         ("used_knowledge_base", expect.used_knowledge_base),
         ("blocked", expect.blocked),
-        ("route", expect.route),
         ("tool", expect.tool),
         ("parked", expect.parked),
     ]

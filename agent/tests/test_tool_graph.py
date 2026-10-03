@@ -7,7 +7,7 @@ seen the tool and the arguments, and what they saw is what runs.
 from typing import Any
 
 import pytest
-from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
+from assistant.agents import AgentConfig, Audience, Context, ModelConfig, ModelPurpose
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.states import ToolState
 from assistant.graphs.tool_graph import ToolGraph
@@ -298,3 +298,14 @@ class TestReviewableWithoutBespokeUi:
             schema = metadata_for(tool_id).arguments
             assert schema.get("type") == "object", tool_id
             assert "properties" in schema, tool_id
+
+
+def test_the_planner_is_not_told_who_reads_the_answer() -> None:
+    """It is choosing a tool, not writing to anyone, and being told talks it
+    out of acting: measured at 1 proposal in 6 against 6 in 6."""
+    context = Context(thread_id="t", audience=Audience.TEAM)
+
+    assert "answering the support team" not in context.render(
+        "Refund it.", with_audience=False
+    )
+    assert "answering the support team" in context.render("Refund it.")

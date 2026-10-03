@@ -8,9 +8,11 @@ from langgraph.graph.state import CompiledStateGraph
 from assistant.agents import (
     AgentConfig,
     AnswerAgent,
+    Audience,
     ClassifierAgent,
     Context,
-    DecisionAgent,
+    CustomerDecisionAgent,
+    TeamDecisionAgent,
 )
 from assistant.agents.chat import TeamAgent
 from assistant.agents.config import ModelPurpose
@@ -72,7 +74,10 @@ class SupportGraph(AnswerFeed, BaseGraph):
     ) -> None:
         super().__init__(config, emitter)
         self.classifier = ClassifierAgent(self.config)
-        self.decider = DecisionAgent(self.config)
+        self.deciders = {
+            Audience.CUSTOMER: CustomerDecisionAgent(self.config),
+            Audience.TEAM: TeamDecisionAgent(self.config),
+        }
         self.answerer = AnswerAgent(self.config)
         self.team = TeamAgent(self.config)
 
@@ -109,7 +114,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
         async def aloud(delta: str) -> None:
             writer({"kind": "reasoning", "delta": delta})
 
-        decision = await self.decider.reason_aloud(
+        decision = await self.deciders[context.audience].reason_aloud(
             prompt,
             context,
             await self._history(state) if state.question else None,

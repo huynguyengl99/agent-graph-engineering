@@ -50,7 +50,8 @@ class ToolGraph(BaseGraph):
     async def plan(self, state: ToolState) -> Update:
         context = state.context
         prompt = (
-            f"{context.render(state.request)}\n\nAvailable tools:\n{render_tool_list()}"
+            f"{context.render(state.request, with_audience=False)}"
+            f"\n\nAvailable tools:\n{render_tool_list()}"
         )
         decision = await self.planner.run(prompt, context)
 

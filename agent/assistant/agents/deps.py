@@ -74,7 +74,13 @@ class Context:
     def for_customer(self) -> bool:
         return self.audience == Audience.CUSTOMER
 
-    def render(self, question: str = "", *, with_history: bool = False) -> str:
+    def render(
+        self,
+        question: str = "",
+        *,
+        with_history: bool = False,
+        with_audience: bool = True,
+    ) -> str:
         """The ticket, and what is being asked of the model.
 
         `with_history` because a single-pass run has no message history of its
@@ -82,6 +88,16 @@ class Context:
         it as messages, and repeating it there would send each turn twice.
         """
         parts: list[str] = []
+
+        # Said outright for a step that is writing to someone. A step that is
+        # not - the tool planner - is measurably talked out of acting by being
+        # told who would read the answer: 1 proposal in 6 against 6 in 6.
+        if with_audience:
+            parts.append(
+                "You are answering the customer who reported this."
+                if self.for_customer
+                else "You are answering the support team, not the customer."
+            )
 
         if self.ticket is not None:
             if question:

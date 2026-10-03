@@ -6,18 +6,22 @@
 
 ```
 agent/
-├── triage/
+├── assistant/
 │   ├── main.py                  # FastAPI app entry point
-│   ├── apps/
-│   │   └── agent/               # Agent implementation
-│   │       ├── consumer.py      # WebSocket consumer (chanx fast-channels)
-│   │       ├── service.py       # Agent business logic
-│   │       └── messages.py      # Message definitions
-│   └── core/
-│       └── config.py            # Settings via environs
-├── pyproject.toml               # Dependencies (uv)
-├── pyrightconfig.json           # Pyright config
-└── ruff.toml                    # Linter config (in pyproject.toml)
+│   ├── agents/                  # One agent per step: purpose, schema, prompt
+│   │   └── deps.py              # `Context`: what a run is about, and who for
+│   ├── graphs/                  # `support_graph.py` and the three subgraphs
+│   │   └── states/              # `BaseState` plus a mixin per capability
+│   ├── outputs/                 # What each step may return
+│   ├── prompts/                 # Instructions, by audience
+│   ├── messages/                # The wire contract the generator reads
+│   ├── tools/                   # The tools, their metadata and the ledger
+│   ├── guardrails/              # Screening on both sides of the model
+│   ├── tracing/                 # Spans, the run store, the readable view
+│   ├── ws/                      # `topics/support.py`: the one topic
+│   └── core/config.py           # Settings via pydantic-settings
+├── evals/                       # The golden set and its runner
+└── tests/
 ```
 
 ## Quick Commands
@@ -29,7 +33,7 @@ uv sync
 # Development server
 just agent
 # Or directly:
-cd agent && uv run uvicorn triage.main:app --port 8001 --reload
+cd agent && uv run uvicorn assistant.main:app --port 8001 --reload
 
 # Linting & type checking
 cd agent && uv run ruff check .      # Ruff linter
@@ -61,10 +65,14 @@ The agent uses **pydantic-ai** for AI agent framework with OpenAI as the LLM pro
 
 ### Adding New Agent Capabilities
 
-1. Define message types in `triage/apps/agent/messages.py`
-2. Implement logic in `triage/apps/agent/service.py`
-3. Handle WebSocket messages in `triage/apps/agent/consumer.py`
+1. Add a member to the decision union in `assistant/outputs/support.py`, on the
+   audience that should be offered it
+2. Add the branch in `assistant/graphs/support_graph.py` - a node of its own, or
+   a subgraph when it loops or parks
+3. Add any new wire types in `assistant/messages/`
 4. Backend regenerates client: `just gen-agent-client`
+
+Adding a capability is a member and a branch, not another `if` in a handler.
 
 ## Warnings & Gotchas
 
@@ -179,14 +187,29 @@ pressure.
 
 | Graph | Kind | Why it is its own graph |
 |---|---|---|
-| `triage` | parent | works one ticket: classify, decide, answer or escalate |
-| `chat` | parent | the rep's own thread; routes, then answers |
-| `knowledge` | subgraph | it *loops*, and **both parents** compose it |
+| `support` | parent | one message worked to an answer, for whoever is reading |
+| `knowledge` | subgraph | it *loops*, and more than one branch reaches it |
 | `delivery` | subgraph | the only route to a customer, and the only irreversible step |
 | `tool` | subgraph | propose a tool, clear it with a human, then run it |
 
-`knowledge` is composed by triage *and* by chat, which is what makes it a
-subgraph rather than a node - one retrieval loop, two callers, no duplication.
+There were two parents, `triage` and `chat`. They classified or routed, reached
+for the same knowledge base, and settled on an answer - twice. What actually
+differed was the **audience**, which is now a field on `Context`:
+
+| | `Audience.CUSTOMER` | `Audience.TEAM` |
+|---|---|---|
+| Ticket graded | yes | no |
+| Decision union | `Answer \| SearchKnowledgeBase \| Escalate` | `Answer \| SearchKnowledgeBase \| RunTool` |
+| Where the answer goes | the `delivery` gate | straight back, streamed |
+| Visibility | public | internal |
+
+Which capabilities exist is enforced by the **output schema**, not asked for in
+the prompt: a branch the model cannot name is one it cannot take. The router
+guards are backstops, not the mechanism.
+
+A customer's run and the team's run about one ticket are two runs with two
+checkpoints - `support:customer:<id>` and `support:team:<id>` - and the one
+thing they must never do is resume into each other.
 
 Subgraphs are compiled and added as nodes (`graph.add_node("knowledge", build_knowledge_graph(...))`).
 They share only the keys they need with the parent state, so nothing has to be

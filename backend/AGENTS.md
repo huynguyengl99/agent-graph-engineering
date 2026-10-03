@@ -21,6 +21,8 @@ backend/
 │   │   ├── routing.py           # WebSocket routing
 │   │   └── urls.py
 │   ├── core/                    # Shared utilities, base models, schema hooks
+│   │   ├── services/
+│   │   │   └── support_run.py   # One connection to the agent; a `Sink` writes it down
 │   │   └── schema_hooks/        # OpenAPI discriminator hooks for drf-spectacular
 │   ├── test_utils/              # BaseModelFactory, test helpers → test infrastructure
 │   ├── agent_client/            # ⚠️ GENERATED — DO NOT EDIT (run just gen-agent-client)
@@ -160,3 +162,31 @@ Note for tests: a topic fan-out terminates with `event_complete`, while a
 handler's own reply terminates with `complete`. `receive_topic_messages` in
 `test_utils/websocket.py` reads one fan-out at a time and parses against the
 topic's output union, because the communicator parses against the *consumer's*.
+
+
+## Talking to the agent
+
+One relay, `core/services/support_run.py`. It opens the connection, subscribes
+to `support:<audience>:<thread_id>`, replays what it missed, moves the cursor
+and disconnects - and hands every event to a `Sink`.
+
+| Sink | Writes to | Visibility |
+|---|---|---|
+| `tickets/services/support.py` | ticket events | the audience's: public for a customer's run, internal for the team's |
+| `conversations/services/chat.py` | conversation messages | there is no customer here, so nothing is gated |
+
+There were three relays: a ticket's customer run, a ticket's team run, and a
+conversation. They talked identically and differed only in what they wrote down,
+which is why the talking is one class and the writing-down is three methods.
+
+The ticket's two audiences are **one sink**: the visibility an answer is filed
+under is the whole difference between drafting for the customer behind the gate
+and answering the lane the team asked in.
+
+### Visibility is enforced twice
+
+The REST list filters internal events out for non-staff, and the topic's event
+handlers filter **per subscriber** - an internal note, the agent's reasoning and
+an unapproved draft all reached a customer who had the ticket open until the
+second one existed. Scoping the queryset is not enough when it is their ticket:
+`PATCH /api/tickets/{id}/` refuses a non-staff writer too.

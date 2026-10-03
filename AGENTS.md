@@ -4,7 +4,7 @@
 
 ## What this repo is
 
-Companion repo for the **Agent Graph Engineering** blog series. The posts live in `~/Code/huynguyengl99/my-blog` under `src/content/posts/agent-graph-engineering/`. The demo app is a support ticket triage assistant built on LangGraph + Pydantic AI + chanx.
+Companion repo for the **Agent Graph Engineering** blog series. The posts live in `~/Code/huynguyengl99/my-blog` under `src/content/posts/agent-graph-engineering/`. The demo app is a support helpdesk where one agent works a ticket for two audiences - the customer who reported it and the team answering it - built on LangGraph + Pydantic AI + chanx.
 
 Because the repo is read alongside the posts, two rules override normal defaults:
 

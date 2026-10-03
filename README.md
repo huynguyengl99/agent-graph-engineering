@@ -296,34 +296,55 @@ Work in progress, tracking the series as it publishes.
 
 Working end to end, with nothing mocked in `just e2e`:
 
-- **Triage.** A comment in the browser is persisted, fanned out over the ticket
-  channel, handed to the agent over a typed WebSocket, and the classification
-  and routing decision stream back live.
+- **One ticket, two audiences.** A customer's message is persisted, fanned out
+  over the ticket channel, handed to the agent over a typed WebSocket, and the
+  classification and decision stream back live. The same graph answers the team
+  privately on the same ticket.
+- **Who is answering is a state the ticket carries.** The agent by default, a
+  person once the agent escalates or someone replies to the customer, and back
+  again through a button that introduces the change to the customer in a
+  person's own words.
 - **Two human gates.** A drafted reply parks before it reaches a customer; a
   tool call parks before it runs. Both survive a reload, and both resume on a
   different socket than the one that started the run.
-- **The rep's own thread.** Routes, consults the knowledge base, or proposes a
-  tool, streaming the answer as it is produced.
+- **The agent reasons out loud.** Structured output arrives in pieces, so the
+  reasoning behind a branch is read while it is written, then kept on the
+  ticket - for the team only, including on runs a customer started.
+- **Nothing half-written reaches a customer.** A value the model could not fill
+  is written `{{like this}}`, and the agent's prompt, the backend and the
+  browser all refuse to publish text that still has one.
 - Postgres checkpointing, at-most-once execution for irreversible tools,
   guardrails on both sides of the model, evals, and per-run tracing.
 
-Not built yet: context budgeting for long conversations, and spend caps - cost is
-measured, not enforced. The span tree is rendered for staff in the Django admin
-rather than in the product, which is deliberate: see **Observability**.
+Not built yet: tools on a customer-facing run (the gate parks on a reviewer and
+the customer's half of the ticket has nowhere to show it), context budgeting for
+long conversations, and spend caps - cost is measured, not enforced.
 
 ## Graphs and subgraphs
 
-Five graphs, three of them composed into a parent as nodes:
+One parent and three subgraphs composed into it as nodes:
 
 | Graph | Kind | Why |
 |---|---|---|
-| `triage` | parent | classify, decide, answer or escalate |
-| `chat` | parent | the rep's own thread: routes, looks things up, then answers |
-| `knowledge` | subgraph | it loops, and both parents compose it |
+| `support` | parent | one message worked to an answer, for whoever is reading |
+| `knowledge` | subgraph | it loops, and it is reached from more than one branch |
 | `delivery` | subgraph | the only route to a customer, and the only irreversible step |
 | `tool` | subgraph | propose a tool, clear it with a human, then run it |
 
-`GET /graphs/triage.mermaid` renders the graph **from the compiled object**, so
+It used to be two parents - `triage` for the customer and `chat` for the team -
+which classified or routed, reached for the same knowledge base, and settled on
+an answer, twice, in two files of the same length. They are one graph now, and
+**the audience is a field on the context** rather than a second copy of the
+graph. It decides three things: whether the ticket is graded, which capabilities
+the decider is even offered, and whether the reply leaves through the delivery
+gate instead of going straight back.
+
+That last point is enforced by the output schema rather than by asking the model
+nicely. Answering the customer there are no tools to reach for; answering the
+team there is nobody to escalate to. A branch the model cannot name is one it
+cannot take.
+
+`GET /graphs/support.mermaid` renders the graph **from the compiled object**, so
 the picture cannot disagree with the code. `xray=true` (the default) expands
 the subgraphs inline; `xray=false` shows them as single boxes. The UI renders
 these at `/graphs`.

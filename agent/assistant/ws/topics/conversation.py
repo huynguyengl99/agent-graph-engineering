@@ -12,7 +12,7 @@ from assistant.agents.deps import ChatContext, TicketContext
 from assistant.conversations import history
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
-from assistant.graphs.chat_graph import build_chat_graph
+from assistant.graphs.chat_graph import ChatGraph, build_chat_graph
 from assistant.graphs.states import ChatState
 from assistant.messages.chat import (
     ChatCompleteMessage,
@@ -151,7 +151,7 @@ class ConversationTopic(Replays, Topic[ChatFeedEvent]):
 
     async def _consume(self, graph: Any, start: Any, conversation_id: str) -> None:
         config: RunnableConfig = {
-            "configurable": {"thread_id": conversation_id},
+            "configurable": {"thread_id": ChatGraph.thread(conversation_id)},
             "recursion_limit": settings.graph_recursion_limit,
         }
         stream: Any = graph.astream(

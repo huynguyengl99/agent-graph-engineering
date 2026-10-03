@@ -7,6 +7,7 @@ has to reach an interrupt inside a subgraph and the run has to finish there.
 from typing import Any
 
 from assistant.agents import AgentConfig, ModelConfig, ModelPurpose, TicketContext
+from assistant.graphs.chat_graph import ChatGraph
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import MAX_ATTEMPTS, KnowledgeGraph
@@ -144,3 +145,14 @@ class TestApprovalThroughASubgraph:
 
         assert state["answer"].content == "Rewritten by a human."
         assert state["delivery_receipt"]
+
+
+class TestACheckpointThreadBelongsToOneGraph:
+    """Keyed on the ticket alone, a consult about a ticket and its triage shared
+    a thread, and the next run died validating the other's state."""
+
+    def test_two_graphs_never_share_one(self) -> None:
+        assert ChatGraph.thread("abc") != TriageGraph.thread("abc")
+
+    def test_the_key_is_still_in_it(self) -> None:
+        assert "abc" in TriageGraph.thread("abc")

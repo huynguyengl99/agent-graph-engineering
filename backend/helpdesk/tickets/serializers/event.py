@@ -71,6 +71,14 @@ class HandoffEventSerializer(TicketEventBaseSerializer):
         model = HandoffEvent
         fields = TicketEventBaseSerializer.Meta.fields + ["handling", "reason"]
 
+    def to_representation(self, instance: TicketEvent) -> dict[str, Any]:
+        """Who is answering is the customer's business; why is not."""
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request is not None and not request.user.is_staff:
+            data["reason"] = ""
+        return data
+
 
 class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[misc]
     """Serializes each event subclass and tags it with `event_type`.

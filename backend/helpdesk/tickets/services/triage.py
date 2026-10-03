@@ -235,6 +235,9 @@ class TicketTriageClient(AgentClient):
                         )
                     ),
                 )
+                # The progress line is the team's. Without this the customer
+                # waits on a run that is never coming back.
+                await self._hand_to_a_person(payload.message)
                 await self.disconnect()
             case _:
                 pass

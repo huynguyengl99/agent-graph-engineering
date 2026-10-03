@@ -137,23 +137,22 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           >
             {HANDLING[handling].chip}
           </span>
-          <label
-            className="ml-auto flex cursor-pointer items-center gap-2 text-sm"
+          <button
+            onClick={() => setAgent(handling !== 'agent')}
+            disabled={!isConnected}
             title={
               handling === 'agent'
-                ? 'The agent answers new customer messages.'
-                : 'Your team answers. The agent only replies when asked.'
+                ? 'It answers new customer messages until you take over.'
+                : 'It answers new customer messages again. The customer is told.'
             }
+            className={`ml-auto rounded border px-3 py-1 text-sm disabled:opacity-40 ${
+              handling === 'agent'
+                ? 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                : 'border-indigo-300 text-indigo-700 hover:bg-indigo-50'
+            }`}
           >
-            <input
-              type="checkbox"
-              checked={handling === 'agent'}
-              disabled={!isConnected}
-              onChange={(e) => setAgent(e.target.checked)}
-              className="h-4 w-4"
-            />
-            Agent replies
-          </label>
+            {HANDLING[handling].action}
+          </button>
           <button
             onClick={() => void askAssistant()}
             disabled={openingChat}

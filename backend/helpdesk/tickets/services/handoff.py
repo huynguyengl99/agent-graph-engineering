@@ -6,7 +6,7 @@ from channels.db import database_sync_to_async
 from django.db import transaction
 
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
-from helpdesk.tickets.models import Handling, HandoffEvent, Ticket
+from helpdesk.tickets.models import Handling, HandoffEvent, Ticket, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 
 
@@ -40,6 +40,7 @@ def hand_off(
                 handling=handling,
                 reason=reason,
                 created_by=author,
+                visibility=Visibility.PUBLIC,
             )
         )
 

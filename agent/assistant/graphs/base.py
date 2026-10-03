@@ -35,6 +35,15 @@ class BaseGraph:
             models={p.value: m.slug for p, m in self.config.models.items()},
         )
 
+    @classmethod
+    def thread(cls, key: str) -> str:
+        """A checkpoint thread belongs to one graph.
+
+        Keyed on the ticket alone, a consult about a ticket and its triage share
+        a thread, and the next run fails validating the other's state.
+        """
+        return f"{cls.name}:{key}"
+
     def build(self) -> StateGraph[Any, Any, Any, Any]:
         raise NotImplementedError
 

@@ -12,7 +12,7 @@ from assistant.agents.config import AgentConfig
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import TriageState
-from assistant.graphs.triage_graph import build_triage_graph
+from assistant.graphs.triage_graph import TriageGraph, build_triage_graph
 from assistant.messages.triage import (
     AnswerMessage,
     ApprovalDecisionMessage,
@@ -157,7 +157,7 @@ class TriageTopic(Replays, Topic[TriageFeedEvent]):
         still finds the paused run.
         """
         config: RunnableConfig = {
-            "configurable": {"thread_id": ticket_id},
+            "configurable": {"thread_id": TriageGraph.thread(ticket_id)},
             "recursion_limit": settings.graph_recursion_limit,
         }
 

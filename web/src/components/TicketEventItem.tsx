@@ -56,12 +56,7 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
 
     case 'handoff':
       return (
-        <Row
-          tone="meta"
-          label={HANDLING[event.handling].title}
-          when={when}
-          indented
-        >
+        <Row tone="meta" label={HANDLING[event.handling].title} when={when}>
           {event.reason || HANDLING[event.handling].blurb(who)}
         </Row>
       );
@@ -70,22 +65,28 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
 
 export const HANDLING = {
   agent: {
-    title: 'Back to the agent',
-    chip: 'Agent',
-    blurb: (who?: string) => `${who ?? 'A colleague'} handed this back.`,
+    title: 'The assistant is answering',
+    chip: 'Assistant',
+    // Read by the customer too, so it says who they are talking to rather than
+    // which internal lever someone pulled.
+    blurb: () => 'Replies will come from the support assistant.',
     tone: 'bg-indigo-50 text-indigo-700',
+    /** The action the other state offers. */
+    action: 'Take over from the assistant',
   },
   needs_human: {
-    title: 'Handed off',
+    title: 'Passed to the support team',
     chip: 'Needs a person',
-    blurb: () => 'The agent asked for a person to take this.',
+    blurb: () => 'Someone on the team will follow up here.',
     tone: 'bg-amber-100 text-amber-800',
+    action: 'Hand back to the assistant',
   },
   with_staff: {
-    title: 'Taken',
-    chip: 'With staff',
+    title: 'A person is answering',
+    chip: 'With the team',
     blurb: (who?: string) => `${who ?? 'A colleague'} is answering this.`,
     tone: 'bg-emerald-100 text-emerald-800',
+    action: 'Hand back to the assistant',
   },
 } as const;
 

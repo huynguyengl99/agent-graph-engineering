@@ -1,8 +1,10 @@
 """Who answers a ticket, as it changes hands."""
 
 import asyncio
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
+from channels.db import database_sync_to_async
 from django.test import override_settings
 
 from helpdesk.accounts.factories import UserFactory
@@ -11,6 +13,8 @@ from helpdesk.agent_client.agent_hub_triage_topic.messages import (
     ApprovalRequiredPayload,
     ReplySentMessage,
     ReplySentPayload,
+    TriageErrorMessage,
+    TriageErrorPayload,
     TriageRequestPayload,
 )
 from helpdesk.core.consumers.hub import HubConsumer
@@ -19,12 +23,21 @@ from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,
+    NewEventMessage,
+    NewEventPayload,
     SendMessageMessage,
     SendMessagePayload,
     SetAgentMessage,
     SetAgentPayload,
 )
-from helpdesk.tickets.models import AIResponseEvent, Handling, Ticket, Visibility
+from helpdesk.tickets.models import (
+    AIResponseEvent,
+    CommentEvent,
+    Handling,
+    Ticket,
+    Visibility,
+)
+from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off, handling_of
 from helpdesk.tickets.services.triage import TicketTriageClient, _parked_visibility
 from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent, TicketTopic
@@ -72,12 +85,15 @@ class TestHandOff(WebsocketTestCase):
         fresh = await Ticket.objects.aget(id=self.ticket.id)
         assert fresh.assigned_to_id == staff.pk
 
-    async def test_a_handoff_is_internal(self) -> None:
-        """The customer sees the staff reply, not the plumbing behind it."""
-        event = await hand_off(str(self.ticket.id), Handling.NEEDS_HUMAN)
+    async def test_the_customer_is_told_who_has_it(self) -> None:
+        """Being handed between an assistant and a person is the customer's
+        business; why they were is not."""
+        event = await hand_off(
+            str(self.ticket.id), Handling.NEEDS_HUMAN, reason="Needs billing access"
+        )
 
         assert event is not None
-        assert event.visibility == "internal"
+        assert event.visibility == "public"
 
 
 class TestTakingTheTicket(WebsocketTestCase):
@@ -239,12 +255,44 @@ class TestTheCustomerOnlySeesTheirHalf(WebsocketTestCase):
         await self.subscribe_ready(self.topic)
         staff = await UserFactory.acreate(is_staff=True)
 
-        await hand_off(str(self.ticket.id), Handling.NEEDS_HUMAN, user=staff)
+        event = await database_sync_to_async(CommentEvent.objects.create)(
+            ticket_id=self.ticket.id,
+            content="Check whether the second charge cleared.",
+            created_by=staff,
+            visibility=Visibility.INTERNAL,
+        )
+        await TicketTopic.broadcast(
+            self.topic,
+            NewEventMessage(
+                payload=NewEventPayload(
+                    event=await database_sync_to_async(serialize_event)(event)
+                )
+            ),
+        )
 
         messages = await self.receive_topic_messages(
             TicketFeedEvent, stop_action="event_complete"
         )
         assert messages == []
+
+    async def test_a_handoff_arrives_without_its_reason(self) -> None:
+        """They are told a person took over, not that the agent could not do it."""
+        await self.subscribe_ready(self.topic)
+
+        event = await hand_off(
+            str(self.ticket.id), Handling.NEEDS_HUMAN, reason="Needs billing access"
+        )
+        assert event is not None
+        await TicketTopic.broadcast(
+            self.topic, NewEventMessage(payload=NewEventPayload(event=event))
+        )
+
+        [message] = await self.receive_topic_messages(
+            TicketFeedEvent, stop_action="event_complete"
+        )
+        relayed = cast(NewEventMessage, message).payload.event
+        assert relayed.event_type == "handoff"
+        assert relayed.reason == ""
 
     async def test_the_agents_progress_is_not_relayed(self) -> None:
         await self.subscribe_ready(self.topic)
@@ -260,3 +308,31 @@ class TestTheCustomerOnlySeesTheirHalf(WebsocketTestCase):
             TicketFeedEvent, stop_action="event_complete"
         )
         assert messages == []
+
+
+class TestAFailedRunDoesNotStrandTheCustomer(WebsocketTestCase):
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.ticket = TicketFactory.create(created_by=self.user)
+
+    async def test_the_ticket_goes_to_a_person(self) -> None:
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+        client = TicketTriageClient(
+            str(self.ticket.id),
+            TriageRequestPayload(
+                ticket_id=str(self.ticket.id), title="x", description="y"
+            ),
+        )
+
+        await client.on_event(
+            TriageErrorMessage(
+                payload=TriageErrorPayload(
+                    ticket_id=str(self.ticket.id), message="The run died."
+                )
+            )
+        )
+
+        assert await handling_of(str(self.ticket.id)) == Handling.NEEDS_HUMAN

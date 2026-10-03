@@ -162,8 +162,18 @@ class TicketTopic(Topic[TicketFeedEvent]):
     # half is separated from the team's - the REST list already does the same.
     @event_handler
     async def handle_new_event(self, event: NewEventMessage) -> NewEventMessage | None:
-        internal = event.payload.event.visibility != "public"
-        return None if internal and not self._staff else event
+        wire = event.payload.event
+        if wire.visibility != "public" and not self._staff:
+            return None
+        if wire.event_type == "handoff" and wire.reason and not self._staff:
+            return event.model_copy(
+                update={
+                    "payload": event.payload.model_copy(
+                        update={"event": wire.model_copy(update={"reason": ""})}
+                    )
+                }
+            )
+        return event
 
     @event_handler
     async def handle_progress(

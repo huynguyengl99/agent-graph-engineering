@@ -9,6 +9,10 @@ from .events import (
 from .incoming import (
     ApprovalDecisionMessage,
     ApprovalDecisionPayload,
+    AskAgentMessage,
+    AskAgentPayload,
+    ReturnToAgentMessage,
+    ReturnToAgentPayload,
     SendMessageMessage,
     SendMessagePayload,
 )
@@ -33,6 +37,8 @@ __all__ = [
     "ApprovalDecisionPayload",
     "ApprovalRequiredMessage",
     "ApprovalRequiredPayload",
+    "AskAgentMessage",
+    "AskAgentPayload",
     "AssignmentEvent",
     "CommentEvent",
     "EventUser",
@@ -40,6 +46,8 @@ __all__ = [
     "CompleteStreamingPayload",
     "NewEventMessage",
     "NewEventPayload",
+    "ReturnToAgentMessage",
+    "ReturnToAgentPayload",
     "SendMessageMessage",
     "SendMessagePayload",
     "StatusChangeEvent",

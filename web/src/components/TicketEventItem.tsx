@@ -44,8 +44,36 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
           {event.newAssignee?.fullName ?? 'Unassigned'}
         </Row>
       );
+
+    case 'handoff':
+      return (
+        <Row tone="meta" label={HANDLING[event.handling].title} when={when}>
+          {event.reason || HANDLING[event.handling].blurb(who)}
+        </Row>
+      );
   }
 }
+
+export const HANDLING = {
+  agent: {
+    title: 'Back to the agent',
+    chip: 'Agent',
+    blurb: (who?: string) => `${who ?? 'A colleague'} handed this back.`,
+    tone: 'bg-indigo-50 text-indigo-700',
+  },
+  needs_human: {
+    title: 'Handed off',
+    chip: 'Needs a person',
+    blurb: () => 'The agent asked for a person to take this.',
+    tone: 'bg-amber-100 text-amber-800',
+  },
+  with_staff: {
+    title: 'Taken',
+    chip: 'With staff',
+    blurb: (who?: string) => `${who ?? 'A colleague'} is answering this.`,
+    tone: 'bg-emerald-100 text-emerald-800',
+  },
+} as const;
 
 const TONES = {
   neutral: 'bg-white border-gray-200',

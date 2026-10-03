@@ -94,6 +94,29 @@ export interface CookieTokenRefreshRequest {
   refresh?: string;
 }
 
+/** * `agent` - Agent * `needs_human` - Needs a person * `with_staff` - With staff */
+export type HandlingEnum = "agent" | "needs_human" | "with_staff";
+
+export interface HandoffEvent {
+  id: number;
+  eventType: string;
+  createdBy: User;
+  visibility?: VisibilityEnum;
+  createdAt: string;
+  handling: HandlingEnum;
+  reason?: string;
+}
+
+export interface HandoffEventTyped {
+  id: number;
+  eventType: "handoff";
+  createdBy: User;
+  visibility?: VisibilityEnum;
+  createdAt: string;
+  handling: HandlingEnum;
+  reason?: string;
+}
+
 /** JWT logout with refresh token blacklisting. */
 export interface JWTLogout {
   detail: string;
@@ -298,6 +321,7 @@ export interface Ticket {
   description: string;
   status?: TicketStatusEnum;
   priority?: PriorityEnum;
+  handling: HandlingEnum;
   createdBy: User;
   assignedTo: User;
   pendingReply: PendingReply;
@@ -317,7 +341,8 @@ export type TicketEventPolymorphic =
   | CommentEventTyped
   | StatusChangeEventTyped
   | AssignmentEventTyped
-  | AIResponseEventTyped;
+  | AIResponseEventTyped
+  | HandoffEventTyped;
 
 /** * `open` - Open * `in_progress` - In Progress * `resolved` - Resolved * `closed` - Closed */
 export type TicketStatusEnum = "open" | "in_progress" | "resolved" | "closed";

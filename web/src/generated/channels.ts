@@ -7,6 +7,7 @@ import type {
   AgentProgressMessage,
   ApprovalDecisionMessage,
   ApprovalRequiredMessage,
+  AskAgentMessage,
   AskMessage,
   AssistantDoneMessage,
   ChatErrorMessage,
@@ -15,6 +16,7 @@ import type {
   NewEventMessage,
   PingMessage,
   PongMessage,
+  ReturnToAgentMessage,
   SendMessageMessage,
   TokenMessage,
   ToolApprovalMessage,
@@ -24,7 +26,10 @@ import type {
 export type HubToServer = PingMessage;
 export type HubToClient = PongMessage;
 export type HubTicketTopicToServer =
-  ApprovalDecisionMessage | SendMessageMessage;
+  | ApprovalDecisionMessage
+  | AskAgentMessage
+  | ReturnToAgentMessage
+  | SendMessageMessage;
 export type HubTicketTopicToClient =
   AgentProgressMessage | ApprovalRequiredMessage | NewEventMessage;
 export type HubConversationTopicToServer =

@@ -2,6 +2,8 @@ import uuid
 
 from django.db import models
 
+from helpdesk.tickets.models.events.base import Visibility
+
 
 class PendingReply(models.Model):
     """A drafted reply parked at the agent's approval gate.
@@ -26,6 +28,11 @@ class PendingReply(models.Model):
 
     draft = models.TextField()
     findings = models.JSONField(default=list)
+    # Who asked for it: a draft requested as an internal note stays one when it
+    # is approved, and the gate is the only thing standing between the two.
+    visibility = models.CharField(
+        max_length=10, choices=Visibility.choices, default=Visibility.PUBLIC
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -157,6 +157,7 @@ const ModelPreferenceRequest = z
   .passthrough();
 const TicketStatusEnum = z.enum(["open", "in_progress", "resolved", "closed"]);
 const PriorityEnum = z.enum(["low", "medium", "high", "urgent"]);
+const HandlingEnum = z.enum(["agent", "needs_human", "with_staff"]);
 const PendingReply = z
   .object({
     draft: z.string(),
@@ -171,6 +172,7 @@ const Ticket = z
     description: z.string(),
     status: TicketStatusEnum.optional(),
     priority: PriorityEnum.optional(),
+    handling: HandlingEnum,
     createdBy: User,
     assignedTo: User.nullable(),
     pendingReply: PendingReply.nullable(),
@@ -266,11 +268,23 @@ const AIResponseEventTyped = z
     tokensUsed: z.number().int().gte(-2147483648).lte(2147483647).optional(),
   })
   .passthrough();
+const HandoffEventTyped = z
+  .object({
+    id: z.number().int(),
+    eventType: z.literal("handoff"),
+    createdBy: User.nullable(),
+    visibility: VisibilityEnum.optional(),
+    createdAt: z.string().datetime({ offset: true }),
+    handling: HandlingEnum,
+    reason: z.string().optional(),
+  })
+  .passthrough();
 const TicketEventPolymorphic = z.discriminatedUnion("eventType", [
   CommentEventTyped,
   StatusChangeEventTyped,
   AssignmentEventTyped,
   AIResponseEventTyped,
+  HandoffEventTyped,
 ]);
 const PaginatedTicketEventPolymorphicList = z
   .object({
@@ -320,6 +334,7 @@ export const schemas = {
   ModelPreferenceRequest,
   TicketStatusEnum,
   PriorityEnum,
+  HandlingEnum,
   PendingReply,
   Ticket,
   PaginatedTicketList,
@@ -332,6 +347,7 @@ export const schemas = {
   StatusChangeEventTyped,
   AssignmentEventTyped,
   AIResponseEventTyped,
+  HandoffEventTyped,
   TicketEventPolymorphic,
   PaginatedTicketEventPolymorphicList,
   CommentEventCreateRequest,

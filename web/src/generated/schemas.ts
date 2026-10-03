@@ -45,6 +45,16 @@ export interface ApprovalRequiredPayload {
   findings?: Array<string>;
 }
 
+/** Staff asks the agent to work this ticket. */
+export interface AskAgentMessage {
+  action: 'ask_agent';
+  payload: AskAgentPayload;
+}
+
+export interface AskAgentPayload {
+  public?: boolean;
+}
+
 /** A rep says something to the assistant. */
 export interface AskMessage {
   action: 'ask';
@@ -133,6 +143,16 @@ export interface EventUser {
   dateJoined?: string;
 }
 
+export interface HandoffEvent {
+  id: number;
+  createdBy?: EventUser | null;
+  visibility?: 'internal' | 'public';
+  createdAt: string;
+  eventType: 'handoff';
+  handling: 'agent' | 'needs_human' | 'with_staff';
+  reason?: string;
+}
+
 export interface NewEventMessage {
   action: 'new_event';
   payload: NewEventPayload;
@@ -140,7 +160,12 @@ export interface NewEventMessage {
 
 /** A polymorphic `TicketEvent`, discriminated by `eventType`. */
 export interface NewEventPayload {
-  event: CommentEvent | StatusChangeEvent | AssignmentEvent | AIResponseEvent;
+  event:
+    | CommentEvent
+    | StatusChangeEvent
+    | AssignmentEvent
+    | AIResponseEvent
+    | HandoffEvent;
 }
 
 /** Simple ping message to check WebSocket connection status. */
@@ -153,6 +178,16 @@ export interface PingMessage {
 export interface PongMessage {
   action: 'pong';
   payload?: null;
+}
+
+/** Staff gives the ticket back to the agent. */
+export interface ReturnToAgentMessage {
+  action: 'return_to_agent';
+  payload: ReturnToAgentPayload;
+}
+
+export interface ReturnToAgentPayload {
+  reason?: string;
 }
 
 /** A human posts a comment on the ticket. */

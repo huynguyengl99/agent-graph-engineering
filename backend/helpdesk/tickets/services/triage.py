@@ -55,8 +55,9 @@ from helpdesk.tickets.messages import (
     ApprovalRequiredPayload as FEApprovalRequiredPayload,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
-from helpdesk.tickets.models import AIResponseEvent, PendingReply, Visibility
+from helpdesk.tickets.models import AIResponseEvent, Handling, PendingReply, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
+from helpdesk.tickets.services.handoff import hand_off
 from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
 logger = structlog.get_logger(__name__)
@@ -120,10 +121,16 @@ class TicketTriageClient(AgentClient):
     subscription that is already open and a node can emit to it directly.
     """
 
-    def __init__(self, ticket_id: str, request: OutgoingPayload) -> None:
+    def __init__(
+        self,
+        ticket_id: str,
+        request: OutgoingPayload,
+        visibility: str = Visibility.PUBLIC,
+    ) -> None:
         super().__init__(settings.AGENT_WS_URL, headers=agent_headers())
         self.ticket_id = ticket_id
         self.payload = request
+        self.visibility = visibility
         self.group = ticket_topic(ticket_id)
         # Both set by the handle before it forwards an event.
         self.incoming_seq = 0
@@ -183,6 +190,8 @@ class TicketTriageClient(AgentClient):
                         )
                     ),
                 )
+                if payload.decision == "Escalate":
+                    await self._hand_to_a_person(payload.reasoning)
             case ApprovalRequiredMessage(payload=payload):
                 await self._remember_draft(payload.draft, payload.findings)
                 await broadcast(
@@ -231,11 +240,22 @@ class TicketTriageClient(AgentClient):
 
         await advance(self.agent_topic, self.incoming_seq)
 
+    async def _hand_to_a_person(self, reason: str) -> None:
+        event = await hand_off(self.ticket_id, Handling.NEEDS_HUMAN, reason=reason)
+        if event is not None:
+            await broadcast(
+                self.group, NewEventMessage(payload=NewEventPayload(event=event))
+            )
+
     @database_sync_to_async
     def _remember_draft(self, draft: str, findings: list[str]) -> None:
         PendingReply.objects.update_or_create(
             ticket_id=self.ticket_id,
-            defaults={"draft": draft, "findings": findings},
+            defaults={
+                "draft": draft,
+                "findings": findings,
+                "visibility": self.visibility,
+            },
         )
 
     async def _sent_text(self) -> str:
@@ -268,6 +288,7 @@ class TicketTriageClient(AgentClient):
                 ticket_id=self.ticket_id,
                 content=content,
                 model_name=settings.AGENT_ANSWER_MODEL,
+                visibility=self.visibility,
             )
             advance_sync(self.agent_topic, self.incoming_seq)
             return serialize_event(event)
@@ -279,6 +300,7 @@ async def run_triage(
     description: str,
     history: list[str],
     models: dict[str, str] | None = None,
+    visibility: str = Visibility.PUBLIC,
 ) -> None:
     """Best-effort triage. A failure must never take down the chat socket.
 
@@ -296,6 +318,7 @@ async def run_triage(
                 history=history,
                 models=ModelOverrides(**(models or {})),
             ),
+            visibility=visibility,
         )
         await client.handle()
     except Exception:
@@ -308,6 +331,12 @@ async def run_triage(
                 )
             ),
         )
+
+
+@database_sync_to_async
+def _parked_visibility(ticket_id: str) -> str:
+    pending = PendingReply.objects.filter(ticket_id=ticket_id).first()
+    return str(pending.visibility) if pending else Visibility.PUBLIC
 
 
 async def submit_approval(
@@ -330,6 +359,7 @@ async def submit_approval(
                 content=content,
                 models=ModelOverrides(**(models or {})),
             ),
+            visibility=await _parked_visibility(ticket_id),
         )
         client.pending_reply = content
         await client.handle()
@@ -369,7 +399,9 @@ def _ticket_context(ticket_id: str) -> dict[str, Any]:
     }
 
 
-async def start_triage(ticket_id: str, user_id: Any = None) -> None:
+async def start_triage(
+    ticket_id: str, user_id: Any = None, visibility: str = Visibility.PUBLIC
+) -> None:
     """Kick off triage without holding the socket.
 
     Detached because the agent may take tens of seconds; results reach the
@@ -383,6 +415,7 @@ async def start_triage(ticket_id: str, user_id: Any = None) -> None:
             description=context["description"],
             history=context["history"],
             models=await model_overrides(user_id),
+            visibility=visibility,
         )
     )
 

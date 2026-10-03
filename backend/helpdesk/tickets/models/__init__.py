@@ -4,15 +4,17 @@ from .events import (
     AIResponseEvent,
     AssignmentEvent,
     CommentEvent,
+    HandoffEvent,
     StatusChangeEvent,
     TicketEvent,
     Visibility,
 )
 from .pending_reply import PendingReply
-from .ticket import Ticket, TicketPriority, TicketStatus
+from .ticket import Handling, Ticket, TicketPriority, TicketStatus
 
 __all__ = [
     "Ticket",
+    "Handling",
     "TicketStatus",
     "TicketPriority",
     "TicketEvent",
@@ -21,5 +23,6 @@ __all__ = [
     "StatusChangeEvent",
     "AssignmentEvent",
     "AIResponseEvent",
+    "HandoffEvent",
     "PendingReply",
 ]

@@ -3,7 +3,7 @@ import { api } from '@/lib/api';
 import { router } from '@/router';
 import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import type { Ticket, TicketEvent } from '@/lib/types';
-import { TicketEventItem } from './TicketEventItem';
+import { HANDLING, TicketEventItem } from './TicketEventItem';
 import { ApprovalPanel } from './ApprovalPanel';
 
 interface Progress {
@@ -25,6 +25,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const [findings, setFindings] = useState<string[]>(
     ticket.pendingReply?.findings ?? [],
   );
+  const [handling, setHandling] = useState(ticket.handling);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -50,6 +51,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
   const onNewEvent = useCallback((event: TicketEvent) => {
     setEvents((current) => [...current, event]);
+    if (event.eventType === 'handoff') setHandling(event.handling);
     if (event.eventType === 'ai_response') {
       // The reply went out: the trail and the gate have served their purpose.
       setProgress([]);
@@ -66,12 +68,13 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     setProgress((current) => [...current, { stage, detail }]);
   }, []);
 
-  const { sendMessage, submitApproval, isConnected } = useTicketChat({
-    ticketId,
-    onNewEvent,
-    onAgentProgress,
-    onApprovalRequired,
-  });
+  const { sendMessage, askAgent, returnToAgent, submitApproval, isConnected } =
+    useTicketChat({
+      ticketId,
+      onNewEvent,
+      onAgentProgress,
+      onApprovalRequired,
+    });
 
   const decide = useCallback(
     (approved: boolean, content?: string) => {
@@ -126,10 +129,26 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           <h2 className="text-xl font-semibold">{ticket.title}</h2>
           <Badge>{ticket.status}</Badge>
           <Badge>{ticket.priority}</Badge>
+          <span
+            className={`rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${HANDLING[handling].tone}`}
+          >
+            {HANDLING[handling].chip}
+          </span>
+          {handling !== 'agent' && (
+            <button
+              onClick={() => returnToAgent()}
+              disabled={!isConnected}
+              className="ml-auto rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+            >
+              Give back to the agent
+            </button>
+          )}
           <button
             onClick={() => void askAssistant()}
             disabled={openingChat}
-            className="ml-auto rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+            className={`rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40 ${
+              handling === 'agent' ? 'ml-auto' : ''
+            }`}
           >
             {openingChat ? 'Opening…' : 'Ask the assistant'}
           </button>
@@ -222,6 +241,19 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             }
             className="flex-1 rounded border px-3 py-2"
           />
+          <button
+            type="button"
+            onClick={() => askAgent(isPublic)}
+            disabled={!isConnected}
+            title={
+              isPublic
+                ? 'The agent answers the customer here.'
+                : 'The agent drafts for your team only.'
+            }
+            className="rounded border px-4 py-2 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+          >
+            {isPublic ? 'Let the agent reply' : 'Ask the agent to draft'}
+          </button>
           <button
             type="submit"
             disabled={!isConnected || !draft.trim()}

@@ -33,13 +33,14 @@ class TicketSerializer(serializers.ModelSerializer[Ticket]):
             "description",
             "status",
             "priority",
+            "handling",
             "created_by",
             "assigned_to",
             "pending_reply",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "handling", "created_at", "updated_at"]
 
 
 class TicketCreateSerializer(serializers.ModelSerializer[Ticket]):

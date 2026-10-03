@@ -53,7 +53,13 @@ class AIResponseEvent(BaseEvent):
     tokens_used: int = 0
 
 
+class HandoffEvent(BaseEvent):
+    event_type: Literal["handoff"] = "handoff"
+    handling: Literal["agent", "needs_human", "with_staff"]
+    reason: str = ""
+
+
 TicketEvent = Annotated[
-    CommentEvent | StatusChangeEvent | AssignmentEvent | AIResponseEvent,
+    CommentEvent | StatusChangeEvent | AssignmentEvent | AIResponseEvent | HandoffEvent,
     Field(discriminator="event_type"),
 ]

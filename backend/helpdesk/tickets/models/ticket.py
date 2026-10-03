@@ -13,6 +13,14 @@ class TicketStatus(models.TextChoices):
     CLOSED = "closed", "Closed"
 
 
+class Handling(models.TextChoices):
+    """Who is answering this ticket right now."""
+
+    AGENT = "agent", "Agent"
+    NEEDS_HUMAN = "needs_human", "Needs a person"
+    WITH_STAFF = "with_staff", "With staff"
+
+
 class TicketPriority(models.TextChoices):
     LOW = "low", "Low"
     MEDIUM = "medium", "Medium"
@@ -33,6 +41,10 @@ class Ticket(models.Model):
         max_length=20,
         choices=TicketPriority.choices,
         default=TicketPriority.MEDIUM,
+    )
+
+    handling = models.CharField(
+        max_length=20, choices=Handling.choices, default=Handling.AGENT
     )
 
     created_by = models.ForeignKey(

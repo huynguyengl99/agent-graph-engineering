@@ -4,6 +4,7 @@ from .ai_response import AIResponseEvent
 from .assignment import AssignmentEvent
 from .base import TicketEvent, Visibility
 from .comment import CommentEvent
+from .handoff import HandoffEvent
 from .status_change import StatusChangeEvent
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "StatusChangeEvent",
     "AssignmentEvent",
     "AIResponseEvent",
+    "HandoffEvent",
 ]

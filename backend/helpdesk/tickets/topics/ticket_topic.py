@@ -10,13 +10,16 @@ from helpdesk.tickets.messages import (
     AgentProgressMessage,
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
+    AskAgentMessage,
     NewEventMessage,
     NewEventPayload,
+    ReturnToAgentMessage,
     SendMessageMessage,
 )
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
-from helpdesk.tickets.models import CommentEvent, Ticket, Visibility
+from helpdesk.tickets.models import CommentEvent, Handling, Ticket, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
+from helpdesk.tickets.services.handoff import hand_off, handling_of
 
 TicketFeedEvent = NewEventMessage | AgentProgressMessage | ApprovalRequiredMessage
 
@@ -53,19 +56,26 @@ class TicketTopic(Topic[TicketFeedEvent]):
             ),
         )
 
-        if not settings.TRIAGE_ON_COMMENT:
+        user = self.scope.get("user")
+        from_requester = await self._from_requester(ticket_id, user)
+
+        # Answering the customer is taking the ticket: the agent stops replying
+        # on its own once a person has.
+        if event.visibility == Visibility.PUBLIC and not from_requester:
+            await self._announce(
+                ticket_id, await hand_off(ticket_id, Handling.WITH_STAFF, user=user)
+            )
             return
 
-        # Only the requester saying something new asks for a reply. A staff note
-        # is for colleagues, and a staff reply has already answered.
-        if event.visibility != Visibility.PUBLIC or not await self._from_requester(
-            ticket_id, self.scope.get("user")
-        ):
+        if not settings.TRIAGE_ON_COMMENT or not from_requester:
+            return
+        if event.visibility != Visibility.PUBLIC:
+            return
+        if await handling_of(ticket_id) != Handling.AGENT:
             return
 
         from helpdesk.tickets.services.triage import start_triage
 
-        user = self.scope.get("user")
         await start_triage(
             ticket_id, user.pk if user is not None and user.is_authenticated else None
         )
@@ -84,6 +94,47 @@ class TicketTopic(Topic[TicketFeedEvent]):
             approved=message.payload.approved,
             content=message.payload.content,
             user_id=user.pk if user is not None and user.is_authenticated else None,
+        )
+
+    @ws_handler(
+        summary="Ask the agent to work this ticket",
+        description="Public answers the customer; internal drafts for the team only.",
+        output_type=NewEventMessage | AgentProgressMessage,
+    )
+    async def handle_ask_agent(self, message: AskAgentMessage) -> None:
+        from helpdesk.tickets.services.triage import start_triage
+
+        user = self.scope.get("user")
+        await start_triage(
+            self.params["ticket_id"],
+            user.pk if user is not None and user.is_authenticated else None,
+            visibility=(
+                Visibility.PUBLIC if message.payload.public else Visibility.INTERNAL
+            ),
+        )
+
+    @ws_handler(
+        summary="Hand the ticket back to the agent",
+        description="The agent answers new customer messages again.",
+        output_type=NewEventMessage,
+    )
+    async def handle_return_to_agent(self, message: ReturnToAgentMessage) -> None:
+        ticket_id = self.params["ticket_id"]
+        await self._announce(
+            ticket_id,
+            await hand_off(
+                ticket_id,
+                Handling.AGENT,
+                reason=message.payload.reason,
+                user=self.scope.get("user"),
+            ),
+        )
+
+    async def _announce(self, ticket_id: str, event: Any) -> None:
+        if event is None:
+            return
+        await self.broadcast(
+            f"ticket:{ticket_id}", NewEventMessage(payload=NewEventPayload(event=event))
         )
 
     # Relays: an event published to this topic goes straight to the client.

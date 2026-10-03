@@ -8,6 +8,7 @@ from chanx.core.topic import Topic
 
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
+    AgentProgressPayload,
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
     AskAgentMessage,
@@ -22,6 +23,7 @@ from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import CommentEvent, Handling, Ticket, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off, handling_of
+from helpdesk.tickets.services.placeholders import UnfilledError, refuse_if_unfilled
 
 TicketFeedEvent = (
     NewEventMessage
@@ -143,17 +145,40 @@ class TicketTopic(Topic[TicketFeedEvent]):
     @ws_handler(
         summary="Turn the agent on this ticket on or off",
         description="On, it answers new customer messages; off, the team does.",
-        output_type=NewEventMessage,
+        output_type=NewEventMessage | AgentProgressMessage,
     )
     async def handle_set_agent(self, message: SetAgentMessage) -> None:
         ticket_id = self.params["ticket_id"]
+        user = self.scope.get("user")
+
+        if said := message.payload.message.strip():
+            try:
+                refuse_if_unfilled(said)
+            except UnfilledError as unfilled:
+                await self.send_message(
+                    AgentProgressMessage(
+                        payload=AgentProgressPayload(
+                            stage="failed",
+                            detail=f"Fill in {', '.join(unfilled.names)} first.",
+                        )
+                    )
+                )
+                return
+            await self._announce(
+                ticket_id,
+                await self._serialize(
+                    await self._create_comment_event(
+                        ticket_id=ticket_id, content=said, user=user, public=True
+                    )
+                ),
+            )
+
         await self._announce(
             ticket_id,
             await hand_off(
                 ticket_id,
                 Handling.AGENT if message.payload.on else Handling.WITH_STAFF,
-                reason=message.payload.reason,
-                user=self.scope.get("user"),
+                user=user,
             ),
         )
 

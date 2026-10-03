@@ -56,8 +56,8 @@ export function useTicketChat({
     send({ action: 'ask_agent', payload: { public: isPublic, question } });
   };
 
-  const setAgent = (on: boolean, reason = '') => {
-    send({ action: 'set_agent', payload: { on, reason } });
+  const setAgent = (on: boolean, message = '') => {
+    send({ action: 'set_agent', payload: { on, message } });
   };
 
   const decideTool = (

@@ -46,7 +46,9 @@ class AskAgentMessage(BaseMessage):
 class SetAgentPayload(BaseModel):
     # On, the agent answers new customer messages; off, the team does.
     on: bool
-    reason: str = ""
+    # Posted to the customer before the handover, so the change of voice is
+    # introduced by a person rather than just happening.
+    message: str = ""
 
 
 class SetAgentMessage(BaseMessage):

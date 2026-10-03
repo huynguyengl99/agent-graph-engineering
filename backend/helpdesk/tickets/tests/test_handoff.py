@@ -161,7 +161,7 @@ class TestTakingTheTicket(WebsocketTestCase):
         await self.subscribe_ready(self.topic)
 
         await self.auth_communicator.send_message(
-            SetAgentMessage(payload=SetAgentPayload(on=True, reason="Resolved")),
+            SetAgentMessage(payload=SetAgentPayload(on=True)),
             topic=self.topic,
         )
         await self.receive_topic_messages(TicketFeedEvent, stop_action="event_complete")
@@ -431,3 +431,43 @@ class TestTheGateOnTheTicket(WebsocketTestCase):
         event = await AIResponseEvent.objects.filter(ticket_id=self.ticket.id).afirst()
         assert event is not None
         assert event.visibility == Visibility.INTERNAL
+
+
+class TestIntroducingTheHandover(WebsocketTestCase):
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        self.ticket = TicketFactory.create(created_by=UserFactory.create())
+        self.topic = f"ticket:{self.ticket.id}"
+
+    async def switch(self, *, on: bool, said: str) -> None:
+        await self.subscribe_ready(self.topic)
+        await self.auth_communicator.send_message(
+            SetAgentMessage(payload=SetAgentPayload(on=on, message=said)),
+            topic=self.topic,
+        )
+        await self.receive_topic_messages(TicketFeedEvent, stop_action="event_complete")
+
+    async def test_what_they_wrote_reaches_the_customer(self) -> None:
+        await self.switch(on=True, said="Our assistant will take it from here.")
+
+        comment = await CommentEvent.objects.filter(ticket_id=self.ticket.id).afirst()
+        assert comment is not None
+        assert comment.visibility == Visibility.PUBLIC
+        assert await handling_of(str(self.ticket.id)) == Handling.AGENT
+
+    async def test_a_blank_left_in_it_is_not_sent(self) -> None:
+        """The same guard as any other public text, on the one message a
+        reviewer is most likely to send without reading."""
+        await self.switch(on=False, said="Hi, I am {{your name}} from support.")
+
+        assert not await CommentEvent.objects.filter(ticket_id=self.ticket.id).aexists()
+
+    async def test_switching_without_a_word_is_still_allowed(self) -> None:
+        await self.switch(on=False, said="")
+
+        assert await handling_of(str(self.ticket.id)) == Handling.WITH_STAFF

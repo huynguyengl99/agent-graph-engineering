@@ -200,7 +200,7 @@ export interface SetAgentMessage {
 
 export interface SetAgentPayload {
   on: boolean;
-  reason?: string;
+  message?: string;
 }
 
 export interface StatusChangeEvent {

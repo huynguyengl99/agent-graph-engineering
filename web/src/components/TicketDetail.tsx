@@ -6,6 +6,7 @@ import { HANDLING, Row, TicketEventItem } from './TicketEventItem';
 import { placeholdersIn } from '@/lib/placeholders';
 import { ApprovalPanel } from './ApprovalPanel';
 import { ToolApprovalCard, type Proposal } from './ToolApprovalCard';
+import { HandoverDialog } from './HandoverDialog';
 
 interface Progress {
   stage: AgentStage;
@@ -33,6 +34,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     parked(ticket.pendingToolCall),
   );
   const [publish, setPublish] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -155,7 +157,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             {HANDLING[handling].chip}
           </span>
           <button
-            onClick={() => setAgent(handling !== 'agent')}
+            onClick={() => setSwitching(true)}
             disabled={!isConnected}
             title={
               handling === 'agent'
@@ -242,6 +244,17 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
         <div ref={bottom} />
       </div>
+
+      {switching && (
+        <HandoverDialog
+          toAgent={handling !== 'agent'}
+          onClose={() => setSwitching(false)}
+          onConfirm={(message) => {
+            setAgent(handling !== 'agent', message);
+            setSwitching(false);
+          }}
+        />
+      )}
 
       <form
         onSubmit={submit}

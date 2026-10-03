@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
-import { router } from '@/router';
 import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import type { Ticket, TicketEvent } from '@/lib/types';
 import { HANDLING, Row, TicketEventItem } from './TicketEventItem';
@@ -27,6 +26,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     ticket.pendingReply?.findings ?? [],
   );
   const [handling, setHandling] = useState(ticket.handling);
+  const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -53,6 +53,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const onNewEvent = useCallback((event: TicketEvent) => {
     setEvents((current) => [...current, event]);
     if (event.eventType === 'handoff') setHandling(event.handling);
+    if (event.eventType === 'ai_response') setAsking(false);
     if (event.eventType === 'ai_response') {
       // The reply went out: the trail and the gate have served their purpose.
       setProgress([]);
@@ -67,6 +68,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
   const onAgentProgress = useCallback((stage: AgentStage, detail: string) => {
     setProgress((current) => [...current, { stage, detail }]);
+    if (stage === 'failed') setAsking(false);
   }, []);
 
   const { sendMessage, askAgent, setAgent, submitApproval, isConnected } =
@@ -94,26 +96,6 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
   }, [events, progress, pendingApproval]);
-
-  const [openingChat, setOpeningChat] = useState(false);
-
-  const askAssistant = async () => {
-    setOpeningChat(true);
-    try {
-      // The conversation carries the ticket, so the assistant starts with its
-      // context instead of the rep pasting it in.
-      const created = await api.post('/api/conversations/', {
-        title: ticket.title,
-        ticket: ticketId,
-      });
-      await router.navigate({
-        to: '/chat/$conversationId',
-        params: { conversationId: String(created.id) },
-      });
-    } finally {
-      setOpeningChat(false);
-    }
-  };
 
   const blanks = isPublic ? placeholdersIn(draft) : [];
 
@@ -152,13 +134,6 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             }`}
           >
             {HANDLING[handling].action}
-          </button>
-          <button
-            onClick={() => void askAssistant()}
-            disabled={openingChat}
-            className="rounded border px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
-          >
-            {openingChat ? 'Opening…' : 'Ask the assistant'}
           </button>
           <span
             className={`text-xs ${
@@ -272,10 +247,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           <button
             type="button"
             onClick={() => {
+              setAsking(true);
               askAgent(isPublic, isPublic ? '' : draft.trim());
               if (!isPublic) setDraft('');
             }}
-            disabled={!isConnected || (!isPublic && !draft.trim())}
+            disabled={asking || !isConnected || (!isPublic && !draft.trim())}
             title={
               isPublic
                 ? 'The agent answers the customer here.'
@@ -283,7 +259,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             }
             className="rounded border px-4 py-2 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
           >
-            {isPublic ? 'Let the agent reply' : 'Ask the agent'}
+            {asking
+              ? 'Thinking…'
+              : isPublic
+                ? 'Let the agent reply'
+                : 'Ask the agent'}
           </button>
           <button
             type="submit"

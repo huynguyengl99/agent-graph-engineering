@@ -26,18 +26,17 @@ from assistant.graphs.knowledge_graph import build_knowledge_graph
 from assistant.graphs.states import SupportState, Update
 from assistant.graphs.tool_graph import build_tool_graph
 from assistant.guardrails import screen_input
-from assistant.messages.chat import (
+from assistant.messages.support import (
     ChatCompleteMessage,
     ChatCompletePayload,
-    ToolRanMessage,
-    ToolRanPayload,
-)
-from assistant.messages.support import ReasonedMessage, ReasonedPayload
-from assistant.messages.triage import (
     ClassifiedMessage,
     ClassifiedPayload,
     DecidedMessage,
     DecidedPayload,
+    ReasonedMessage,
+    ReasonedPayload,
+    ToolRanMessage,
+    ToolRanPayload,
 )
 from assistant.outputs.support import (
     Decision,

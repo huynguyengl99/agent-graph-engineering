@@ -1,5 +1,5 @@
 from assistant.events import Emitter
-from assistant.messages.triage import AnswerMessage, AnswerPayload
+from assistant.messages.support import AnswerMessage, AnswerPayload
 from assistant.outputs.support import TicketAnswer
 
 

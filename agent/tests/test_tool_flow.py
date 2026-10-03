@@ -11,12 +11,13 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from assistant.messages.chat import (
+from assistant.messages.support import (
+    ModelOverrides,
+    RunRequestMessage,
+    RunRequestPayload,
     ToolDecisionMessage,
     ToolDecisionPayload,
 )
-from assistant.messages.support import RunRequestMessage, RunRequestPayload
-from assistant.messages.triage import ModelOverrides
 from assistant.tracing import setup_tracing, trace_store
 from assistant.ws.topics import SupportTopic
 

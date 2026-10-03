@@ -8,9 +8,10 @@ from typing import Any
 
 import pytest
 from assistant.agents import AgentConfig, ModelPurpose
-from assistant.messages.support import RunRequestMessage, RunRequestPayload
-from assistant.messages.triage import (
+from assistant.messages.support import (
     ModelOverrides,
+    RunRequestMessage,
+    RunRequestPayload,
 )
 from assistant.ws.topics import SupportTopic
 

@@ -40,15 +40,16 @@ class Scenario(BaseModel):
     a reader comparing runs wants one table."""
 
     name: str
-    kind: Literal["triage", "chat"] = "triage"
-    # Triage: the ticket. Chat: unset, and `question` carries the rep's words.
+    # Who the run is answering, which decides what it may choose.
+    audience: Literal["customer", "team"] = "customer"
+    # A customer's run is the ticket. The team's is a question, with the ticket
+    # they have open as context if there is one.
     title: str = ""
     description: str = ""
     question: str = ""
-    # Chat only: the ticket the rep has open, if any.
     ticket: str = ""
     history: list[str] = []
-    # Unset means "every chat scenario".
+    # Unset means "every scenario answering the team".
     provider_required: bool | None = None
     expect: Expect
 
@@ -58,16 +59,16 @@ class Scenario(BaseModel):
         scripted one answers by keyword, so some of these pass by accident."""
         if self.provider_required is not None:
             return self.provider_required
-        return self.kind == "chat"
+        return self.audience == "team"
 
     @model_validator(mode="after")
     def _needs_its_own_input(self) -> "Scenario":
-        if self.kind == "triage" and not (self.title and self.description):
+        if self.audience == "customer" and not (self.title and self.description):
             raise ValueError(
-                f"{self.name}: a triage scenario needs title and description"
+                f"{self.name}: a customer scenario needs title and description"
             )
-        if self.kind == "chat" and not self.question:
-            raise ValueError(f"{self.name}: a chat scenario needs a question")
+        if self.audience == "team" and not self.question:
+            raise ValueError(f"{self.name}: a team scenario needs a question")
         return self
 
 

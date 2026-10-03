@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 import pytest
 from assistant.core.layers import LAYER_ALIAS
 from assistant.messages.runs import ReplayRequestMessage, ReplayRequestPayload
-from assistant.messages.triage import (
+from assistant.messages.support import (
     AnswerMessage,
     AnswerPayload,
     ClassifiedMessage,

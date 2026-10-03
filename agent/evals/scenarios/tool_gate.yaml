@@ -4,7 +4,7 @@
 # send_reply_to_customer require approval, so `parked` asserts that distinction.
 
 - name: tool-gate-a-refund-with-an-amount-stops-for-a-human
-  kind: chat
+  audience: team
   # Everything the planner needs is in the sentence, so declining is not judgement.
   question: Refund the duplicate 29.00 charge for demo@example.com.
   ticket: Charged twice this month - my card shows two charges of 29.00 for the same plan.
@@ -14,7 +14,7 @@
     parked: true
 
 - name: tool-gate-an-underspecified-refund-invents-no-amount
-  kind: chat
+  audience: team
   # No amount anywhere: an invented one would reach a reviewer looking like a
   # decision someone made, so the property is that nothing parks.
   question: Refund the duplicate charge for demo@example.com.
@@ -24,7 +24,7 @@
     parked: false
 
 - name: tool-gate-a-read-only-tool-does-not-stop
-  kind: chat
+  audience: team
   question: Look up the subscription for demo@example.com.
   ticket: Charged twice this month - my card shows two charges for the same plan.
   expect:
@@ -33,7 +33,7 @@
     parked: false
 
 - name: tool-gate-a-question-about-an-action-does-not-propose-one
-  kind: chat
+  audience: team
   # Asking what would happen is not asking for it.
   question: What happens if I refund a duplicate charge - does the customer get an email?
   expect:
@@ -41,7 +41,7 @@
     parked: false
 
 - name: tool-gate-a-plain-question-answers-from-context
-  kind: chat
+  audience: team
   question: Summarise what this ticket is about.
   ticket: Charged twice this month - my card shows two charges for the same plan.
   expect:

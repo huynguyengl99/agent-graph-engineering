@@ -4,6 +4,7 @@ import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import type { Ticket, TicketEvent } from '@/lib/types';
 import { HANDLING, Row, Thinking, TicketEventItem } from './TicketEventItem';
 import { placeholdersIn } from '@/lib/placeholders';
+import { publishTicketChange } from '@/lib/ticketState';
 import { ApprovalPanel } from './ApprovalPanel';
 import { ToolApprovalCard, type Proposal } from './ToolApprovalCard';
 import { HandoverDialog } from './HandoverDialog';
@@ -65,7 +66,10 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
   const onNewEvent = useCallback((event: TicketEvent) => {
     setEvents((current) => [...current, event]);
-    if (event.eventType === 'handoff') setHandling(event.handling);
+    if (event.eventType === 'handoff') {
+      setHandling(event.handling);
+      publishTicketChange({ id: ticketId, handling: event.handling });
+    }
     if (event.eventType === 'reasoning') setThinking('');
     if (event.eventType === 'ai_response') {
       setAsking(false);
@@ -83,10 +87,18 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     setThinking((text) => text + delta);
   }, []);
 
-  const onTicketUpdated = useCallback((now: string, graded: string) => {
-    setStatus(now as Status);
-    setPriority(graded as Priority);
-  }, []);
+  const onTicketUpdated = useCallback(
+    (now: string, graded: string) => {
+      setStatus(now as Status);
+      setPriority(graded as Priority);
+      publishTicketChange({
+        id: ticketId,
+        status: now as Status,
+        priority: graded as Priority,
+      });
+    },
+    [ticketId],
+  );
 
   const onToolProposal = useCallback((proposed: Proposal) => {
     setProposal(proposed);

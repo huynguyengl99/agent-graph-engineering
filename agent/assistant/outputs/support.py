@@ -22,7 +22,12 @@ class Classification(BaseModel):
 
 
 class Answer(BaseModel):
-    """Everything needed is already in the thread or the ticket."""
+    """Answer from what is in front of you, with no lookup.
+
+    Not for anything resting on documented policy, limits, billing rules or a
+    published procedure: knowing roughly how it works is not the same as having
+    read it, and that is what the knowledge base is for.
+    """
 
     reasoning: str = Field(description="Why no lookup or human is needed.")
 

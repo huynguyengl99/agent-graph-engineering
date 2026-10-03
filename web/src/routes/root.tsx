@@ -12,6 +12,7 @@ import { useAuthStore } from '@/lib/auth';
 import { LoginForm } from '@/components/LoginForm';
 import { TicketList } from '@/components/TicketList';
 import { ConversationList } from '@/components/ConversationList';
+import { onTicketChange } from '@/lib/ticketState';
 import type { Conversation, Ticket } from '@/lib/types';
 
 type Pane = 'tickets' | 'chat' | 'graphs' | 'traces' | 'settings';
@@ -35,6 +36,20 @@ export function RootLayout() {
         : path.startsWith('/settings')
           ? 'settings'
           : 'tickets';
+
+  // The ticket being read tells the list what changed, rather than every row
+  // holding a subscription of its own.
+  useEffect(
+    () =>
+      onTicketChange((patch) =>
+        setTickets((current) =>
+          current.map((ticket) =>
+            String(ticket.id) === patch.id ? { ...ticket, ...patch } : ticket,
+          ),
+        ),
+      ),
+    [],
+  );
 
   useEffect(() => {
     void fetchUser();

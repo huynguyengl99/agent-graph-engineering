@@ -10,11 +10,13 @@ from collections.abc import AsyncIterator
 
 import pytest
 from assistant.core.layers import LAYER_ALIAS
-from assistant.messages.chat import ToolApprovalMessage, ToolApprovalPayload
-from assistant.messages.support import RunRequestMessage, RunRequestPayload
-from assistant.messages.triage import (
+from assistant.messages.support import (
     AnswerMessage,
     AnswerPayload,
+    RunRequestMessage,
+    RunRequestPayload,
+    ToolApprovalMessage,
+    ToolApprovalPayload,
 )
 from assistant.ws.feed import emitter_for
 from assistant.ws.hub import AgentHubConsumer

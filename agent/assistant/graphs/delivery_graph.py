@@ -8,7 +8,7 @@ from assistant.graphs.base import BaseGraph
 from assistant.graphs.feed import AnswerFeed
 from assistant.graphs.states import DeliveryState, Update
 from assistant.guardrails import screen_reply
-from assistant.messages.triage import (
+from assistant.messages.support import (
     ReplyBlockedMessage,
     ReplyBlockedPayload,
     ReplySentMessage,

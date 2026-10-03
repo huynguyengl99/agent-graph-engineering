@@ -14,25 +14,21 @@ from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import SupportState
 from assistant.graphs.support_graph import SupportGraph, build_support_graph
-from assistant.messages.chat import (
+from assistant.messages.support import (
+    ApprovalDecisionMessage,
+    ApprovalRequiredMessage,
+    ApprovalRequiredPayload,
     ChatErrorMessage,
     ChatErrorPayload,
     ChatTokenMessage,
     ChatTokenPayload,
-    ToolApprovalMessage,
-    ToolApprovalPayload,
-    ToolDecisionMessage,
-)
-from assistant.messages.support import (
     ReasoningDeltaMessage,
     ReasoningDeltaPayload,
     RunRequestMessage,
     SupportEvent,
-)
-from assistant.messages.triage import (
-    ApprovalDecisionMessage,
-    ApprovalRequiredMessage,
-    ApprovalRequiredPayload,
+    ToolApprovalMessage,
+    ToolApprovalPayload,
+    ToolDecisionMessage,
     TriageErrorMessage,
     TriageErrorPayload,
 )

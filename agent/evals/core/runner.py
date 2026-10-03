@@ -37,13 +37,13 @@ async def run_trial(scenario: Scenario, config: AgentConfig) -> Observation:
     """Drive the graph to wherever it stops: a gate, or a block."""
     setup_tracing()
 
-    if scenario.kind == "chat":
+    if scenario.audience == "team":
         return await _run_chat(scenario, config)
     return await _run_triage(scenario, config)
 
 
 async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
-    """The rep-facing graph, driven to the tool gate or to an answer."""
+    """The team's run, driven to the tool gate or to an answer."""
     conversation_id = str(uuid.uuid4())
     context = Context(
         thread_id=conversation_id,

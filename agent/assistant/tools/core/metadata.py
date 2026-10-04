@@ -18,6 +18,10 @@ class ToolMetadata:
     requires_approval: bool = False
     timeout: float = 10.0
     planner_hint: str | None = None
+    # Whether a planner may choose it. False for a tool the graph calls itself:
+    # offering the knowledge base here as well as on its own branch gives the
+    # planner a second route to it that skips the branch's refine loop.
+    selectable: bool = True
 
     # JSON Schema for the arguments, derived from the signature. The planner
     # fills it and the reviewer's form is generated from it, so no tool needs

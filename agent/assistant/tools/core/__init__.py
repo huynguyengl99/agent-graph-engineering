@@ -22,6 +22,7 @@ from assistant.tools.core.wrapper import (
     get_tool,
     metadata_for,
     render_tool_list,
+    selectable_tools,
     wrap_tool,
 )
 
@@ -43,5 +44,6 @@ __all__ = [
     "get_tool",
     "metadata_for",
     "render_tool_list",
+    "selectable_tools",
     "wrap_tool",
 ]

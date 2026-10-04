@@ -71,7 +71,10 @@ TITLE_WEIGHT = 3
 @wrap_tool(
     description="Look up a documented answer in the support knowledge base.",
     tags=("knowledge", "read-only"),
-    planner_hint="Prefer this over guessing about billing, limits, or policy.",
+    # The knowledge branch calls this directly, with a refine loop around it.
+    # A planner offered it as well would reach the articles by a route that has
+    # no second attempt.
+    selectable=False,
 )
 async def search_knowledge_base(query: str, limit: int = 3) -> list[Article]:
     """Search the knowledge base.

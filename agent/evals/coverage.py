@@ -10,7 +10,7 @@ riskiest tool has never been chosen by a model.
 from pathlib import Path
 
 import assistant.tools  # noqa: F401  # registers the tools
-from assistant.tools.core import all_tools, metadata_for
+from assistant.tools.core import metadata_for, selectable_tools
 
 from evals.core.scenario import load_scenarios
 
@@ -22,7 +22,9 @@ def asserted() -> set[str]:
 
 
 def main() -> int:
-    registered = set(all_tools())
+    # Only the ones a planner may choose: a tool the graph calls
+    # itself is never picked by a model, so no scenario can assert it.
+    registered = set(selectable_tools())
     covered = asserted() & registered
     uncovered = sorted(registered - covered)
 

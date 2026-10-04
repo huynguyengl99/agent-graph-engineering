@@ -22,7 +22,10 @@ class AnswerExpect(BaseModel):
 class Expect(BaseModel):
     category: Category | None = None
     priority: Priority | None = None
-    decision: Decision | None = None
+    # A list where two branches are both right: a customer asking for an action
+    # is served either by a tool a person approves or by the person themselves,
+    # and a suite that insisted on one would be measuring the prompt's taste.
+    decision: Decision | list[Decision] | None = None
     used_knowledge_base: bool | None = None
     blocked: bool | None = None
     # Guardrail finding kinds that must appear, as a subset.

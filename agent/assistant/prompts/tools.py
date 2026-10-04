@@ -10,6 +10,8 @@ TOOL_PLANNER_PROMPT = (
     "what you have been told. Do not invent an address, an amount or an id: when "
     "a required argument appears nowhere, return NoToolNeeded and name the one "
     "that is missing.\n"
+    "A `ticket_id` is the exception: the run knows which ticket it is on and "
+    "fills that one in. Leave it out, and never decline for the want of it.\n"
     "Do what was asked. If the request names an action and every argument for it "
     "is available, propose that action - not a lookup that would confirm what you "
     "already have. Checking first is the reviewer's job, not a step for you to "

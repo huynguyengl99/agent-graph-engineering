@@ -25,6 +25,20 @@ from assistant.tools.core.ledger import execution_key, ledger
 from assistant.tracing.nodes import Node
 
 
+def _from_the_run(meta: Any, context: Any) -> dict[str, Any]:
+    """Arguments the run already knows, which no model should be asked to copy.
+
+    A planner handed `send_reply_to_customer(ticket_id, body)` and never shown
+    an id has two ways to go wrong: decline for a missing argument, or invent
+    one and send a reply onto somebody else's ticket. The run is the authority
+    on which ticket it is, so it fills that in and overwrites any guess.
+    """
+    properties = meta.arguments.get("properties", {})
+    if "ticket_id" in properties and context.ticket_id:
+        return {"ticket_id": context.ticket_id}
+    return {}
+
+
 class ToolGraph(BaseGraph):
     """Propose a tool, clear it with a human, then run it.
 
@@ -69,6 +83,7 @@ class ToolGraph(BaseGraph):
                 }
             meta = metadata_for(decision.tool)
             kept, unknown = split_arguments(meta.arguments, dict(decision.arguments))
+            kept.update(_from_the_run(meta, context))
             update["tool"] = decision.tool
             update["arguments"] = kept
             update["unknown_arguments"] = unknown

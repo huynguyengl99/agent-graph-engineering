@@ -56,12 +56,14 @@
     blocked: false
 
 # The other side of "search before you escalate": a request for a decision
-# nobody documented still has to reach a human. Without this, a prompt that
-# never escalates would score perfectly.
-- name: routing-a-request-for-a-decision-still-escalates
+# nobody documented must not be answered by the agent alone. Either branch here
+# ends with a person - a tool waits at the gate, an escalation hands the ticket
+# over - and which one is the prompt's taste, so both pass. What fails is an
+# Answer, which is the agent granting a refund on its own.
+- name: routing-a-request-for-a-decision-reaches-a-person
   title: Refund my annual plan
   description: I want a refund for my annual plan, please process it now.
   # A judgement about authority, not a keyword: the scripted model cannot make it.
   provider_required: true
   expect:
-    decision: Escalate
+    decision: [RunTool, Escalate]

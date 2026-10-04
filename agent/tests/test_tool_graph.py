@@ -286,7 +286,14 @@ class TestReviewableWithoutBespokeUi:
         assert "issue_refund(email: string, amount: number, reason: string)" in listing
         # Optional arguments are marked, so a planner does not treat every one
         # as mandatory and invent a value for it.
-        assert "limit?: integer" in listing
+        assert "limit?: integer" in metadata_for("search_knowledge_base").signature()
+
+    def test_a_tool_the_graph_calls_itself_is_not_offered(self) -> None:
+        """The knowledge branch searches with a refine loop around it. Offering
+        the same search here is a second route to the articles with no second
+        attempt."""
+        assert "search_knowledge_base" in all_tools()
+        assert "search_knowledge_base" not in render_tool_list()
 
     def test_the_signature_never_offers_the_approval_flag(self) -> None:
         assert "approved" not in metadata_for("issue_refund").signature()

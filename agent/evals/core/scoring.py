@@ -43,10 +43,11 @@ def score(expect: Expect, observations: list[Observation]) -> dict[str, Check]:
         if expected is None:
             continue
         actual = [getattr(o, name) for o in observations]
+        allowed = expected if isinstance(expected, list) else [expected]
         checks[name] = Check(
             expected=expected,
             actual=actual,
-            passed=_majority([a == expected for a in actual]),
+            passed=_majority([a in allowed for a in actual]),
         )
 
     # Exact kinds, never substrings: "fake_authority" is a substring of

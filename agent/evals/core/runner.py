@@ -70,22 +70,33 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite
         return Observation(error=f"{type(exc).__name__}: {exc}")
 
-    # A subgraph's writes merge only when it returns, so while parked the parent
-    # knows nothing: the proposal is in the interrupt, where the UI reads it too.
+    parked, tool = await _gate(graph, runnable, state)
+    decision = state.get("decision")
+    return Observation(
+        decision=type(decision).__name__ if decision is not None else None,
+        tool=tool,
+        parked=parked,
+        answer=getattr(state.get("answer"), "content", "") or "",
+        cost=trace_store.cost(context.trace_key),
+    )
+
+
+async def _gate(
+    graph: Any, runnable: RunnableConfig, state: Any
+) -> tuple[bool, str | None]:
+    """Whether the run stopped for a person, and what it was holding.
+
+    A subgraph's writes merge only when it returns, so while parked the parent
+    knows nothing: the proposal is in the interrupt, where the UI reads it too.
+    """
     snapshot = await graph.aget_state(runnable)
     interrupts = [i for task in snapshot.tasks for i in task.interrupts]
     proposal: dict[str, Any] = next(
         (i.value for i in interrupts if isinstance(i.value, dict)), {}
     )
-
-    decision = state.get("decision")
-    return Observation(
-        decision=type(decision).__name__ if decision is not None else None,
-        tool=str(proposal.get("tool") or state.get("tool") or "") or None,
-        parked=bool(interrupts),
-        answer=getattr(state.get("answer"), "content", "") or "",
-        cost=trace_store.cost(context.trace_key),
-    )
+    return bool(interrupts), str(
+        proposal.get("tool") or state.get("tool") or ""
+    ) or None
 
 
 async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
@@ -111,11 +122,14 @@ async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
     classification = state.get("classification")
     decision = state.get("decision")
     answer = state.get("answer")
+    parked, tool = await _gate(graph, runnable, state)
 
     return Observation(
         category=getattr(classification, "category", None),
         priority=getattr(classification, "priority", None),
         decision=type(decision).__name__ if decision is not None else None,
+        tool=tool,
+        parked=parked,
         used_knowledge_base=bool(state.get("kb_snippets")),
         kb_snippets=[str(s) for s in state.get("kb_snippets") or []],
         blocked=bool(state.get("reply_blocked")),

@@ -28,6 +28,7 @@ def wrap_tool(
     requires_approval: bool = False,
     timeout: float = 10.0,
     planner_hint: str | None = None,
+    selectable: bool = True,
 ) -> Callable[[Callable[..., Awaitable[object]]], WrappedTool]:
     """Register an async function as a tool.
 
@@ -38,6 +39,8 @@ def wrap_tool(
         requires_approval: The action is irreversible and needs a human first.
         timeout: Seconds before the call is abandoned.
         planner_hint: Extra steering shown only in the tool list.
+        selectable: Whether a planner may choose it. False still registers the
+            tool, for the timeout, the error wrapping and the ledger.
     """
 
     def decorator(func: Callable[..., Awaitable[object]]) -> WrappedTool:
@@ -55,6 +58,7 @@ def wrap_tool(
             requires_approval=requires_approval,
             timeout=timeout,
             planner_hint=planner_hint,
+            selectable=selectable,
             arguments=arguments_schema(func),
         )
 
@@ -113,10 +117,19 @@ def metadata_for(tool_id: str) -> ToolMetadata:
     return get_tool(tool_id).metadata  # type: ignore[attr-defined]
 
 
+def selectable_tools() -> dict[str, WrappedTool]:
+    """The ones a planner is offered, which is what a scenario can assert."""
+    return {
+        tool_id: tool
+        for tool_id, tool in _REGISTRY.items()
+        if tool.metadata.selectable  # type: ignore[attr-defined]
+    }
+
+
 def render_tool_list(tags: tuple[str, ...] = ()) -> str:
     """The `[Available Tools]` block a planning prompt embeds."""
     lines = []
-    for tool in _REGISTRY.values():
+    for tool in selectable_tools().values():
         meta: ToolMetadata = tool.metadata  # type: ignore[attr-defined]
         if tags and not set(tags) & set(meta.tags):
             continue

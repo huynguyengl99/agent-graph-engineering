@@ -300,4 +300,9 @@ AGENT_TOKEN = env.str("ASSISTANT_AGENT_TOKEN", "")
 # Tests drive the triage client explicitly; leaving the automatic
 # trigger on would make results depend on whether the agent is running.
 TRIAGE_ON_COMMENT = env.bool("TRIAGE_ON_COMMENT", True)
+
+# How long one run may hold a ticket's lane before another may take it over. A
+# run parked on a person holds it for as long as they take, so this only has to
+# outlast the agent working, not a reviewer deciding.
+AGENT_RUN_CLAIM_TIMEOUT = env.int("AGENT_RUN_CLAIM_TIMEOUT", 300)
 AGENT_ANSWER_MODEL = env.str("TRIAGE_ANSWER_MODEL", "gpt-4o")

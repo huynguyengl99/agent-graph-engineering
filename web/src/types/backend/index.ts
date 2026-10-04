@@ -68,20 +68,6 @@ export interface CommentEventTyped {
   content: string;
 }
 
-export interface Conversation {
-  id: string;
-  title?: string;
-  ticket?: string | null;
-  pendingApproval: PendingApproval;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ConversationCreateRequest {
-  title?: string;
-  ticket?: string | null;
-}
-
 /** JWT token refresh with cookie and request data support. */
 export interface CookieTokenRefresh {
   access: string;
@@ -142,13 +128,6 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface Message {
-  id: string;
-  role: RoleEnum;
-  content: string;
-  createdAt: string;
-}
-
 export interface ModelPreference {
   purpose: PurposeEnum;
   model: string;
@@ -157,20 +136,6 @@ export interface ModelPreference {
 export interface ModelPreferenceRequest {
   purpose: PurposeEnum;
   model: string;
-}
-
-export interface PaginatedConversationList {
-  count: number;
-  next?: string | null;
-  previous?: string | null;
-  results: Conversation[];
-}
-
-export interface PaginatedMessageList {
-  count: number;
-  next?: string | null;
-  previous?: string | null;
-  results: Message[];
 }
 
 export interface PaginatedModelPreferenceList {
@@ -244,16 +209,6 @@ export interface PatchedUserRequest {
   lastName?: string;
 }
 
-/** Field for field the same shape the `tool_approval` frame carries, so the browser uses one type whether the proposal arrived live or on a reload. The JSON fields are declared rather than inferred: a bare `JSONField` generates `unknown` in TypeScript, which pushes a cast into every caller. */
-export interface PendingApproval {
-  tool: string;
-  description: string;
-  arguments: Record<string, unknown>;
-  argumentsSchema: Record<string, unknown>;
-  unknownArguments: string[];
-  createdAt: string;
-}
-
 /** The same shape the `approval_required` frame carries. */
 export interface PendingReply {
   draft: string;
@@ -324,9 +279,6 @@ export interface ResendEmailVerification {
 export interface ResendEmailVerificationRequest {
   email: string;
 }
-
-/** * `user` - User * `assistant` - Assistant */
-export type RoleEnum = "user" | "assistant";
 
 export interface StatusChangeEvent {
   id: number;

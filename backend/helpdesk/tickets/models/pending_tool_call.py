@@ -2,6 +2,8 @@ import uuid
 
 from django.db import models
 
+from helpdesk.tickets.models.events.base import Visibility
+
 
 class PendingToolCall(models.Model):
     """A tool the agent proposed on a ticket, waiting on a person.
@@ -22,6 +24,11 @@ class PendingToolCall(models.Model):
     arguments = models.JSONField(default=dict)
     arguments_schema = models.JSONField(default=dict)
     unknown_arguments = models.JSONField(default=list)
+    # Which lane the run that proposed this was working, so the lane it claimed
+    # is released by whoever answers the card rather than guessed at.
+    visibility = models.CharField(
+        max_length=10, choices=Visibility.choices, default=Visibility.INTERNAL
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 

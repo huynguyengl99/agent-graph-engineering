@@ -56,16 +56,6 @@ export interface AskAgentPayload {
   question?: string;
 }
 
-/** A rep says something to the assistant. */
-export interface AskMessage {
-  action: 'ask';
-  payload: AskPayload;
-}
-
-export interface AskPayload {
-  content: string;
-}
-
 export interface AssignmentEvent {
   id: number;
   createdBy?: EventUser | null;
@@ -76,62 +66,12 @@ export interface AssignmentEvent {
   newAssignee?: EventUser | null;
 }
 
-/** Streaming finished; carries the persisted turn. */
-export interface AssistantDoneMessage {
-  action: 'assistant_done';
-  payload: AssistantDonePayload;
-}
-
-/** Carries the persisted row, so the client replaces its streaming text with the same object a reload would have fetched. */
-export interface AssistantDonePayload {
-  message: ChatMessage;
-}
-
-export interface ChatErrorMessage {
-  action: 'chat_error';
-  payload: ChatErrorPayload;
-}
-
-export interface ChatErrorPayload {
-  detail: string;
-}
-
-/** A persisted turn. The same shape the REST endpoint returns. */
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt: string;
-}
-
-/** A persisted turn, echoed to every tab on this conversation. */
-export interface ChatMessageMessage {
-  action: 'chat_message';
-  payload: ChatMessagePayload;
-}
-
-/** The same `ChatMessage` the REST endpoint returns, not a copy of it. */
-export interface ChatMessagePayload {
-  message: ChatMessage;
-}
-
 export interface CommentEvent {
   id: number;
   createdBy?: EventUser | null;
   visibility?: 'internal' | 'public';
   createdAt: string;
   eventType: 'comment';
-  content: string;
-}
-
-/** Hand a drafted reply over to a ticket, where approval applies. */
-export interface DraftToTicketMessage {
-  action: 'draft_to_ticket';
-  payload: DraftToTicketPayload;
-}
-
-export interface DraftToTicketPayload {
-  ticketId: string;
   content: string;
 }
 
@@ -238,18 +178,6 @@ export interface StatusChangeEvent {
   newStatus: string;
 }
 
-/** Approve, correct, or cancel a tool the agent proposed on this ticket. */
-export interface TicketTopicToolDecisionMessage {
-  action: 'tool_decision';
-  payload: TicketTopicToolDecisionPayload;
-}
-
-export interface TicketTopicToolDecisionPayload {
-  approved: boolean;
-  arguments?: Record<string, unknown>;
-  publish?: boolean;
-}
-
 /** The ticket's own fields, after something changed them. */
 export interface TicketUpdatedMessage {
   action: 'ticket_updated';
@@ -259,32 +187,6 @@ export interface TicketUpdatedMessage {
 export interface TicketUpdatedPayload {
   status: string;
   priority: string;
-}
-
-/** One delta of the assistant's answer, as it is produced. */
-export interface TokenMessage {
-  action: 'token';
-  payload: TokenPayload;
-}
-
-/** No id: there is only ever one answer streaming per conversation, and it has no database row until it finishes. */
-export interface TokenPayload {
-  delta: string;
-}
-
-/** Relayed from the agent's gate, unchanged apart from the ids. */
-export interface ToolApprovalMessage {
-  action: 'tool_approval';
-  payload: ToolApprovalPayload;
-}
-
-/** A tool is waiting on this rep. Nothing has run yet. */
-export interface ToolApprovalPayload {
-  tool: string;
-  description: string;
-  arguments?: Record<string, unknown>;
-  argumentsSchema?: Record<string, unknown>;
-  unknownArguments?: Array<string>;
 }
 
 export interface ToolCallEvent {
@@ -300,16 +202,16 @@ export interface ToolCallEvent {
   cancelled?: boolean;
 }
 
-/** Approve, correct, or cancel a tool the assistant proposed. */
+/** Approve, correct, or cancel a tool the agent proposed on this ticket. */
 export interface ToolDecisionMessage {
   action: 'tool_decision';
   payload: ToolDecisionPayload;
 }
 
-/** What the reviewer did with a proposed tool call. `arguments` carries only the fields they changed, merged over the proposal by the caller. Empty means run it as proposed. */
 export interface ToolDecisionPayload {
   approved: boolean;
   arguments?: Record<string, unknown>;
+  publish?: boolean;
 }
 
 export interface ToolProposalMessage {

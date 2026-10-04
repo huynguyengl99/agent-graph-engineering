@@ -91,55 +91,6 @@ const PatchedUserRequest = z
   })
   .partial()
   .passthrough();
-const PendingApproval = z
-  .object({
-    tool: z.string().max(100),
-    description: z.string(),
-    arguments: z.object({}).partial().passthrough(),
-    argumentsSchema: z.object({}).partial().passthrough(),
-    unknownArguments: z.array(z.string()),
-    createdAt: z.string().datetime({ offset: true }),
-  })
-  .passthrough();
-const Conversation = z
-  .object({
-    id: z.string().uuid(),
-    title: z.string().max(255).optional(),
-    ticket: z.string().uuid().nullish(),
-    pendingApproval: PendingApproval.nullable(),
-    createdAt: z.string().datetime({ offset: true }),
-    updatedAt: z.string().datetime({ offset: true }),
-  })
-  .passthrough();
-const PaginatedConversationList = z
-  .object({
-    count: z.number().int(),
-    next: z.string().url().nullish(),
-    previous: z.string().url().nullish(),
-    results: z.array(Conversation),
-  })
-  .passthrough();
-const ConversationCreateRequest = z
-  .object({ title: z.string().max(255), ticket: z.string().uuid().nullable() })
-  .partial()
-  .passthrough();
-const RoleEnum = z.enum(["user", "assistant"]);
-const Message = z
-  .object({
-    id: z.string().uuid(),
-    role: RoleEnum,
-    content: z.string(),
-    createdAt: z.string().datetime({ offset: true }),
-  })
-  .passthrough();
-const PaginatedMessageList = z
-  .object({
-    count: z.number().int(),
-    next: z.string().url().nullish(),
-    previous: z.string().url().nullish(),
-    results: z.array(Message),
-  })
-  .passthrough();
 const PurposeEnum = z.enum(["decision", "answer"]);
 const ModelPreference = z
   .object({ purpose: PurposeEnum, model: z.string().max(100) })
@@ -361,13 +312,6 @@ export const schemas = {
   TokenVerifyRequest,
   UserRequest,
   PatchedUserRequest,
-  PendingApproval,
-  Conversation,
-  PaginatedConversationList,
-  ConversationCreateRequest,
-  RoleEnum,
-  Message,
-  PaginatedMessageList,
   PurposeEnum,
   ModelPreference,
   PaginatedModelPreferenceList,
@@ -582,84 +526,6 @@ information about a token&#x27;s fitness for a particular use.`,
       },
     ],
     response: User,
-  },
-  {
-    method: "get",
-    path: "/api/conversations/",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "ordering",
-        type: "Query",
-        schema: z.string().optional(),
-      },
-      {
-        name: "page",
-        type: "Query",
-        schema: z.number().int().optional(),
-      },
-      {
-        name: "search",
-        type: "Query",
-        schema: z.string().optional(),
-      },
-    ],
-    response: PaginatedConversationList,
-  },
-  {
-    method: "post",
-    path: "/api/conversations/",
-    description: `Pass a ticket to open one about that ticket.`,
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "body",
-        type: "Body",
-        schema: ConversationCreateRequest,
-      },
-    ],
-    response: Conversation,
-  },
-  {
-    method: "get",
-    path: "/api/conversations/:conversationPk/messages/",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "conversationPk",
-        type: "Path",
-        schema: z.string().uuid(),
-      },
-      {
-        name: "ordering",
-        type: "Query",
-        schema: z.string().optional(),
-      },
-      {
-        name: "page",
-        type: "Query",
-        schema: z.number().int().optional(),
-      },
-      {
-        name: "search",
-        type: "Query",
-        schema: z.string().optional(),
-      },
-    ],
-    response: PaginatedMessageList,
-  },
-  {
-    method: "get",
-    path: "/api/conversations/:id/",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "id",
-        type: "Path",
-        schema: z.string().uuid(),
-      },
-    ],
-    response: Conversation,
   },
   {
     method: "get",

@@ -49,6 +49,7 @@ from helpdesk.tickets.models import (
     Visibility,
 )
 from helpdesk.tickets.serializers.event import serialize_event
+from helpdesk.tickets.services import lanes
 from helpdesk.tickets.services.handoff import hand_off
 from helpdesk.tickets.services.placeholders import UnfilledError, refuse_if_unfilled
 from helpdesk.tickets.services.status import set_priority, ticket_state
@@ -210,6 +211,7 @@ class TicketSink(Sink):
                 "arguments": payload.arguments,
                 "arguments_schema": payload.arguments_schema or {},
                 "unknown_arguments": payload.unknown_arguments or [],
+                "visibility": self.visibility,
             },
         )
 
@@ -294,6 +296,14 @@ def forget_draft(ticket_id: str) -> None:
 
 
 @database_sync_to_async
+def parked_tool_lane(ticket_id: str) -> str:
+    """The lane of the run holding the gate, which is not where the reviewer
+    chose to send the answer."""
+    parked = PendingToolCall.objects.filter(ticket_id=ticket_id).first()
+    return str(parked.visibility) if parked else Visibility.INTERNAL
+
+
+@database_sync_to_async
 def forget_proposal(ticket_id: str) -> None:
     PendingToolCall.objects.filter(ticket_id=ticket_id).delete()
 
@@ -343,27 +353,63 @@ def relay(
 async def run(
     ticket_id: str, *, question: str = "", visibility: str, user_id: Any = None
 ) -> None:
-    """One run on a ticket. A failure must never take down the socket that asked.
+    """One run on a ticket, then whatever arrived while it was working.
 
-    Everything is inside the guard, including building the request: this is a
-    detached task, so an escaping exception would surface only as an unretrieved
-    future and the person would see the UI hang with no explanation.
+    A failure must never take down the socket that asked, so everything is
+    inside the guard, including building the request: this is a detached task,
+    so an escaping exception would surface only as an unretrieved future and
+    the person would see the UI hang with no explanation.
     """
+    if not await lanes.claim(ticket_id, visibility, question, user_id):
+        # Another run holds this lane. It will pick this up when it lets go.
+        return
+
     audience = CUSTOMER if visibility == Visibility.PUBLIC else TEAM
-    try:
-        request = await _request(ticket_id, question, await model_overrides(user_id))
-        await _Run(
-            audience, ticket_id, request, TicketSink(ticket_id, visibility)
-        ).handle()
-    except Exception:
-        logger.exception("support.run_failed", ticket_id=ticket_id)
-        await broadcast(
-            ticket_topic(ticket_id),
-            AgentProgressMessage(
-                payload=AgentProgressPayload(
-                    stage="failed", detail="The agent is unavailable."
-                )
-            ),
+    while True:
+        try:
+            request = await _request(
+                ticket_id, question, await model_overrides(user_id)
+            )
+            await _Run(
+                audience, ticket_id, request, TicketSink(ticket_id, visibility)
+            ).handle()
+        except Exception:
+            logger.exception("support.run_failed", ticket_id=ticket_id)
+            await broadcast(
+                ticket_topic(ticket_id),
+                AgentProgressMessage(
+                    payload=AgentProgressPayload(
+                        stage="failed", detail="The agent is unavailable."
+                    )
+                ),
+            )
+
+        queued = await release(ticket_id, visibility)
+        if queued is None:
+            return
+        question, user_id = queued.question, queued.user_id
+
+
+async def release(ticket_id: str, visibility: str) -> lanes.Queued | None:
+    """Let go of the lane and say what was waiting.
+
+    Its own function so a resumed run - approval or tool gate - releases the
+    same way the run that parked it would have.
+    """
+    queued: lanes.Queued | None = await lanes.release(ticket_id, visibility)
+    return queued
+
+
+async def _then_whatever_waited(ticket_id: str, visibility: str) -> None:
+    """A resumed run is the end of the one that parked, so it lets the lane go
+    and answers whatever arrived while a person was deciding."""
+    queued = await release(ticket_id, visibility)
+    if queued is not None:
+        await start_run(
+            ticket_id,
+            question=queued.question,
+            visibility=visibility,
+            user_id=queued.user_id,
         )
 
 
@@ -434,6 +480,8 @@ async def submit_approval(
             ),
         )
 
+    await _then_whatever_waited(ticket_id, visibility)
+
 
 async def start_approval(
     ticket_id: str,
@@ -461,6 +509,7 @@ async def decide_tool(
     What the agent writes afterwards goes where the reviewer said: a refund they
     approved is the customer's news, a lookup they ran is the team's.
     """
+    lane = await parked_tool_lane(ticket_id)
     try:
         # Cleared first: the card is answered whatever the resumed run does.
         await forget_proposal(ticket_id)
@@ -485,6 +534,8 @@ async def decide_tool(
                 )
             ),
         )
+
+    await _then_whatever_waited(ticket_id, lane)
 
 
 async def start_tool_decision(

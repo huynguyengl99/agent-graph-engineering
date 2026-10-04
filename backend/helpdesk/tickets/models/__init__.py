@@ -14,6 +14,7 @@ from .events import (
 from .pending_reply import PendingReply
 from .pending_tool_call import PendingToolCall
 from .ticket import Handling, Ticket, TicketPriority, TicketStatus
+from .ticket_run import TicketRun
 
 __all__ = [
     "Ticket",
@@ -31,4 +32,5 @@ __all__ = [
     "ToolCallEvent",
     "PendingReply",
     "PendingToolCall",
+    "TicketRun",
 ]

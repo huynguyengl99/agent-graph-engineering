@@ -8,21 +8,13 @@ import type {
   ApprovalDecisionMessage,
   ApprovalRequiredMessage,
   AskAgentMessage,
-  AskMessage,
-  AssistantDoneMessage,
-  ChatErrorMessage,
-  ChatMessageMessage,
-  DraftToTicketMessage,
   NewEventMessage,
   PingMessage,
   PongMessage,
   ReasoningDeltaMessage,
   SendMessageMessage,
   SetAgentMessage,
-  TicketTopicToolDecisionMessage,
   TicketUpdatedMessage,
-  TokenMessage,
-  ToolApprovalMessage,
   ToolDecisionMessage,
   ToolProposalMessage,
   UpdateTicketMessage,
@@ -35,7 +27,7 @@ export type HubTicketTopicToServer =
   | AskAgentMessage
   | SendMessageMessage
   | SetAgentMessage
-  | TicketTopicToolDecisionMessage
+  | ToolDecisionMessage
   | UpdateTicketMessage;
 export type HubTicketTopicToClient =
   | AgentProgressMessage
@@ -44,16 +36,8 @@ export type HubTicketTopicToClient =
   | ReasoningDeltaMessage
   | TicketUpdatedMessage
   | ToolProposalMessage;
-export type HubConversationTopicToServer =
-  AskMessage | DraftToTicketMessage | ToolDecisionMessage;
-export type HubConversationTopicToClient =
-  | AssistantDoneMessage
-  | ChatErrorMessage
-  | ChatMessageMessage
-  | TokenMessage
-  | ToolApprovalMessage;
 
-/** One connection, many subscriptions: tickets and conversations */
+/** One connection, many subscriptions: a topic per ticket */
 export const hub = defineChannel<HubToServer, HubToClient>()({
   name: 'hub',
   address: 'ws/',
@@ -63,14 +47,6 @@ export const hub = defineChannel<HubToServer, HubToClient>()({
     ticketTopic: defineTopic<HubTicketTopicToServer, HubTicketTopicToClient>()({
       name: 'ticket_topic',
       pattern: 'ticket:{ticket_id}',
-    }),
-    /** A rep's thread with the assistant, addressed as `conversation:<id>`. Internal: nothing said here reaches a customer, which is why the assistant answers freely and only `draft_to_ticket` is gated. */
-    conversationTopic: defineTopic<
-      HubConversationTopicToServer,
-      HubConversationTopicToClient
-    >()({
-      name: 'conversation_topic',
-      pattern: 'conversation:{conversation_id}',
     }),
   },
 });

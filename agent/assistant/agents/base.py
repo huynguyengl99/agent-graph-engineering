@@ -1,12 +1,16 @@
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, ClassVar
 
+import structlog
+from pydantic_ai import UnexpectedModelBehavior
 from pydantic_ai.messages import ModelMessage
 
 from assistant.agents.config import AgentConfig, ModelPurpose
 from assistant.agents.deps import Context
 from assistant.agents.factory import AgentFactory
 from assistant.core.config import settings
+
+logger = structlog.get_logger(__name__)
 
 
 class BaseAgent[OutputT]:
@@ -54,27 +58,44 @@ class BaseAgent[OutputT]:
         can watch the model think rather than waiting for the branch it picked.
         The deltas are diffed here because a partial carries the whole field
         each time, not what changed.
+
+        Streaming costs the retry: `run_stream` validates the output and cannot
+        ask the model to correct it, while `run` hands the error back and lets
+        it try again. So a validation failure here is not the run's answer, it
+        is the end of watching it think.
         """
         said = ""
         output: Any = None
-        async with self.agent.run_stream(
-            prompt, deps=deps, message_history=history
-        ) as result:
-            async for partial in result.stream_output(
-                debounce_by=settings.stream_debounce
-            ):
-                output = partial
-                # `Escalate` calls it a reason; everything else calls it
-                # reasoning. Both are the model explaining itself.
-                reasoning = str(
-                    getattr(partial, "reasoning", None)
-                    or getattr(partial, "reason", None)
-                    or ""
-                )
-                if delta := reasoning[len(said) :]:
-                    await on_delta(delta)
-                    said = reasoning
-            self.messages = list(result.all_messages())
+        try:
+            async with self.agent.run_stream(
+                prompt, deps=deps, message_history=history
+            ) as result:
+                async for partial in result.stream_output(
+                    debounce_by=settings.stream_debounce
+                ):
+                    output = partial
+                    # `Escalate` calls it a reason; everything else calls it
+                    # reasoning. Both are the model explaining itself.
+                    reasoning = str(
+                        getattr(partial, "reasoning", None)
+                        or getattr(partial, "reason", None)
+                        or ""
+                    )
+                    if delta := reasoning[len(said) :]:
+                        await on_delta(delta)
+                        said = reasoning
+                self.messages = list(result.all_messages())
+        except UnexpectedModelBehavior:
+            # A planner that proposed the right tool and mis-shaped the object
+            # around it used to take the whole run down, and the gate the
+            # reviewer was waiting at never appeared.
+            logger.warning("agent.stream_output_invalid", agent=type(self).__name__)
+            return await self.run(prompt, deps, history)
+
+        if output is None:
+            # Nothing validated at all: the same situation, reached quietly.
+            logger.warning("agent.stream_output_empty", agent=type(self).__name__)
+            return await self.run(prompt, deps, history)
         return output  # type: ignore[no-any-return]
 
     async def stream(

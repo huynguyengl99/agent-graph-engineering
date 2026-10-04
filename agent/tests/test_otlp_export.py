@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
 import pytest
+from assistant.core.config import TraceExport
 from assistant.tracing.setup import otlp_processor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -53,6 +54,11 @@ async def test_spans_reach_an_otlp_collector(
 ) -> None:
     token = base64.b64encode(b"public-key:secret-key").decode()
     monkeypatch.setattr(
+        "assistant.core.config.settings.trace_export",
+        TraceExport.OTLP,
+        raising=False,
+    )
+    monkeypatch.setattr(
         "assistant.core.config.settings.otlp_endpoint", collector, raising=False
     )
     monkeypatch.setattr(
@@ -78,3 +84,42 @@ async def test_spans_reach_an_otlp_collector(
     # The header is how Langfuse authenticates; losing it is a silent 401.
     assert RECEIVED[0]["authorization"] == f"Basic {token}"
     assert RECEIVED[0]["bytes"] > 0
+
+
+@pytest.mark.parametrize(
+    ("mode", "forwards"),
+    [
+        (TraceExport.OFF, False),
+        (TraceExport.LOCAL, False),
+        (TraceExport.OTLP, True),
+        (TraceExport.BOTH, True),
+    ],
+)
+def test_the_mode_decides_whether_anything_is_forwarded(
+    mode: TraceExport, forwards: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A collector configured but not asked for used to forward anyway."""
+    monkeypatch.setattr(
+        "assistant.core.config.settings.trace_export", mode, raising=False
+    )
+    monkeypatch.setattr(
+        "assistant.core.config.settings.otlp_endpoint",
+        "http://collector.invalid",
+        raising=False,
+    )
+
+    assert (otlp_processor() is not None) is forwards
+
+
+def test_forwarding_without_an_endpoint_is_refused() -> None:
+    """Rather than starting cleanly and sending nothing, which looks the same
+    as a collector that is not receiving."""
+    from assistant.core.config import Settings
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="OTEL_EXPORTER_OTLP_ENDPOINT"):
+        Settings(
+            ASSISTANT_TRACE_EXPORT="both",  # type: ignore[call-arg]
+            OTEL_EXPORTER_OTLP_ENDPOINT="",  # type: ignore[call-arg]
+            _env_file=None,
+        )

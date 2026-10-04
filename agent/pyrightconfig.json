@@ -1,6 +1,11 @@
 {
-    "include": ["triage"],
-    "extraPaths": ["triage"],
+    "include": [
+        "assistant",
+        "evals"
+    ],
+    "extraPaths": [
+        "."
+    ],
     "typeCheckingMode": "strict",
     "reportMissingTypeArgument": "warning",
     "reportMissingTypeStubs": "none",

@@ -4,7 +4,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
-import assistant.tools  # noqa: F401  # importing registers the tools
+# Imported for the side effect: importing registers the tools.
+import assistant.tools  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from assistant.agents import AgentConfig
 from assistant.agents.planner import ToolPlannerAgent
 from assistant.events import Emitter, silent

@@ -5,12 +5,35 @@ into `os.environ`: a variable another service needs cannot arrive here by being
 in a file this one happened to load.
 """
 
+from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from assistant.graphs.limits import GRAPH_RECURSION_LIMIT
+
+
+class TraceExport(StrEnum):
+    """What happens to a run's spans once it finishes.
+
+    The in-process store is not one of the choices: `/traces/{run_id}` and the
+    cost a run reports both read it, and it holds one process's recent runs
+    whatever this says. These are the two durable sinks.
+    """
+
+    OFF = "off"
+    LOCAL = "local"
+    OTLP = "otlp"
+    BOTH = "both"
+
+    @property
+    def writes_files(self) -> bool:
+        return self in (TraceExport.LOCAL, TraceExport.BOTH)
+
+    @property
+    def forwards(self) -> bool:
+        return self in (TraceExport.OTLP, TraceExport.BOTH)
 
 
 class Settings(BaseSettings):
@@ -69,8 +92,12 @@ class Settings(BaseSettings):
     # Pacing for the keyless model, so streaming is visible without a provider.
     scripted_stream_delay: float = 0.02
 
-    # Where finished spans are written. Empty keeps them in memory only, so a
-    # restart loses them.
+    # Where the spans of a finished run go. One setting rather than inferring
+    # it from whether two others happen to be blank.
+    trace_export: TraceExport = Field(
+        default=TraceExport.LOCAL, validation_alias="ASSISTANT_TRACE_EXPORT"
+    )
+    # Where `local` and `both` write them: one file per run.
     trace_dir: str = Field(default=".traces", validation_alias="ASSISTANT_TRACE_DIR")
     # Off by default: a trace is worth having because it shows what the model was
     # sent. Turn it on when spans leave for a collector you do not control. Never
@@ -79,8 +106,8 @@ class Settings(BaseSettings):
         default=False, validation_alias="ASSISTANT_TRACE_REDACT_EXPORTS"
     )
 
-    # Any OTLP-speaking backend: Langfuse, Jaeger, Grafana, an OTel collector.
-    # Unset means traces stay local, readable at /traces/{run_id}.
+    # Where `otlp` and `both` send them. Any OTLP-speaking backend: Langfuse,
+    # Jaeger, Grafana, an OTel collector.
     otlp_endpoint: str = Field(
         default="", validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT"
     )
@@ -100,6 +127,21 @@ class Settings(BaseSettings):
     @classmethod
     def _trimmed(cls, value: str) -> str:
         return value.strip()
+
+    @model_validator(mode="after")
+    def _exporting_needs_somewhere_to_export(self) -> "Settings":
+        """Said at startup rather than discovered from an empty dashboard.
+
+        Asking to forward spans with no endpoint configured used to start
+        cleanly and send nothing, which looks exactly like a collector that is
+        not receiving them.
+        """
+        if self.trace_export.forwards and not self.otlp_endpoint:
+            raise ValueError(
+                f"ASSISTANT_TRACE_EXPORT={self.trace_export} forwards spans, so "
+                "OTEL_EXPORTER_OTLP_ENDPOINT must be set."
+            )
+        return self
 
     @field_validator("cors_origins", mode="before")
     @classmethod

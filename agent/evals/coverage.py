@@ -9,7 +9,8 @@ riskiest tool has never been chosen by a model.
 
 from pathlib import Path
 
-import assistant.tools  # noqa: F401  # registers the tools
+# Imported for the side effect: importing registers the tools.
+import assistant.tools  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from assistant.tools.core import metadata_for, selectable_tools
 
 from evals.core.scenario import load_scenarios

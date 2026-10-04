@@ -1,10 +1,9 @@
 """Wire up OpenTelemetry once, at import.
 
-Two exporters, both optional in the sense that neither needs an account:
-
-- `TraceStoreExporter` always runs, so `/traces/{ticket_id}` works out of the box.
-- An OTLP exporter is added when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, which is
-  how you point this at Langfuse, Jaeger, or anything else speaking OTLP.
+`TraceStoreExporter` always runs, so `/traces/{run_id}` and a run's reported
+cost work with no account and no configuration. Where spans go after that is
+`ASSISTANT_TRACE_EXPORT`: files under `ASSISTANT_TRACE_DIR`, an OTLP collector
+such as Langfuse or Jaeger, both, or neither.
 
 Pydantic AI emits its own spans for every model call, so once a graph node opens
 a span the model calls nest underneath it automatically.
@@ -41,7 +40,7 @@ def setup_tracing(force: bool = False) -> None:
         resource=Resource.create({"service.name": "triage-agent"})
     )
 
-    if settings.trace_dir:
+    if settings.trace_export.writes_files and settings.trace_dir:
         files = TraceFiles(Path(settings.trace_dir))
         trace_store.use_files(files)
         logger.info("tracing.files", directory=str(files.directory))
@@ -65,9 +64,11 @@ def otlp_processor() -> BatchSpanProcessor | None:
     """Forward spans to Langfuse, Jaeger, or any OTLP collector.
 
     Separate from `setup_tracing` because the global tracer provider can only
-    be set once per process, so this is the part a test can exercise.
+    be set once per process, so this is the part a test can exercise. The
+    endpoint is guaranteed by the settings, which refuse a forwarding mode
+    without one.
     """
-    if not settings.otlp_endpoint:
+    if not settings.trace_export.forwards:
         return None
 
     try:

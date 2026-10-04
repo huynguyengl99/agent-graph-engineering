@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
+import { mergeEvents } from '@/lib/eventList';
 import type { Ticket, TicketEvent } from '@/lib/types';
 import { HANDLING, Row, Thinking, TicketEventItem } from './TicketEventItem';
 import { placeholdersIn } from '@/lib/placeholders';
@@ -54,7 +55,8 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
         const page = await api.get('/api/tickets/:ticketPk/events/', {
           params: { ticketPk: ticketId },
         });
-        if (!ignore) setEvents(page.results ?? []);
+        if (!ignore)
+          setEvents((current) => mergeEvents(current, page.results ?? []));
       } catch {
         if (!ignore) setError('Could not load the ticket history.');
       }
@@ -65,7 +67,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   }, [ticketId]);
 
   const onNewEvent = useCallback((event: TicketEvent) => {
-    setEvents((current) => [...current, event]);
+    setEvents((current) => mergeEvents(current, [event]));
     if (event.eventType === 'handoff') {
       setHandling(event.handling);
       publishTicketChange({ id: ticketId, handling: event.handling });

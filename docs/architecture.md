@@ -42,6 +42,12 @@ Two consequences worth knowing:
 - **The record is derived, so it can lag but not diverge.** A terminal event
   persists the turn; a parked run persists the card. A tool proposal is
   deliberately not a turn, because it only becomes one if it runs.
+- **The browser merges the two sources, by id.** A tab builds its timeline from
+  the page load and the live feed at once, and the socket subscribes before the
+  fetch resolves - so appending whatever arrives and replacing on load is wrong
+  in both directions: an event in that window renders twice, and a snapshot
+  taken a moment earlier drops it. At-most-once on the server does not make the
+  client idempotent; `lib/eventList.ts` is what does.
 - **One run at a time per lane.** The agent keys its checkpoint on the ticket
   and the audience, so two runs in one lane are two graphs writing one thread
   and the second wins. That is how an approved reply could vanish: a run parked

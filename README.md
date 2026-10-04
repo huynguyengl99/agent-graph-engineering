@@ -213,6 +213,14 @@ Working end to end, with nothing mocked in `just e2e`:
 Not built yet: context budgeting for long threads, and spend caps - cost is
 measured, not enforced.
 
+One wart worth knowing about, since it is visible in the code: the run that
+answers a ticket's opening description is started by the portal when the thread
+mounts, because nothing posted that description as a message. So a customer who
+files a ticket and never opens it waits for a person, and that run's progress
+is broadcast before anyone is subscribed to hear it. Starting it where the
+ticket is created is the fix, and the create path is a synchronous view with no
+event loop to detach a run onto.
+
 ## Documentation
 
 | Page | What it covers |

@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { useTicketChat } from '@/hooks/useTicketChat';
 import { Row, TicketEventItem } from '@/components/TicketEventItem';
 import { awaitingFirstReply } from '@/lib/newTickets';
+import { mergeEvents } from '@/lib/eventList';
 import type { Ticket, TicketEvent } from '@/lib/types';
 
 export function PortalThread({ ticketId }: { ticketId: string }) {
@@ -21,7 +22,8 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
 
   const { sendMessage, askAgent, isConnected } = useTicketChat({
     ticketId,
-    onNewEvent: (event) => setEvents((current) => [...current, event]),
+    onNewEvent: (event) =>
+      setEvents((current) => mergeEvents(current, [event])),
   });
 
   // The opening message is the ticket, so nothing posted it: hand it over as
@@ -42,7 +44,7 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
       ]);
       if (ignore) return;
       setTicket(detail as Ticket);
-      setEvents(page.results ?? []);
+      setEvents((current) => mergeEvents(current, page.results ?? []));
     })();
     return () => {
       ignore = true;

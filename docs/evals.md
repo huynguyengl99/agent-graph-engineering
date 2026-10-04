@@ -4,9 +4,21 @@
 just evals                              # the whole golden set
 just evals guardrail                    # names matching "guardrail"
 just evals-compare scripted openai_gpt-4o
+just evals-coverage                     # which tools a scenario asserts
 ```
 
 Scenarios live in `agent/evals/scenarios/*.yaml`. Deterministic checks decide by majority across trials; prose criteria go to a cascade judge that runs free substring checks first and a model only when it must.
+
+`just evals-coverage` answers a different question: which tools a scenario has
+ever actually asserted. A passing suite says nothing about the tool nobody
+wrote a scenario for, and that gap is invisible from the summary - every
+scenario can pass while the riskiest tool has never been chosen by a model.
+
+It counts only the tools a planner may choose. `search_knowledge_base` is
+registered but not offered: the knowledge branch calls it directly with a
+refine loop around it, so offering it to the planner as well was a second route
+to the articles with no second attempt - and a tool no model can pick is one no
+scenario can assert.
 
 It runs with **no API key**: the scripted model keeps the deterministic checks real, unassessed criteria are reported as *skipped* rather than scored, and runs are labelled by the model that actually ran. Cost comes from the spans the tracer already collects, and a model with no price table reports its tokens with `priced: false` rather than a misleading $0.00.
 

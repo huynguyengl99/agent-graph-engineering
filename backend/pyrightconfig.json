@@ -15,10 +15,14 @@
     // __all__ or an explicit alias. Every hit is a library's packaging
     // choice, not something this codebase can fix.
     "reportPrivateImportUsage": "none",
-    // Reverse relations (conversation.messages) are created at runtime from
+    // Reverse relations (ticket.events) are created at runtime from
     // related_name. django-stubs teaches mypy about them; pyright cannot see
     // them, and mypy is the checker that owns Django's dynamic surface.
     "reportAttributeAccessIssue": "none",
+    // A TextChoices member reads as the `("public", "Public")` tuple it was
+    // written as, so pyright calls every `== Visibility.PUBLIC` impossible.
+    // Django's enum metaclass is what makes it a member, and mypy sees it.
+    "reportUnnecessaryComparison": "none",
     "executionEnvironments": [
         {
             "root": "helpdesk/config/settings",

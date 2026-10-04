@@ -51,7 +51,7 @@ page.on('websocket', (ws) => {
     try {
       const m = JSON.parse(f.payload);
       if (m.action === 'agent_progress') stages.push(m.payload.stage);
-      if (m.action === 'tool_approval') proposals.push(m.payload);
+      if (m.action === 'tool_proposal') proposals.push(m.payload);
     } catch {
       /* not JSON: heartbeat or control frame */
     }
@@ -139,8 +139,6 @@ const ticketId = await customerPage
 ok(`reported a problem through the dialog (${ticketId.slice(0, 8)})`);
 
 console.log('== ticket triage, end to end ==');
-// Staff open the ticket first, so the run's progress is watched by a connection
-// that did not start it.
 await page.goto(`${BASE}/tickets/${ticketId}`);
 await page.waitForSelector('text=live', { timeout: 20000 });
 
@@ -152,12 +150,24 @@ await customerPage.fill(
   'I was charged twice for my plan this month.',
 );
 await customerPage.click('main form button[type="submit"]');
-(await sawStage('classified'))
-  ? ok('the classification reached the browser')
-  : bad('no classified stage arrived');
-(await sawStage('decided'))
-  ? ok('the routing decision reached the browser')
-  : bad('no decided stage arrived');
+
+// Asserted on the ticket rather than on the progress frames. Opening the
+// ticket starts a run for the description nobody posted, so by the time staff
+// subscribe its `classified` and `decided` have already been broadcast to
+// nobody - and a stage is transient, so there is nothing to replay. The
+// reasoning each step writes is persisted, which is the durable record that
+// both steps ran. The frames are asserted in the team's lane below, where
+// staff are watching before the run starts.
+for (const [step, label] of [
+  ['the ticket was filed', 'Filed the ticket'],
+  ['what to do was chosen', 'Chose what to do'],
+]) {
+  const seen = await page
+    .waitForSelector(`li:has-text("${label}")`, { timeout: 90000 })
+    .then(() => true)
+    .catch(() => false);
+  seen ? ok(`${step}, and said why`) : bad(`no reasoning for "${label}"`);
+}
 await page.waitForSelector('button:has-text("Approve")', { timeout: 60000 });
 ok('the run parked at the human approval gate');
 
@@ -189,6 +199,13 @@ console.log("== the team's own lane, on the ticket ==");
 // ask about a ticket that already has a thread.
 await askTheAgent('Is an annual plan refundable when it was billed twice?');
 
+// This run starts while staff are already subscribed, so its progress is
+// watched by a connection that did not start it - which is the property, and
+// the only place in the pass where it holds.
+(await sawStage('decided'))
+  ? ok('the routing decision reached a browser that did not start the run')
+  : bad('no decided stage arrived');
+
 // Every step that explains itself reports it while it writes.
 const reasoned = await page
   .waitForSelector('li span.italic', { timeout: 60000 })
@@ -218,13 +235,13 @@ console.log('== tool gate: propose, correct, run ==');
 // On the ticket, in the team's lane, because that is the only place to ask now.
 await page.goto(`${BASE}/tickets/${ticketId}`);
 await page.waitForSelector('text=live', { timeout: 20000 });
-// The agent's rows in the team's lane. Counted before asking: the socket is
-// live before the event list has rendered, and counting too early makes every
-// later "wait for one more answer" read the previous turn's - which looked
-// exactly like the assistant ignoring a cancellation.
+// The agent's rows in the team's lane. Asserted by what they say rather than
+// by how many there are: counting them was off by one in both directions at
+// different times - a row still loading read as zero, a reload rebuilding the
+// list read as one too many - and every mistake looked like the assistant
+// ignoring the turn it had just been given.
 const ANSWER = 'li:has-text("Agent ("):has-text("INTERNAL")';
-await page.waitForSelector(ANSWER, { timeout: 30000 }).catch(() => null);
-const answersBefore = await page.locator(ANSWER).count();
+await page.waitForSelector(ANSWER, { timeout: 30000 });
 await askTheAgent(
   'Please refund demo@example.com £29 for the duplicate charge.',
 );
@@ -333,22 +350,24 @@ if (parked) {
     ? ok('the corrected amount is what went back to the graph')
     : bad(`the decision dropped the correction: ${JSON.stringify(decision)}`);
 
-  const nextAnswer = async (seen) => {
-    // The rep's own question mentions £29, so waiting for any element whose text
-    // contains "9" matches the question and reads it as the answer.
-    await page
-      .waitForFunction(
-        ([selector, n]) => document.querySelectorAll(selector).length > n,
-        [ANSWER, seen],
-        { timeout: 90000 },
-      )
-      .catch(() => null);
-    const text = await page.locator(ANSWER).last().innerText();
-    // One line: a wrapped answer makes the failure message unreadable, and this
-    // is the only record of what the model actually said.
-    const flat = text.replace(/\s+/g, ' ').trim().toLowerCase();
-    console.log(`   answered: ${flat.slice(0, 300)}`);
-    return flat;
+  // One line each: a wrapped answer makes a failure message unreadable, and
+  // this is the only record of what the model actually said.
+  const flatten = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const answerSaying = async (pattern, timeout = 90000) => {
+    const deadline = Date.now() + timeout;
+    let newest = '';
+    while (Date.now() < deadline) {
+      const answers = (await page.locator(ANSWER).allInnerTexts()).map(flatten);
+      newest = answers.at(-1) ?? '';
+      if (answers.some((answer) => pattern.test(answer))) {
+        console.log(`   answered: ${newest.slice(0, 300)}`);
+        return true;
+      }
+      await page.waitForTimeout(1000);
+    }
+    console.log(`   last answer: ${newest.slice(0, 300)}`);
+    return false;
   };
 
   // That the *tool* ran on the corrected amount is settled by the decision frame
@@ -356,10 +375,11 @@ if (parked) {
   // all the browser can honestly see: the answer is about the corrected refund.
   // It may well also mention the £29 charge, and explaining the difference to the
   // rep is the assistant doing its job, not a leak of the proposed amount.
-  const answer = await nextAnswer(answersBefore);
-  /\b9(\.00)?\b/.test(answer)
+  // `\b9\b` and not `9`: the rep's own question says £29, and a bare digit
+  // match reads that back as the answer.
+  (await answerSaying(/\b9(\.00)?\b/))
     ? ok('the answer is about the corrected refund')
-    : bad(`the answer never mentions the corrected amount: ${answer}`);
+    : bad('no answer mentions the corrected amount');
 
   console.log('== tool gate: cancelling runs nothing ==');
   await askTheAgent('Actually refund demo@example.com £50 as well.');
@@ -383,12 +403,11 @@ if (parked) {
     // around one model's wording is how you end up tuning the test instead of the
     // product. That nothing *ran* is asserted above; this only catches the
     // assistant reporting success for a call that was refused.
-    const afterCancel = await nextAnswer(answersBefore + 1);
-    /cancel|not authori[sz]|declin|rejected|not (been )?process|was not/i.test(
-      afterCancel,
-    )
+    (await answerSaying(
+      /cancel|not authori[sz]|declin|rejected|not (been )?process/,
+    ))
       ? ok('the assistant reports that the action did not happen')
-      : bad(`the resumed run did not report the cancellation: ${afterCancel}`);
+      : bad('no answer reports the cancellation');
     ok('the tool call parked before running');
   }
 }

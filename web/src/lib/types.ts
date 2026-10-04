@@ -10,10 +10,7 @@
 
 import type { z } from 'zod';
 import { schemas } from '@/schemas/backend';
-import type {
-  ChatMessage as WireChatMessage,
-  NewEventPayload,
-} from '@/generated';
+import type { NewEventPayload } from '@/generated';
 
 export type Ticket = z.infer<typeof schemas.Ticket>;
 /**
@@ -25,13 +22,3 @@ export type Ticket = z.infer<typeof schemas.Ticket>;
  */
 export type TicketEvent = NewEventPayload['event'];
 export type User = z.infer<typeof schemas.User>;
-export type Conversation = z.infer<typeof schemas.Conversation>;
-/**
- * The realtime declaration, used for REST-fetched messages too.
- *
- * Same reasoning as `TicketEvent`: the backend builds this payload from the
- * REST serializer, so one type covers the page load and the feed. Typing them
- * separately is what let `assistant_done` drift into a third shape and the
- * client invent a `createdAt` the database had already set.
- */
-export type ChatMessage = WireChatMessage;

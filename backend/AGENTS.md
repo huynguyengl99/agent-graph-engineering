@@ -143,11 +143,9 @@ Use `BaseModelFactory` from `helpdesk/test_utils/model_factory.py` for all test 
 ## Topics, not one consumer per resource
 
 Every browser tab opens a single socket at `/ws/` (`core/consumers/hub.py`).
-Tickets and conversations are *topics* on it, addressed per frame:
-
-- `ticket:{ticket_id}` - customer-visible, so sending a reply is gated
-- `conversation:{conversation_id}` - the rep's own thread, gated only on the
-  way out via `draft_to_ticket`
+A ticket is a *topic* on it, `ticket:{ticket_id}`, addressed per frame. One
+topic carries both lanes: what the customer reads, and what the team says to
+each other and to the assistant about it.
 
 Two reasons this is not just tidier. `Topic.broadcast` is a **classmethod**, so
 a detached task with no consumer instance can publish directly - the old
@@ -155,8 +153,8 @@ a detached task with no consumer instance can publish directly - the old
 one socket serves however many resources a tab is watching, instead of one
 connection and one auth round-trip each.
 
-`authorize()` on the topic is where access control lives: an unknown ticket or
-someone else's conversation is refused at subscribe, not at connect.
+`authorize()` on the topic is where access control lives: an unknown ticket, or
+somebody else's, is refused at subscribe, not at connect.
 
 Note for tests: a topic fan-out terminates with `event_complete`, while a
 handler's own reply terminates with `complete`. `receive_topic_messages` in
@@ -170,18 +168,22 @@ One relay, `core/services/support_run.py`. It opens the connection, subscribes
 to `support:<audience>:<thread_id>`, replays what it missed, moves the cursor
 and disconnects - and hands every event to a `Sink`.
 
-| Sink | Writes to | Visibility |
-|---|---|---|
-| `tickets/services/support.py` | ticket events | the audience's: public for a customer's run, internal for the team's |
-| `conversations/services/chat.py` | conversation messages | there is no customer here, so nothing is gated |
+`tickets/services/lanes.py` is what stops two of these sharing a thread: a run
+claims `(ticket, visibility)` for as long as it is working *or* parked, and a
+request that arrives meanwhile is stored on the claim and run when it is
+released. The resumes - approval and tool gate - release the claim the run that
+parked it took, which is why `PendingToolCall` records the lane it was proposed
+from and not just where the reviewer sent the answer.
+
+The one sink is `tickets/services/support.py`, and it files what it writes under
+the run's own visibility: public for a customer's run, internal for the team's.
 
 There were three relays: a ticket's customer run, a ticket's team run, and a
-conversation. They talked identically and differed only in what they wrote down,
-which is why the talking is one class and the writing-down is three methods.
-
-The ticket's two audiences are **one sink**: the visibility an answer is filed
-under is the whole difference between drafting for the customer behind the gate
-and answering the lane the team asked in.
+standalone thread with the assistant. They talked identically and differed only
+in what they wrote down, which is why the talking is one class and the
+writing-down is a `Sink`. The audiences are one sink too - the visibility an
+answer is filed under is the whole difference between drafting for the customer
+behind the gate and answering the lane the team asked in.
 
 ### Visibility is enforced twice
 

@@ -5,37 +5,31 @@ import {
   useParams,
   useRouterState,
 } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { router } from '@/router';
 import { useAuthStore } from '@/lib/auth';
 import { LoginForm } from '@/components/LoginForm';
 import { TicketList } from '@/components/TicketList';
-import { ConversationList } from '@/components/ConversationList';
 import { onTicketChange } from '@/lib/ticketState';
-import type { Conversation, Ticket } from '@/lib/types';
+import type { Ticket } from '@/lib/types';
 
-type Pane = 'tickets' | 'chat' | 'graphs' | 'traces' | 'settings';
+type Pane = 'tickets' | 'graphs' | 'traces' | 'settings';
 
 export function RootLayout() {
   const { fetchUser, logout, isAuthenticated, user } = useAuthStore();
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [starting, setStarting] = useState(false);
-  const { ticketId, conversationId } = useParams({ strict: false });
+  const { ticketId } = useParams({ strict: false });
 
   // The sidebar follows the route rather than its own state, so a deep link
   // opens on the right pane.
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const pane: Pane = path.startsWith('/chat')
-    ? 'chat'
-    : path.startsWith('/graphs')
-      ? 'graphs'
-      : path.startsWith('/traces')
-        ? 'traces'
-        : path.startsWith('/settings')
-          ? 'settings'
-          : 'tickets';
+  const pane: Pane = path.startsWith('/graphs')
+    ? 'graphs'
+    : path.startsWith('/traces')
+      ? 'traces'
+      : path.startsWith('/settings')
+        ? 'settings'
+        : 'tickets';
 
   // The ticket being read tells the list what changed, rather than every row
   // holding a subscription of its own.
@@ -55,15 +49,6 @@ export function RootLayout() {
     void fetchUser();
   }, [fetchUser]);
 
-  const loadConversations = useCallback(async () => {
-    try {
-      const page = await api.get('/api/conversations/');
-      setConversations(page.results ?? []);
-    } catch {
-      setConversations([]);
-    }
-  }, []);
-
   useEffect(() => {
     if (!isAuthenticated) return;
     let ignore = false;
@@ -74,29 +59,11 @@ export function RootLayout() {
       } catch {
         if (!ignore) setTickets([]);
       }
-      if (!ignore) await loadConversations();
     })();
     return () => {
       ignore = true;
     };
-  }, [isAuthenticated, loadConversations]);
-
-  const startConversation = async () => {
-    setStarting(true);
-    try {
-      const created = await api.post('/api/conversations/', {
-        title: 'New conversation',
-        ticket: null,
-      });
-      await loadConversations();
-      await router.navigate({
-        to: '/chat/$conversationId',
-        params: { conversationId: String(created.id) },
-      });
-    } finally {
-      setStarting(false);
-    }
-  };
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) return <LoginForm />;
   // The console is for people answering tickets. Everyone else has a portal.
@@ -116,14 +83,6 @@ export function RootLayout() {
             }`}
           >
             Tickets
-          </Link>
-          <Link
-            to="/chat"
-            className={`rounded px-3 py-1 ${
-              pane === 'chat' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'
-            }`}
-          >
-            Assistant
           </Link>
           <Link
             to="/graphs"
@@ -166,18 +125,9 @@ export function RootLayout() {
 
       <div className="flex min-h-0 flex-1">
         {/* Positive check: a new pane should not inherit a sidebar. */}
-        {(pane === 'tickets' || pane === 'chat') && (
+        {pane === 'tickets' && (
           <aside className="w-80 shrink-0 overflow-y-auto border-r bg-white">
-            {pane === 'chat' ? (
-              <ConversationList
-                conversations={conversations}
-                selectedId={conversationId ?? null}
-                onNew={() => void startConversation()}
-                busy={starting}
-              />
-            ) : (
-              <TicketList tickets={tickets} selectedId={ticketId ?? null} />
-            )}
+            <TicketList tickets={tickets} selectedId={ticketId ?? null} />
           </aside>
         )}
 

@@ -41,7 +41,6 @@ INSTALLED_APPS = [
     "helpdesk.accounts",
     "helpdesk.core",
     "helpdesk.tickets",
-    "helpdesk.conversations",
 ]
 
 # Required for allauth

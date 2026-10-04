@@ -55,7 +55,7 @@ describe('session refresh', () => {
 
     const all = Promise.all([
       ensureFreshSession('/api/tickets/'),
-      ensureFreshSession('/api/conversations/'),
+      ensureFreshSession('/api/tickets/1/events/'),
       ensureFreshSession('/api/accounts/user/'),
     ]);
     release(null);

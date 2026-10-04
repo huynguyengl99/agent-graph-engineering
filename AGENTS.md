@@ -92,9 +92,12 @@ reaches `send_reply`. Notes that cost time to rediscover:
 OpenTelemetry, set up in `assistant/tracing/`. Every graph node opens a span tagged
 with the ticket; Pydantic AI's own spans (`instrument=True`) nest underneath.
 
-- `TraceStoreExporter` always runs so `/traces/{ticket_id}` works with no
-  account. An OTLP exporter is added only when `OTEL_EXPORTER_OTLP_ENDPOINT` is
-  set, and a missing OTLP extra warns rather than crashing the agent.
+- `TraceStoreExporter` always runs so `/traces/{run_id}` and a run's reported
+  cost work with no account. The two durable sinks - files and an OTLP
+  collector - are chosen by `ASSISTANT_TRACE_EXPORT`
+  (`off|local|otlp|both`), and a missing OTLP extra warns rather than crashing
+  the agent. A forwarding mode with no endpoint configured is refused at
+  startup, because the alternative is a clean start that sends nothing.
 - **Spans finish innermost-first**, so a child is exported before the parent
   that names the ticket, and only the node span carries the ticket id. The
   exporter therefore keys on **trace id** and buffers orphans until the naming

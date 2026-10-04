@@ -6,7 +6,6 @@ import {
 import { RootLayout } from '@/routes/root';
 import { TicketsIndex } from '@/routes/index';
 import { TicketRoute } from '@/routes/ticket';
-import { ChatRoute } from '@/routes/chat';
 import { GraphsRoute } from '@/routes/graphs';
 import { SettingsRoute } from '@/routes/settings';
 import { TracesRoute } from '@/routes/traces';
@@ -37,27 +36,6 @@ const ticketRoute = createRoute({
   component: function Ticket() {
     const { ticketId } = ticketRoute.useParams();
     return <TicketRoute key={ticketId} ticketId={ticketId} />;
-  },
-});
-
-const chatIndexRoute = createRoute({
-  getParentRoute: () => consoleRoute,
-  path: '/chat',
-  component: function ChatIndex() {
-    return (
-      <p className="p-8 text-gray-500">
-        Pick a conversation, or start a new one.
-      </p>
-    );
-  },
-});
-
-const chatRoute = createRoute({
-  getParentRoute: () => consoleRoute,
-  path: '/chat/$conversationId',
-  component: function Chat() {
-    const { conversationId } = chatRoute.useParams();
-    return <ChatRoute key={conversationId} conversationId={conversationId} />;
   },
 });
 
@@ -105,8 +83,6 @@ export const router = createRouter({
     consoleRoute.addChildren([
       indexRoute,
       ticketRoute,
-      chatIndexRoute,
-      chatRoute,
       graphsRoute,
       tracesRoute,
       settingsRoute,

@@ -83,6 +83,12 @@ async function login(email = EMAIL) {
   await page.waitForSelector('a[href*="/tickets/"]', { timeout: 20000 });
 }
 
+/** Ask the assistant in the team's lane of the open ticket. */
+async function askTheAgent(question) {
+  await page.fill('form input[placeholder*="Note for your team"]', question);
+  await page.click('form button[type="submit"]:has-text("Send")');
+}
+
 async function signOut() {
   await page.click('button:has-text("Sign out")');
   await page.waitForSelector('input[type="email"]', { timeout: 20000 });
@@ -114,10 +120,7 @@ ok('the customer lands on the portal, not the console');
 const TICKET_LINK = 'aside a[href*="/tickets/"]';
 const ticketsBefore = await customerPage.locator(TICKET_LINK).count();
 await customerPage.click('button:has-text("New ticket")');
-await customerPage.fill(
-  '[role="dialog"] input',
-  'Charged twice this month',
-);
+await customerPage.fill('[role="dialog"] input', 'Charged twice this month');
 await customerPage.fill(
   '[role="dialog"] textarea',
   'My card shows two charges for the same plan.',
@@ -184,11 +187,7 @@ recorded.replace(/Agent \([^)]*\)/, '').trim().length > 20
 console.log("== the team's own lane, on the ticket ==");
 // The question and its answer stay on the ticket: there is no second place to
 // ask about a ticket that already has a thread.
-await page.fill(
-  'form input[placeholder*="Note for your team"]',
-  'Is an annual plan refundable when it was billed twice?',
-);
-await page.click('form button[type="submit"]:has-text("Send")');
+await askTheAgent('Is an annual plan refundable when it was billed twice?');
 
 // Every step that explains itself reports it while it writes.
 const reasoned = await page
@@ -210,60 +209,25 @@ leaked === 0
   ? ok("none of the team's lane reached the customer")
   : bad(`${leaked} internal rows reached the customer`);
 
-console.log('== the assistant, with no ticket behind it ==');
-await page.goto(`${BASE}/chat`);
-await page.click('button:has-text("New conversation")');
-await page.waitForURL(/\/chat\/[0-9a-f-]+$/, { timeout: 20000 });
-const chatUrl = page.url();
-ok('started a conversation with no ticket');
-await page.fill(
-  'main form input[placeholder]',
-  'What should I tell them about the double charge?',
-);
-await page.click('main button:has-text("Ask")');
-await page.waitForSelector('text=answering…', { timeout: 30000 });
-ok('the answer started streaming');
-await page.waitForSelector(
-  'main li[data-role="assistant"]:not([data-pending])',
-  {
-    timeout: 90000,
-  },
-);
-ok('the answer finished');
-const before = await page.locator('main ul li').allInnerTexts();
-await page.reload();
-await page.waitForSelector(
-  'main li[data-role="assistant"]:not([data-pending])',
-  {
-    timeout: 30000,
-  },
-);
-const after = await page.locator('main ul li').allInnerTexts();
-JSON.stringify(before) === JSON.stringify(after)
-  ? ok(`conversation survived a reload (${after.length} turns, identical)`)
-  : bad(`reload changed the conversation: ${before.length} -> ${after.length}`);
-
 console.log('== tool gate: propose, correct, run ==');
 // The riskiest path in the product: a tool that moves money, proposed by a
 // model, corrected by a person. Nothing is mocked, so this covers the schema
 // leaving the agent, the form built from it, and the corrected arguments
 // arriving back at the parked graph.
-await page.goto(chatUrl);
+//
+// On the ticket, in the team's lane, because that is the only place to ask now.
+await page.goto(`${BASE}/tickets/${ticketId}`);
 await page.waitForSelector('text=live', { timeout: 20000 });
-// Not the streaming bubble: it carries the same role, so counting it reads a
-// half-written sentence as the answer.
-const ANSWER = 'main li[data-role="assistant"]:not([data-pending])';
-// The socket is live before the REST message list has rendered, and counting
-// the answers already on screen too early makes every later "wait for one more
-// answer" read the previous turn's - which looked exactly like the assistant
-// ignoring a cancellation.
-await page.waitForSelector(ANSWER, { timeout: 30000 });
+// The agent's rows in the team's lane. Counted before asking: the socket is
+// live before the event list has rendered, and counting too early makes every
+// later "wait for one more answer" read the previous turn's - which looked
+// exactly like the assistant ignoring a cancellation.
+const ANSWER = 'li:has-text("Agent ("):has-text("INTERNAL")';
+await page.waitForSelector(ANSWER, { timeout: 30000 }).catch(() => null);
 const answersBefore = await page.locator(ANSWER).count();
-await page.fill(
-  'main form input[placeholder]',
+await askTheAgent(
   'Please refund demo@example.com £29 for the duplicate charge.',
 );
-await page.click('main button:has-text("Ask")');
 
 // Two models stand between the question and the gate: the router decides this
 // needs a tool, then the planner names one. Either can decline, and the gate
@@ -398,11 +362,7 @@ if (parked) {
     : bad(`the answer never mentions the corrected amount: ${answer}`);
 
   console.log('== tool gate: cancelling runs nothing ==');
-  await page.fill(
-    'main form input[placeholder]',
-    'Actually refund demo@example.com £50 as well.',
-  );
-  await page.click('main button:has-text("Ask")');
+  await askTheAgent('Actually refund demo@example.com £50 as well.');
   // Guarded like the gate above: the planner may decline this one too, and an
   // unguarded wait turns that into a crash that loses every check after it.
   const offered = await page

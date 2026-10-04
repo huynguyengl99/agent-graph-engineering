@@ -246,15 +246,25 @@ class TicketTopic(Topic[TicketFeedEvent]):
         wire = event.payload.event
         if wire.visibility != "public" and not self._staff:
             return None
-        if wire.event_type == "handoff" and wire.reason and not self._staff:
-            return event.model_copy(
-                update={
-                    "payload": event.payload.model_copy(
-                        update={"event": wire.model_copy(update={"reason": ""})}
-                    )
-                }
-            )
-        return event
+        if self._staff:
+            return event
+
+        # Visible is not the same as readable: a handoff's reason and a tool
+        # call's arguments are the team's, on an event the customer may see.
+        hidden: dict[str, Any] = {}
+        if wire.event_type == "handoff" and wire.reason:
+            hidden = {"reason": ""}
+        elif wire.event_type == "tool_call":
+            hidden = {"arguments": {}, "result": "", "error": ""}
+        if not hidden:
+            return event
+        return event.model_copy(
+            update={
+                "payload": event.payload.model_copy(
+                    update={"event": wire.model_copy(update=hidden)}
+                )
+            }
+        )
 
     @event_handler
     async def handle_progress(

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from channels.db import database_sync_to_async
 from django.test import override_settings
+from rest_framework.test import APIClient
 
 from helpdesk.accounts.factories import UserFactory
 from helpdesk.agent_client.agent_hub_support_topic.messages import (
@@ -467,8 +468,10 @@ class TestRecordingWhatRan(WebsocketTestCase):
         self.user.save(update_fields=["is_staff"])
         self.ticket = TicketFactory.create(created_by=self.user)
 
-    async def ran(self, **fields: Any) -> ToolCallEvent:
-        client = relay(str(self.ticket.id))
+    async def ran(
+        self, visibility: str = Visibility.INTERNAL, **fields: Any
+    ) -> ToolCallEvent:
+        client = relay(str(self.ticket.id), visibility)
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
         await client.on_event(
             ToolRanMessage(
@@ -490,17 +493,95 @@ class TestRecordingWhatRan(WebsocketTestCase):
         assert event.arguments["amount"] == 19.0
         assert event.result == "refund_1 issued"
 
-    async def test_it_is_the_teams_record(self) -> None:
-        """The customer is told in words by the reply, not shown the call."""
-        event = await self.ran(tool="issue_refund", result="done")
+    async def test_a_lookup_the_team_ran_is_the_teams_record(self) -> None:
+        event = await self.ran(tool="lookup_customer", result="done")
 
         assert event.visibility == Visibility.INTERNAL
+
+    async def test_the_customer_is_shown_what_was_done_about_their_ticket(self) -> None:
+        event = await self.ran(Visibility.PUBLIC, tool="issue_refund", result="done")
+
+        assert event.visibility == Visibility.PUBLIC
 
     async def test_a_cancelled_call_is_recorded_too(self) -> None:
         event = await self.ran(tool="issue_refund", cancelled=True)
 
         assert event.cancelled
         assert not event.result
+
+
+class TestWhatACustomerIsShownOfATool(WebsocketTestCase):
+    """A tool call on their own ticket is theirs to see. What it was handed and
+    what it returned is the team's, so visible and readable differ here."""
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.user.is_staff = False
+        self.user.save(update_fields=["is_staff"])
+        self.ticket = TicketFactory.create(created_by=self.user)
+        self.topic = f"ticket:{self.ticket.id}"
+
+    async def tool_row(self, user: Any) -> dict[str, Any]:
+        client = APIClient()
+        await database_sync_to_async(client.force_authenticate)(user)
+        response = await database_sync_to_async(client.get)(
+            f"/api/tickets/{self.ticket.id}/events/"
+        )
+        assert response.status_code == 200, response.content
+        [row] = [r for r in response.json()["results"] if r["eventType"] == "tool_call"]
+        return dict(row)
+
+    async def ran(self) -> Any:
+        return await database_sync_to_async(ToolCallEvent.objects.create)(
+            ticket_id=self.ticket.id,
+            tool="issue_refund",
+            arguments={"amount": 29.0, "email": "a@b.c"},
+            result="refund_1 issued",
+            visibility=Visibility.PUBLIC,
+        )
+
+    async def test_the_relay_sends_the_name_without_the_arguments(self) -> None:
+        await self.subscribe_ready(self.topic)
+        event = await self.ran()
+
+        await TicketTopic.broadcast(
+            self.topic,
+            NewEventMessage(
+                payload=NewEventPayload(
+                    event=await database_sync_to_async(serialize_event)(event)
+                )
+            ),
+        )
+
+        [message] = await self.receive_topic_messages(
+            TicketFeedEvent, stop_action="event_complete"
+        )
+        relayed = cast(NewEventMessage, message).payload.event
+        assert relayed.event_type == "tool_call"
+        assert relayed.tool == "issue_refund"
+        assert relayed.arguments == {}
+        assert relayed.result == ""
+
+    async def test_the_rest_list_strips_them_too(self) -> None:
+        """Filtering in the relay alone leaves them one page reload away."""
+        await self.ran()
+
+        row = await self.tool_row(self.user)
+
+        assert row["tool"] == "issue_refund"
+        assert row["arguments"] == {}
+        assert row["result"] == ""
+
+    async def test_staff_see_all_of_it(self) -> None:
+        await self.ran()
+
+        row = await self.tool_row(await UserFactory.acreate(is_staff=True))
+
+        assert row["arguments"] == {"amount": 29.0, "email": "a@b.c"}
+        assert row["result"] == "refund_1 issued"
 
 
 class TestReasoningIsTheTeams(WebsocketTestCase):

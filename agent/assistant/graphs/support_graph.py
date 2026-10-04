@@ -237,13 +237,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
         match state.decision:
             case SearchKnowledgeBase():
                 return "knowledge"
-            case RunTool() if not state.context.for_customer:
-                return "tool"
             case RunTool():
-                # The gate a tool parks on is reviewed by the team, and the
-                # customer's half of the ticket has nowhere to show it yet. The
-                # decider is told to escalate instead; this is the backstop.
-                return "escalate"
+                return "tool"
             case Escalate() if state.context.for_customer:
                 return "escalate"
             case Escalate():

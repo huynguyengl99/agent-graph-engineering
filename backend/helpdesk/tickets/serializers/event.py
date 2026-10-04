@@ -33,6 +33,13 @@ class TicketEventBaseSerializer(serializers.ModelSerializer[TicketEvent]):
     def get_event_type(self, obj: TicketEvent) -> str:
         return obj.get_event_type()
 
+    @property
+    def for_staff(self) -> bool:
+        """An event can be visible to the customer with parts of it still not:
+        a serializer with no request behind it is one of ours, so it sees all."""
+        request = self.context.get("request")
+        return request is None or bool(request.user.is_staff)
+
 
 class CommentEventSerializer(TicketEventBaseSerializer):
     class Meta(TicketEventBaseSerializer.Meta):
@@ -76,8 +83,7 @@ class HandoffEventSerializer(TicketEventBaseSerializer):
     def to_representation(self, instance: TicketEvent) -> dict[str, Any]:
         """Who is answering is the customer's business; why is not."""
         data = super().to_representation(instance)
-        request = self.context.get("request")
-        if request is not None and not request.user.is_staff:
+        if not self.for_staff:
             data["reason"] = ""
         return data
 
@@ -87,6 +93,14 @@ class ToolCallEventSerializer(TicketEventBaseSerializer):
     # does. A bare JSONField generates `unknown`, and the two clients then
     # disagree about the same row.
     arguments = serializers.DictField(read_only=True)
+
+    def to_representation(self, instance: TicketEvent) -> dict[str, Any]:
+        """That something ran is the customer's business; what it was handed and
+        what came back is not."""
+        data = super().to_representation(instance)
+        if not self.for_staff:
+            data["arguments"], data["result"], data["error"] = {}, "", ""
+        return data
 
     class Meta(TicketEventBaseSerializer.Meta):
         model = ToolCallEvent

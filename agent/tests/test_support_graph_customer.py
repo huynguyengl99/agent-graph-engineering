@@ -127,14 +127,17 @@ class TestWhatEachAudienceIsOffered:
     """One decider for two audiences, so the branches that do not apply to one
     of them have to be closed rather than merely discouraged."""
 
-    def test_a_customer_run_never_parks_on_a_tool(self) -> None:
+    def test_a_customer_run_reaches_the_gate_too(self) -> None:
+        """The gate parks on a person either way, so a customer asking for a
+        refund proposes one rather than waiting for someone to propose the same
+        thing."""
         graph = SupportGraph()
         state = SupportState(
             context=Context(thread_id="t", audience=Audience.CUSTOMER),
             decision=RunTool(reasoning="Refund it."),
         )
 
-        assert graph.route_decision(state) == "escalate"
+        assert graph.route_decision(state) == "tool"
 
     def test_the_team_gets_the_gate(self) -> None:
         graph = SupportGraph()

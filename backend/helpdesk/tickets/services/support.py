@@ -232,8 +232,12 @@ class TicketSink(Sink):
 
     @database_sync_to_async
     def _persist_tool_call(self, payload: Any) -> Any:
-        """The record of the action, which is the team's whatever the answer
-        written about it afterwards is for."""
+        """Something was done about their ticket, so a customer's run says so.
+
+        What it was given and what came back stays with the team: the serializer
+        and the relay strip both for anyone else. A lookup the team ran on their
+        own is not the customer's business at all.
+        """
         return serialize_event(
             ToolCallEvent.objects.create(
                 ticket_id=self.ticket_id,
@@ -242,7 +246,7 @@ class TicketSink(Sink):
                 result=payload.result,
                 error=payload.error,
                 cancelled=payload.cancelled,
-                visibility=Visibility.INTERNAL,
+                visibility=self.visibility,
             )
         )
 

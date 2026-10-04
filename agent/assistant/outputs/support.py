@@ -27,6 +27,10 @@ class Answer(BaseModel):
     Not for anything resting on documented policy, limits, billing rules or a
     published procedure: knowing roughly how it works is not the same as having
     read it, and that is what the knowledge base is for.
+
+    Not for a message you were told to deliver either. What you write here goes
+    to whoever asked, so answering "send them a note" with the note leaves the
+    customer still waiting for it.
     """
 
     reasoning: str = Field(description="Why no lookup or human is needed.")
@@ -40,7 +44,11 @@ class SearchKnowledgeBase(BaseModel):
 
 
 class RunTool(BaseModel):
-    """They are asking for something done, not explained."""
+    """They are asking for something done, not explained.
+
+    Sending the customer a message counts: a tool delivers it, and prose about
+    it does not.
+    """
 
     reasoning: str = Field(description="What they want done.")
 
@@ -55,14 +63,19 @@ class Escalate(BaseModel):
 # Adding a capability means a member here and a branch in the graph, not another
 # `if` in a handler.
 #
-# Which members are offered is the audience's: answering the customer there are
-# no tools to reach for, and answering the team there is nobody to escalate to.
+# Which members are offered is the audience's: answering the team there is
+# nobody to escalate to. Both may reach for a tool - the gate parks it on a
+# person either way, so a customer asking for a refund proposes one rather than
+# being told to wait for someone who will propose the same thing.
 # Enforced by the schema rather than asked for in the prompt, because a branch
 # the model cannot name is one it cannot take.
-CustomerDecision = Answer | SearchKnowledgeBase | Escalate
-TeamDecision = Answer | SearchKnowledgeBase | RunTool
+# In the prompt's order of precedence, and `Answer` last on purpose: a union
+# member is an output tool the model picks from a list, and the first plausible
+# one in that list wins more often than it should.
+CustomerDecision = SearchKnowledgeBase | RunTool | Escalate | Answer
+TeamDecision = SearchKnowledgeBase | RunTool | Answer
 
-Decision = Answer | SearchKnowledgeBase | RunTool | Escalate
+Decision = SearchKnowledgeBase | RunTool | Escalate | Answer
 
 
 class TicketAnswer(BaseModel):

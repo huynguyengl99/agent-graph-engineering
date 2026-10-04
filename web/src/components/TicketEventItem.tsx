@@ -168,13 +168,22 @@ function ToolCall({
       ? { label: 'failed', tone: 'bg-red-100 text-red-800' }
       : { label: 'ran', tone: 'bg-emerald-100 text-emerald-800' };
 
+  // The customer is shown that something ran on their ticket, with the
+  // arguments and the result stripped by the server. Nothing to unfold, so no
+  // caret promising there is.
+  const details =
+    Object.keys(event.arguments ?? {}).length > 0 ||
+    !!event.result ||
+    !!event.error;
+
   return (
     <li className="ml-10 rounded-lg border border-l-4 border-amber-300 border-l-amber-400 bg-white px-4 py-3">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => details && setOpen(!open)}
+        disabled={!details}
         className="flex w-full items-baseline gap-2 text-left"
       >
-        <span className="text-gray-400">{open ? '▾' : '▸'}</span>
+        {details && <span className="text-gray-400">{open ? '▾' : '▸'}</span>}
         <code className="text-sm font-medium">{event.tool}</code>
         <span
           className={`rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${outcome.tone}`}

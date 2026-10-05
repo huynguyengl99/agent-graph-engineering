@@ -6,12 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.serializers import BaseSerializer
 
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import (
-    OpenApiParameter,
-    extend_schema,
-    extend_schema_view,
-)
+from drf_spectacular.utils import OpenApiParameter, extend_schema_view
 
+from helpdesk.core.schema import tagged
 from helpdesk.tickets.models import TicketEvent, Visibility
 from helpdesk.tickets.serializers import (
     CommentEventCreateSerializer,
@@ -24,19 +21,20 @@ TICKET_PK = OpenApiParameter(
 )
 
 
+endpoint = tagged("Ticket Events", parameters=[TICKET_PK])
+
+
 @extend_schema_view(
-    list=extend_schema(
-        summary="List ticket events",
-        description="Every event on a ticket, as a discriminated union.",
-        tags=["Ticket Events"],
-        parameters=[TICKET_PK],
+    list=endpoint(
+        "List ticket events",
+        description=(
+            "Every event on a ticket, as a discriminated union. A customer is "
+            "served the public ones only."
+        ),
         responses={200: TicketEventPolymorphicSerializer(many=True)},
     ),
-    create=extend_schema(
-        summary="Create comment event",
-        description="Add a comment to the ticket",
-        tags=["Ticket Events"],
-        parameters=[TICKET_PK],
+    create=endpoint(
+        "Comment on a ticket",
         request=CommentEventCreateSerializer,
         responses={201: TicketEventPolymorphicSerializer},
     ),

@@ -567,7 +567,7 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "get",
     path: "/api/tickets/",
-    description: `Get paginated list of tickets with filtering and search`,
+    description: `A customer sees their own tickets; staff see the queue.`,
     requestFormat: "json",
     parameters: [
       {
@@ -608,7 +608,6 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "post",
     path: "/api/tickets/",
-    description: `Create a new support ticket`,
     requestFormat: "json",
     parameters: [
       {
@@ -622,7 +621,7 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "get",
     path: "/api/tickets/:id/",
-    description: `Get detailed information about a specific ticket`,
+    description: `A customer sees their own tickets; staff see the queue.`,
     requestFormat: "json",
     parameters: [
       {
@@ -636,7 +635,7 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "put",
     path: "/api/tickets/:id/",
-    description: `Update an existing ticket (full update)`,
+    description: `Staff only. A customer owns their ticket but cannot change it.`,
     requestFormat: "json",
     parameters: [
       {
@@ -655,7 +654,7 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "patch",
     path: "/api/tickets/:id/",
-    description: `Partially update an existing ticket`,
+    description: `Staff only. A customer owns their ticket but cannot change it.`,
     requestFormat: "json",
     parameters: [
       {
@@ -674,7 +673,7 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "delete",
     path: "/api/tickets/:id/",
-    description: `Delete a ticket`,
+    description: `Staff only. A customer owns their ticket but cannot change it.`,
     requestFormat: "json",
     parameters: [
       {
@@ -688,7 +687,7 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "get",
     path: "/api/tickets/:ticketPk/events/",
-    description: `Every event on a ticket, as a discriminated union.`,
+    description: `Every event on a ticket, as a discriminated union. A customer is served the public ones only.`,
     requestFormat: "json",
     parameters: [
       {
@@ -717,7 +716,6 @@ information about a token&#x27;s fitness for a particular use.`,
   {
     method: "post",
     path: "/api/tickets/:ticketPk/events/",
-    description: `Add a comment to the ticket`,
     requestFormat: "json",
     parameters: [
       {

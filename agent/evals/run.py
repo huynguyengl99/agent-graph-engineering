@@ -146,7 +146,7 @@ async def main(
         results=results,
     )
 
-    run_dir = write(summary, config.label)
+    run_dir = write(summary, config.label, whole_set=pattern is None)
     _report(summary, run_dir)
     return 0 if summary.failed == 0 else 1
 

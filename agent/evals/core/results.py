@@ -69,7 +69,7 @@ def git_commit() -> str:
         return "unknown"
 
 
-def write(summary: RunSummary, label: str) -> Path:
+def write(summary: RunSummary, label: str, *, whole_set: bool = True) -> Path:
     stamp = datetime.now(UTC).strftime("%Y-%m-%d/%H-%M-%S")
     run_dir = RESULTS_DIR / "runs" / f"{stamp}_{label}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -77,9 +77,12 @@ def write(summary: RunSummary, label: str) -> Path:
     payload = summary.model_dump_json(indent=2)
     (run_dir / "summary.json").write_text(payload)
 
-    # A stable path to diff against, so `compare` needs no run id.
-    latest = RESULTS_DIR / "latest"
-    latest.mkdir(parents=True, exist_ok=True)
-    (latest / f"{label}.json").write_text(payload)
+    # A stable path to diff against, so `compare` needs no run id. Only a whole
+    # run belongs there: chasing one scenario would otherwise leave `latest`
+    # holding that scenario alone, and `compare` diffing it against twenty.
+    if whole_set:
+        latest = RESULTS_DIR / "latest"
+        latest.mkdir(parents=True, exist_ok=True)
+        (latest / f"{label}.json").write_text(payload)
 
     return run_dir

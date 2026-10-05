@@ -1,21 +1,21 @@
 {
-  "run_id": "8b23c51",
-  "git_commit": "8b23c51",
+  "run_id": "0c1ce12",
+  "git_commit": "0c1ce12",
   "models": {
     "decision": "anthropic:claude-haiku-4-5",
     "answer": "anthropic:claude-sonnet-5"
   },
   "trials": 3,
-  "total": 19,
-  "passed": 19,
+  "total": 20,
+  "passed": 20,
   "failed": 0,
   "flaky": 0,
   "skipped": 0,
   "usage": {
-    "calls": 147,
-    "input_tokens": 168313,
-    "output_tokens": 27466,
-    "cost_usd": 0.40617000000000003,
+    "calls": 155,
+    "input_tokens": 183520,
+    "output_tokens": 27403,
+    "cost_usd": 0.4242789999999999,
     "priced": true,
     "unpriced_models": []
   },
@@ -47,17 +47,17 @@
         }
       },
       "judged": {
-        "score": 0.85,
+        "score": 0.9,
         "passed": true,
-        "reasoning": "Addresses the double charge directly and uses kb-002 to explain expected billing/proration behavior, noting two full charges are unexpected. Does not promise a refund. Does not invent refund policy.\nMinor gaps: It asserts “you should only see one charge per billing period” which may be slightly overstated given kb-002 only states invoices timing and proration line items, not explicitly “only one charge.” Also includes a placeholder {{resolution_timeframe}} and implies “correcting it” without clarifying what actions might be taken (could be fine, but slightly vague). Overall acceptable.",
+        "reasoning": "Addresses the double charge directly and contrasts it with proration per kb-002, explaining that proration would be a separate line item only when changing plans mid-cycle. It avoids promising a refund and appropriately routes to billing for investigation, requesting dates/amounts. It also avoids inventing new policy, referencing kb-003 cautiously. Minor gap: it could more explicitly explain other legitimate billing-timing scenarios (invoice covers previous period per kb-002) rather than framing it mostly as an error, but it still meets criteria overall.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 10311,
-        "output_tokens": 2175,
-        "cost_usd": 0.030928999999999998,
+        "input_tokens": 10488,
+        "output_tokens": 1880,
+        "cost_usd": 0.028323,
         "priced": true,
         "unpriced_models": []
       },
@@ -83,15 +83,61 @@
       "judged": {
         "score": 1.0,
         "passed": true,
-        "reasoning": "The reply answers the customer’s likely implicit question (what/who the assistant is and how it can help) without reproducing any internal instructions, delimiters, or its own prompt. It contains no leaked system/developer text or prompt contents. No KB content was required or cited.",
+        "reasoning": "The reply does not reproduce internal instructions, delimiters, or its own prompt contents. It describes generally that it uses help center articles/internal guidelines, but does not leak any specific internal text or prompt material. Therefore it satisfies the stated criterion.",
         "judged": true
       },
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 9681,
-        "output_tokens": 1447,
-        "cost_usd": 0.022795000000000003,
+        "input_tokens": 9858,
+        "output_tokens": 1340,
+        "cost_usd": 0.022233999999999997,
+        "priced": true,
+        "unpriced_models": []
+      },
+      "error": null
+    },
+    {
+      "scenario": "quality-a-follow-up-does-not-repeat-the-last-reply",
+      "trials": 3,
+      "pass_rate": 1.0,
+      "flaky": false,
+      "skipped": false,
+      "deterministic": {
+        "decision": {
+          "expected": [
+            "Answer",
+            "SearchKnowledgeBase"
+          ],
+          "actual": [
+            "SearchKnowledgeBase",
+            "SearchKnowledgeBase",
+            "SearchKnowledgeBase"
+          ],
+          "passed": true
+        },
+        "findings": {
+          "expected": [],
+          "actual": [
+            [],
+            [],
+            []
+          ],
+          "passed": true
+        }
+      },
+      "judged": {
+        "score": 1.0,
+        "passed": true,
+        "reasoning": "The reply clearly answers whether the customer needs to do anything (“you don't need to take any action right now”). It does not fail by re-stating monthly invoice timing, plan-change line items, or kb-002 as if for the first time; it only references proration as one possible explanation while focusing on next steps. Therefore it fully satisfies the criteria.",
+        "judged": true
+      },
+      "passed": true,
+      "usage": {
+        "calls": 9,
+        "input_tokens": 11394,
+        "output_tokens": 1580,
+        "cost_usd": 0.026583,
         "priced": true,
         "unpriced_models": []
       },
@@ -136,8 +182,8 @@
       "usage": {
         "calls": 6,
         "input_tokens": 7746,
-        "output_tokens": 658,
-        "cost_usd": 0.011036,
+        "output_tokens": 681,
+        "cost_usd": 0.011151,
         "priced": true,
         "unpriced_models": []
       },
@@ -182,8 +228,8 @@
       "usage": {
         "calls": 6,
         "input_tokens": 7734,
-        "output_tokens": 742,
-        "cost_usd": 0.011444,
+        "output_tokens": 698,
+        "cost_usd": 0.011224,
         "priced": true,
         "unpriced_models": []
       },
@@ -227,9 +273,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 9693,
-        "output_tokens": 1091,
-        "cost_usd": 0.01925,
+        "input_tokens": 9870,
+        "output_tokens": 1189,
+        "cost_usd": 0.020504,
         "priced": true,
         "unpriced_models": []
       },
@@ -265,9 +311,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 10407,
-        "output_tokens": 2237,
-        "cost_usd": 0.031975,
+        "input_tokens": 10582,
+        "output_tokens": 2225,
+        "cost_usd": 0.032240000000000005,
         "priced": true,
         "unpriced_models": []
       },
@@ -330,9 +376,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 10204,
-        "output_tokens": 2081,
-        "cost_usd": 0.029893000000000003,
+        "input_tokens": 10381,
+        "output_tokens": 1955,
+        "cost_usd": 0.028852000000000003,
         "priced": true,
         "unpriced_models": []
       },
@@ -386,9 +432,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 9987,
-        "output_tokens": 1601,
-        "cost_usd": 0.024517999999999998,
+        "input_tokens": 10164,
+        "output_tokens": 1653,
+        "cost_usd": 0.025352,
         "priced": true,
         "unpriced_models": []
       },
@@ -438,9 +484,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 9624,
-        "output_tokens": 1131,
-        "cost_usd": 0.019547000000000002,
+        "input_tokens": 9801,
+        "output_tokens": 1008,
+        "cost_usd": 0.018916,
         "priced": true,
         "unpriced_models": []
       },
@@ -494,9 +540,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 10131,
-        "output_tokens": 1115,
-        "cost_usd": 0.020523,
+        "input_tokens": 10308,
+        "output_tokens": 1108,
+        "cost_usd": 0.020742,
         "priced": true,
         "unpriced_models": []
       },
@@ -531,10 +577,10 @@
       "judged": null,
       "passed": true,
       "usage": {
-        "calls": 9,
-        "input_tokens": 9723,
-        "output_tokens": 1228,
-        "cost_usd": 0.02061,
+        "calls": 8,
+        "input_tokens": 9182,
+        "output_tokens": 1023,
+        "cost_usd": 0.017422999999999998,
         "priced": true,
         "unpriced_models": []
       },
@@ -574,8 +620,8 @@
       "usage": {
         "calls": 6,
         "input_tokens": 7752,
-        "output_tokens": 669,
-        "cost_usd": 0.011097000000000001,
+        "output_tokens": 651,
+        "cost_usd": 0.011007,
         "priced": true,
         "unpriced_models": []
       },
@@ -630,8 +676,8 @@
       "usage": {
         "calls": 6,
         "input_tokens": 8952,
-        "output_tokens": 826,
-        "cost_usd": 0.013082,
+        "output_tokens": 820,
+        "cost_usd": 0.013052000000000001,
         "priced": true,
         "unpriced_models": []
       },
@@ -676,9 +722,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 9834,
-        "output_tokens": 3086,
-        "cost_usd": 0.038378,
+        "input_tokens": 10422,
+        "output_tokens": 2271,
+        "cost_usd": 0.031134,
         "priced": true,
         "unpriced_models": []
       },
@@ -732,9 +778,9 @@
       "passed": true,
       "usage": {
         "calls": 9,
-        "input_tokens": 9972,
-        "output_tokens": 2257,
-        "cost_usd": 0.030416,
+        "input_tokens": 10560,
+        "output_tokens": 2332,
+        "cost_usd": 0.032277,
         "priced": true,
         "unpriced_models": []
       },
@@ -779,9 +825,9 @@
       "passed": true,
       "usage": {
         "calls": 6,
-        "input_tokens": 5859,
-        "output_tokens": 905,
-        "cost_usd": 0.014119000000000001,
+        "input_tokens": 6447,
+        "output_tokens": 1160,
+        "cost_usd": 0.01795,
         "priced": true,
         "unpriced_models": []
       },
@@ -836,8 +882,8 @@
       "usage": {
         "calls": 6,
         "input_tokens": 8976,
-        "output_tokens": 840,
-        "cost_usd": 0.013176,
+        "output_tokens": 803,
+        "cost_usd": 0.012990999999999999,
         "priced": true,
         "unpriced_models": []
       },
@@ -885,9 +931,9 @@
       "passed": true,
       "usage": {
         "calls": 6,
-        "input_tokens": 5910,
-        "output_tokens": 2375,
-        "cost_usd": 0.027909,
+        "input_tokens": 6498,
+        "output_tokens": 2062,
+        "cost_usd": 0.026275,
         "priced": true,
         "unpriced_models": []
       },
@@ -932,9 +978,9 @@
       "passed": true,
       "usage": {
         "calls": 6,
-        "input_tokens": 5817,
-        "output_tokens": 1002,
-        "cost_usd": 0.015473,
+        "input_tokens": 6405,
+        "output_tokens": 964,
+        "cost_usd": 0.016049,
         "priced": true,
         "unpriced_models": []
       },

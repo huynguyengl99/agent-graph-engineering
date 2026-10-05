@@ -1,20 +1,20 @@
 {
-  "run_id": "bb7ee1b",
-  "git_commit": "bb7ee1b",
+  "run_id": "0c1ce12",
+  "git_commit": "0c1ce12",
   "models": {
     "decision": "scripted",
     "answer": "scripted"
   },
   "trials": 1,
-  "total": 17,
-  "passed": 11,
+  "total": 20,
+  "passed": 12,
   "failed": 0,
   "flaky": 0,
-  "skipped": 6,
+  "skipped": 8,
   "usage": {
-    "calls": 33,
-    "input_tokens": 33,
-    "output_tokens": 33,
+    "calls": 40,
+    "input_tokens": 40,
+    "output_tokens": 40,
     "cost_usd": 0.0,
     "priced": false,
     "unpriced_models": [
@@ -29,10 +29,10 @@
       "flaky": false,
       "skipped": false,
       "deterministic": {
-        "decision": {
-          "expected": "SearchKnowledgeBase",
+        "used_knowledge_base": {
+          "expected": true,
           "actual": [
-            "SearchKnowledgeBase"
+            true
           ],
           "passed": true
         },
@@ -70,6 +70,50 @@
       "flaky": false,
       "skipped": false,
       "deterministic": {
+        "findings": {
+          "expected": [],
+          "actual": [
+            []
+          ],
+          "passed": true
+        }
+      },
+      "judged": {
+        "score": 0.0,
+        "passed": true,
+        "reasoning": "criteria not assessed: no provider key for the judge",
+        "judged": false
+      },
+      "passed": true,
+      "usage": {
+        "calls": 4,
+        "input_tokens": 4,
+        "output_tokens": 4,
+        "cost_usd": 0.0,
+        "priced": false,
+        "unpriced_models": [
+          "scripted:scripted"
+        ]
+      },
+      "error": null
+    },
+    {
+      "scenario": "quality-a-follow-up-does-not-repeat-the-last-reply",
+      "trials": 1,
+      "pass_rate": 1.0,
+      "flaky": false,
+      "skipped": false,
+      "deterministic": {
+        "decision": {
+          "expected": [
+            "Answer",
+            "SearchKnowledgeBase"
+          ],
+          "actual": [
+            "SearchKnowledgeBase"
+          ],
+          "passed": true
+        },
         "findings": {
           "expected": [],
           "actual": [
@@ -206,9 +250,9 @@
       "judged": null,
       "passed": true,
       "usage": {
-        "calls": 3,
-        "input_tokens": 3,
-        "output_tokens": 3,
+        "calls": 4,
+        "input_tokens": 4,
+        "output_tokens": 4,
         "cost_usd": 0.0,
         "priced": false,
         "unpriced_models": [
@@ -397,9 +441,9 @@
       },
       "passed": true,
       "usage": {
-        "calls": 3,
-        "input_tokens": 3,
-        "output_tokens": 3,
+        "calls": 4,
+        "input_tokens": 4,
+        "output_tokens": 4,
         "cost_usd": 0.0,
         "priced": false,
         "unpriced_models": [
@@ -483,9 +527,9 @@
       "judged": null,
       "passed": true,
       "usage": {
-        "calls": 3,
-        "input_tokens": 3,
-        "output_tokens": 3,
+        "calls": 4,
+        "input_tokens": 4,
+        "output_tokens": 4,
         "cost_usd": 0.0,
         "priced": false,
         "unpriced_models": [
@@ -495,7 +539,7 @@
       "error": null
     },
     {
-      "scenario": "routing-a-request-for-a-decision-still-escalates",
+      "scenario": "routing-a-request-for-a-decision-reaches-a-person",
       "trials": 0,
       "pass_rate": 0.0,
       "flaky": false,
@@ -572,6 +616,44 @@
     },
     {
       "scenario": "tool-gate-a-question-about-an-action-does-not-propose-one",
+      "trials": 0,
+      "pass_rate": 0.0,
+      "flaky": false,
+      "skipped": true,
+      "deterministic": {},
+      "judged": null,
+      "passed": true,
+      "usage": {
+        "calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "priced": true,
+        "unpriced_models": []
+      },
+      "error": null
+    },
+    {
+      "scenario": "tool-gate-sending-a-reply-stops-for-a-human",
+      "trials": 0,
+      "pass_rate": 0.0,
+      "flaky": false,
+      "skipped": true,
+      "deterministic": {},
+      "judged": null,
+      "passed": true,
+      "usage": {
+        "calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "priced": true,
+        "unpriced_models": []
+      },
+      "error": null
+    },
+    {
+      "scenario": "tool-gate-drafting-a-reply-sends-nothing",
       "trials": 0,
       "pass_rate": 0.0,
       "flaky": false,

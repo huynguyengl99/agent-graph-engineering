@@ -41,12 +41,12 @@ async def test_a_failed_stream_asks_again_without_it(
     async def run(*_args: Any, **_kwargs: Any) -> Any:
         return proposal
 
-    async def noop(_delta: str) -> None: ...
+    async def noop(_delta: str, _kind: str) -> None: ...
 
     monkeypatch.setattr(planner.agent, "run_stream", lambda *a, **k: Stream())
     monkeypatch.setattr(planner, "run", run)
 
-    assert await planner.reason_aloud("refund it", Context(), on_delta=noop) is proposal
+    assert await planner.run_aloud("refund it", Context(), on_delta=noop) is proposal
 
 
 async def test_a_stream_that_validates_nothing_does_too(
@@ -75,6 +75,6 @@ async def test_a_stream_that_validates_nothing_does_too(
     monkeypatch.setattr(planner.agent, "run_stream", lambda *a, **k: Empty())
     monkeypatch.setattr(planner, "run", run)
 
-    async def noop(_delta: str) -> None: ...
+    async def noop(_delta: str, _kind: str) -> None: ...
 
-    assert await planner.reason_aloud("refund it", Context(), on_delta=noop) is proposal
+    assert await planner.run_aloud("refund it", Context(), on_delta=noop) is proposal

@@ -73,7 +73,7 @@ class ToolGraph(BaseGraph):
             f"{context.render(state.request, with_audience=False)}"
             f"\n\nAvailable tools:\n{render_tool_list()}"
         )
-        decision = await self.reason("plan", self.planner, prompt, context)
+        decision = await self.run_aloud("plan", self.planner, prompt, context)
 
         if not isinstance(decision, ToolProposal):
             # Nothing to run. The parent reports no tool call, because there

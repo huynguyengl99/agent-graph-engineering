@@ -4,10 +4,13 @@ import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
+from assistant.agents.base import ANSWER
 from assistant.agents.config import AgentConfig, ModelPurpose
 from assistant.agents.factory import AgentFactory
 from assistant.events import Emitter, silent
 from assistant.messages.support import (
+    ChatTokenMessage,
+    ChatTokenPayload,
     ReasonedMessage,
     ReasonedPayload,
     ReasoningDeltaMessage,
@@ -50,7 +53,7 @@ class BaseGraph:
         """
         return f"{cls.name}:{key}"
 
-    async def reason(
+    async def run_aloud(
         self,
         step: str,
         agent: Any,
@@ -58,11 +61,17 @@ class BaseGraph:
         context: Any,
         history: Any = None,
     ) -> Any:
-        """Run a step, publishing its reasoning as the model writes it."""
+        """Run a step, publishing what it writes as it writes it."""
 
-        async def aloud(delta: str) -> None:
+        async def aloud(delta: str, kind: str) -> None:
             await self.emit(
-                ReasoningDeltaMessage(
+                ChatTokenMessage(
+                    payload=ChatTokenPayload(
+                        conversation_id=context.thread_id, delta=delta
+                    )
+                )
+                if kind == ANSWER
+                else ReasoningDeltaMessage(
                     payload=ReasoningDeltaPayload(
                         thread_id=context.thread_id, step=step, delta=delta
                     )
@@ -70,7 +79,7 @@ class BaseGraph:
                 replayable=False,
             )
 
-        output = await agent.reason_aloud(prompt, context, history, on_delta=aloud)
+        output = await agent.run_aloud(prompt, context, history, on_delta=aloud)
         said = str(
             getattr(output, "reasoning", None) or getattr(output, "reason", None) or ""
         )

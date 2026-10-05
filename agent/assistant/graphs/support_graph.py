@@ -25,8 +25,6 @@ from assistant.guardrails import screen_input
 from assistant.messages.support import (
     ChatCompleteMessage,
     ChatCompletePayload,
-    ChatTokenMessage,
-    ChatTokenPayload,
     ClassifiedMessage,
     ClassifiedPayload,
     DecidedMessage,
@@ -106,7 +104,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
         context = state.context
         # Recorded, not refused: see assistant/guardrails/input.py.
         attempts = screen_input(context.untrusted_text())
-        classification = await self.reason(
+        classification = await self.run_aloud(
             "classify", self.classifier, context.render(with_history=True), context
         )
         await self.emit(
@@ -134,7 +132,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
         context = state.context
         prompt = context.render(state.question, with_history=context.for_customer)
 
-        decision = await self.reason(
+        decision = await self.run_aloud(
             "decide",
             self.deciders[context.audience],
             prompt,
@@ -219,21 +217,9 @@ class SupportGraph(AnswerFeed, BaseGraph):
 
     async def _answer_the_team(self, state: SupportState) -> Update:
         context = state.context
-        parts: list[str] = []
-        async for delta in self.team.stream(
-            self._prompt(state), context, self._history(state)
-        ):
-            parts.append(delta)
-            await self.emit(
-                ChatTokenMessage(
-                    payload=ChatTokenPayload(
-                        conversation_id=context.thread_id, delta=delta
-                    )
-                ),
-                replayable=False,
-            )
-
-        answer = "".join(parts)
+        answer = await self.run_aloud(
+            "respond", self.team, self._prompt(state), context, self._history(state)
+        )
         await self.emit(
             ChatCompleteMessage(
                 payload=ChatCompletePayload(

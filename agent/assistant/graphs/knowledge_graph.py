@@ -69,7 +69,7 @@ class KnowledgeGraph(BaseGraph):
         self, state: KnowledgeState
     ) -> Command[Literal["knowledge_search"]]:
         """Ask for broader terms. Only reached when the last search was empty."""
-        refined = await self.reason(
+        refined = await self.run_aloud(
             "refine",
             self.refiner,
             f"{_described(state.context)}\n\nThese terms found nothing: "

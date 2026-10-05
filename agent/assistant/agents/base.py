@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar
 
 import structlog
@@ -11,6 +11,10 @@ from assistant.agents.factory import AgentFactory
 from assistant.core.config import settings
 
 logger = structlog.get_logger(__name__)
+
+# What a delta is a piece of.
+ANSWER = "answer"
+REASONING = "reasoning"
 
 
 class BaseAgent[OutputT]:
@@ -44,25 +48,56 @@ class BaseAgent[OutputT]:
         self.messages = list(result.all_messages())
         return result.output  # type: ignore[no-any-return]
 
-    async def reason_aloud(
+    async def run_aloud(
         self,
         prompt: str,
         deps: Any,
         history: list[ModelMessage] | None = None,
         *,
-        on_delta: Callable[[str], Awaitable[None]],
+        on_delta: Callable[[str, str], Awaitable[None]],
     ) -> OutputT:
-        """The decision, with its reasoning reported as it is written.
+        """Run the step, reporting what it writes while it writes it.
 
-        Structured output arrives as a series of partial objects, so a reader
-        can watch the model think rather than waiting for the branch it picked.
-        The deltas are diffed here because a partial carries the whole field
-        each time, not what changed.
+        Pydantic AI streams plain text and structured output through different
+        APIs, which is the only reason there are two paths below. A caller
+        should not have to know which its agent has.
+        """
+        if self.output_type is str:
+            return await self._streamed_text(prompt, deps, history, on_delta)
+        return await self._streamed_output(prompt, deps, history, on_delta)
 
-        Streaming costs the retry: `run_stream` validates the output and cannot
-        ask the model to correct it, while `run` hands the error back and lets
-        it try again. So a validation failure here is not the run's answer, it
-        is the end of watching it think.
+    async def _streamed_text(
+        self,
+        prompt: str,
+        deps: Any,
+        history: list[ModelMessage] | None,
+        on_delta: Callable[[str, str], Awaitable[None]],
+    ) -> OutputT:
+        parts: list[str] = []
+        async with self.agent.run_stream(
+            prompt, deps=deps, message_history=history
+        ) as result:
+            async for delta in result.stream_text(
+                delta=True, debounce_by=settings.stream_debounce
+            ):
+                parts.append(delta)
+                await on_delta(delta, ANSWER)
+            self.messages = list(result.all_messages())
+        return "".join(parts)  # type: ignore[return-value]
+
+    async def _streamed_output(
+        self,
+        prompt: str,
+        deps: Any,
+        history: list[ModelMessage] | None,
+        on_delta: Callable[[str, str], Awaitable[None]],
+    ) -> OutputT:
+        """A partial carries the whole field each time, so the deltas are
+        diffed here.
+
+        Streaming costs the retry: `run_stream` cannot ask a model to correct
+        itself, while `run` can. A validation failure ends the watching, not
+        the run.
         """
         said = ""
         output: Any = None
@@ -74,44 +109,25 @@ class BaseAgent[OutputT]:
                     debounce_by=settings.stream_debounce
                 ):
                     output = partial
-                    # `Escalate` calls it a reason; everything else calls it
-                    # reasoning. Both are the model explaining itself.
+                    # `Escalate` calls it a reason; everything else reasoning.
                     reasoning = str(
                         getattr(partial, "reasoning", None)
                         or getattr(partial, "reason", None)
                         or ""
                     )
                     if delta := reasoning[len(said) :]:
-                        await on_delta(delta)
+                        await on_delta(delta, REASONING)
                         said = reasoning
                 self.messages = list(result.all_messages())
         except UnexpectedModelBehavior:
-            # A planner that proposed the right tool and mis-shaped the object
-            # around it used to take the whole run down, and the gate the
-            # reviewer was waiting at never appeared.
             await logger.awarning(
                 "agent.stream_output_invalid", agent=type(self).__name__
             )
             return await self.run(prompt, deps, history)
 
         if output is None:
-            # Nothing validated at all: the same situation, reached quietly.
             await logger.awarning(
                 "agent.stream_output_empty", agent=type(self).__name__
             )
             return await self.run(prompt, deps, history)
         return output  # type: ignore[no-any-return]
-
-    async def stream(
-        self, prompt: str, deps: Any, history: list[ModelMessage] | None = None
-    ) -> AsyncIterator[str]:
-        """Text deltas as they are produced. Only meaningful for `str` output."""
-        async with self.agent.run_stream(
-            prompt, deps=deps, message_history=history
-        ) as result:
-            async for delta in result.stream_text(
-                delta=True, debounce_by=settings.stream_debounce
-            ):
-                yield delta
-            # Only complete once the stream is drained, so this is read after.
-            self.messages = list(result.all_messages())

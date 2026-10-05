@@ -145,7 +145,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
         return {"escalation_reason": reason, "answer": answer}
 
     async def report_tool(self, state: SupportState) -> Update:
-        """What ran, before the model turns it into prose."""
+        """What ran, before the model turns it into prose. Only reached when
+        something did - see `route_after_tool`."""
         await self.emit(
             ToolRanMessage(
                 payload=ToolRanPayload(
@@ -247,6 +248,15 @@ class SupportGraph(AnswerFeed, BaseGraph):
             case _:
                 return "respond"
 
+    def route_after_tool(self, state: SupportState) -> str:
+        """A planner asked for a tool and finding none is not a tool call.
+
+        The decider can route here and the planner still answer `NoToolNeeded`,
+        which used to file a tool call with no tool in it: on a customer's run
+        that reached them as a box saying `RAN` about nothing at all.
+        """
+        return "report_tool" if state.tool else "respond"
+
     def route_answer(self, state: SupportState) -> str:
         """A customer's reply is sent by the delivery subgraph; the team's is
         already where it was going."""
@@ -289,7 +299,11 @@ class SupportGraph(AnswerFeed, BaseGraph):
             },
         )
         graph.add_edge("knowledge", "respond")
-        graph.add_edge("tool", "report_tool")
+        graph.add_conditional_edges(
+            "tool",
+            self.route_after_tool,
+            {"report_tool": "report_tool", "respond": "respond"},
+        )
         graph.add_edge("report_tool", "respond")
         graph.add_edge("escalate", END)
         graph.add_conditional_edges(

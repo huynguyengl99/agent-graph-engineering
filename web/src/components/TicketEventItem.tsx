@@ -66,7 +66,9 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
       );
 
     case 'tool_call':
-      return <ToolCall event={event} when={when} />;
+      // Nothing names a tool that never ran. The graph stopped filing those,
+      // and a ticket from before it did should not render an empty box.
+      return event.tool ? <ToolCall event={event} when={when} /> : null;
 
     case 'handoff':
       return (
@@ -162,11 +164,14 @@ function ToolCall({
   when: string;
 }) {
   const [open, setOpen] = useState(false);
+  // A sentence, not a badge on its own: "RAN" next to a bare `issue_refund`
+  // told a customer nothing about what had happened to their ticket.
   const outcome = event.cancelled
-    ? { label: 'cancelled', tone: 'bg-gray-200 text-gray-700' }
+    ? { label: 'Cancelled', tone: 'bg-gray-200 text-gray-700' }
     : event.error
-      ? { label: 'failed', tone: 'bg-red-100 text-red-800' }
-      : { label: 'ran', tone: 'bg-emerald-100 text-emerald-800' };
+      ? { label: 'Could not run', tone: 'bg-red-100 text-red-800' }
+      : { label: 'Ran', tone: 'bg-emerald-100 text-emerald-800' };
+  const name = event.tool.replace(/_/g, ' ');
 
   // The customer is shown that something ran on their ticket, with the
   // arguments and the result stripped by the server. Nothing to unfold, so no
@@ -184,12 +189,12 @@ function ToolCall({
         className="flex w-full items-baseline gap-2 text-left"
       >
         {details && <span className="text-gray-400">{open ? '▾' : '▸'}</span>}
-        <code className="text-sm font-medium">{event.tool}</code>
         <span
-          className={`rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${outcome.tone}`}
+          className={`rounded px-1.5 py-0.5 text-xs font-semibold ${outcome.tone}`}
         >
           {outcome.label}
         </span>
+        <span className="text-sm font-medium">{name}</span>
         <span className="ml-auto text-xs text-gray-500">{when}</span>
       </button>
 

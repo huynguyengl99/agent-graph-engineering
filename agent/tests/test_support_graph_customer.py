@@ -156,3 +156,39 @@ class TestWhatEachAudienceIsOffered:
         )
 
         assert graph.route_decision(state) == "respond"
+
+
+class TestWhatCountsAsAToolCall:
+    """The decider routes to the tool branch; the planner decides whether there
+    is anything to run. Those are two answers, and only the second one is the
+    tool call."""
+
+    def test_a_planner_that_found_nothing_reports_nothing(self) -> None:
+        """It used to file a tool call with no tool in it, which reached the
+        customer as a box saying RAN about nothing at all."""
+        graph = SupportGraph()
+        state = SupportState(context=Context(thread_id="t", audience=Audience.CUSTOMER))
+
+        assert graph.route_after_tool(state) == "respond"
+
+    def test_a_tool_that_ran_is_reported(self) -> None:
+        graph = SupportGraph()
+        state = SupportState(
+            context=Context(thread_id="t", audience=Audience.CUSTOMER),
+            tool="issue_refund",
+            result="refund_1 issued",
+        )
+
+        assert graph.route_after_tool(state) == "report_tool"
+
+    def test_a_tool_that_failed_is_reported_too(self) -> None:
+        """A reviewer cancelling it, or the call erroring, is still something
+        that happened to the ticket."""
+        graph = SupportGraph()
+        state = SupportState(
+            context=Context(thread_id="t", audience=Audience.CUSTOMER),
+            tool="issue_refund",
+            cancelled=True,
+        )
+
+        assert graph.route_after_tool(state) == "report_tool"

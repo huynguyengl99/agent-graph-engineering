@@ -6,12 +6,13 @@ from chanx.core.topic import Topic
 from chanx.messages.incoming import PingMessage
 from chanx.messages.outgoing import PongMessage
 
+from helpdesk.tickets.topics.team_topic import TicketTeamTopic
 from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
 
 @channel(
     name="hub",
-    description="One connection, many subscriptions: a topic per ticket",
+    description="One connection, many subscriptions: a ticket, and the team's half of it",
     tags=["realtime"],
 )
 class HubConsumer(AsyncJsonWebsocketConsumer):
@@ -23,7 +24,7 @@ class HubConsumer(AsyncJsonWebsocketConsumer):
     background task can reach subscribers directly.
     """
 
-    topics: ClassVar[list[type[Topic[Any]]]] = [TicketTopic]
+    topics: ClassVar[list[type[Topic[Any]]]] = [TicketTopic, TicketTeamTopic]
 
     @ws_handler
     async def handle_ping(self, _message: PingMessage) -> PongMessage:

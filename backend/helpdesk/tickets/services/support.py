@@ -54,8 +54,8 @@ from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services import lanes
 from helpdesk.tickets.services.handoff import hand_off
 from helpdesk.tickets.services.placeholders import UnfilledError, refuse_if_unfilled
+from helpdesk.tickets.services.publish import publish
 from helpdesk.tickets.services.status import set_priority, ticket_state
-from helpdesk.tickets.topics.ticket_topic import TicketTopic
 
 logger = structlog.get_logger(__name__)
 
@@ -63,25 +63,19 @@ CUSTOMER = "customer"
 TEAM = "team"
 
 
-def ticket_topic(ticket_id: str) -> str:
-    return f"ticket:{ticket_id}"
+async def broadcast(ticket_id: str, message: BaseMessage) -> None:
+    """Publish to whoever the event belongs to.
 
-
-async def broadcast(topic: str, message: BaseMessage) -> None:
-    """Publish to a ticket's subscribers.
-
-    `Topic.broadcast` is a classmethod, which is the whole point: this runs in a
-    detached task driving a client to the agent, with no consumer instance to
-    borrow.
+    A detached task driving a client to the agent has no consumer instance to
+    borrow, which is why this goes through the topic classes.
     """
-    await TicketTopic.broadcast(topic, message)
+    await publish(ticket_id, message)
 
 
 class TicketSink(Sink):
     def __init__(self, ticket_id: str, visibility: str) -> None:
         self.ticket_id = ticket_id
         self.visibility = visibility
-        self.group = ticket_topic(ticket_id)
         self.seq = 0
         self.agent_topic = ""
         self.draft: str | None = None
@@ -94,7 +88,7 @@ class TicketSink(Sink):
         self, stage: Literal["classified", "decided", "failed"], detail: str
     ) -> None:
         await broadcast(
-            self.group,
+            self.ticket_id,
             AgentProgressMessage(
                 payload=AgentProgressPayload(stage=stage, detail=detail)
             ),
@@ -103,12 +97,12 @@ class TicketSink(Sink):
     async def _event(self, event: Any) -> None:
         if event is not None:
             await broadcast(
-                self.group, NewEventMessage(payload=NewEventPayload(event=event))
+                self.ticket_id, NewEventMessage(payload=NewEventPayload(event=event))
             )
 
     async def classified(self, category: str, priority: str, why: str) -> None:
         if await set_priority(self.ticket_id, priority):
-            await broadcast(self.group, await ticket_state(self.ticket_id))
+            await broadcast(self.ticket_id, await ticket_state(self.ticket_id))
         await self._progress("classified", f"{category} / {priority}: {why}")
 
     async def decided(self, decision: str, why: str) -> None:
@@ -128,7 +122,7 @@ class TicketSink(Sink):
     async def approval_required(self, draft: str, findings: list[str]) -> None:
         await self._remember_draft(draft, findings)
         await broadcast(
-            self.group,
+            self.ticket_id,
             ApprovalRequiredMessage(
                 payload=ApprovalRequiredPayload(draft=draft, findings=findings)
             ),
@@ -158,7 +152,7 @@ class TicketSink(Sink):
     async def tool_proposed(self, payload: Any) -> None:
         await self._remember_proposal(payload)
         await broadcast(
-            self.group,
+            self.ticket_id,
             ToolProposalMessage(
                 payload=ToolProposalPayload(
                     tool=payload.tool,
@@ -177,7 +171,7 @@ class TicketSink(Sink):
         """Live only. The finished reasoning is the record; the pieces are how
         it looked being written."""
         await broadcast(
-            self.group,
+            self.ticket_id,
             ReasoningDeltaMessage(
                 payload=ReasoningDeltaPayload(step=step, delta=delta)
             ),
@@ -382,7 +376,7 @@ async def working(ticket_id: str, visibility: str, *, is_working: bool) -> None:
     if visibility != Visibility.PUBLIC:
         return
     await broadcast(
-        ticket_topic(ticket_id),
+        ticket_id,
         AgentWorkingMessage(payload=AgentWorkingPayload(working=is_working)),
     )
 
@@ -414,7 +408,7 @@ async def run(
         except Exception:
             logger.exception("support.run_failed", ticket_id=ticket_id)
             await broadcast(
-                ticket_topic(ticket_id),
+                ticket_id,
                 AgentProgressMessage(
                     payload=AgentProgressPayload(
                         stage="failed", detail="The agent is unavailable."
@@ -479,7 +473,7 @@ async def submit_approval(
             refuse_if_unfilled(content or await stored_draft(ticket_id))
         except UnfilledError as unfilled:
             await broadcast(
-                ticket_topic(ticket_id),
+                ticket_id,
                 AgentProgressMessage(
                     payload=AgentProgressPayload(
                         stage="failed",
@@ -513,7 +507,7 @@ async def submit_approval(
     except Exception:
         logger.exception("support.approval_failed", ticket_id=ticket_id)
         await broadcast(
-            ticket_topic(ticket_id),
+            ticket_id,
             AgentProgressMessage(
                 payload=AgentProgressPayload(
                     stage="failed", detail="The agent is unavailable."
@@ -568,7 +562,7 @@ async def decide_tool(
     except Exception:
         logger.exception("support.tool_decision_failed", ticket_id=ticket_id)
         await broadcast(
-            ticket_topic(ticket_id),
+            ticket_id,
             AgentProgressMessage(
                 payload=AgentProgressPayload(
                     stage="failed", detail="That tool call could not be finished."

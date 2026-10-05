@@ -50,8 +50,9 @@ from helpdesk.tickets.models import (
 )
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off, handling_of
+from helpdesk.tickets.services.publish import publish
 from helpdesk.tickets.services.support import parked_visibility, relay
-from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent, TicketTopic
+from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent
 
 
 async def settled(mock: AsyncMock, *, expected: int = 1) -> int:
@@ -334,8 +335,8 @@ class TestTheCustomerOnlySeesTheirHalf(WebsocketTestCase):
             created_by=staff,
             visibility=Visibility.INTERNAL,
         )
-        await TicketTopic.broadcast(
-            self.topic,
+        await publish(
+            str(self.ticket.id),
             NewEventMessage(
                 payload=NewEventPayload(
                     event=await database_sync_to_async(serialize_event)(event)
@@ -356,8 +357,8 @@ class TestTheCustomerOnlySeesTheirHalf(WebsocketTestCase):
             str(self.ticket.id), Handling.NEEDS_HUMAN, reason="Needs billing access"
         )
         assert event is not None
-        await TicketTopic.broadcast(
-            self.topic, NewEventMessage(payload=NewEventPayload(event=event))
+        await publish(
+            str(self.ticket.id), NewEventMessage(payload=NewEventPayload(event=event))
         )
 
         [message] = await self.receive_topic_messages(
@@ -370,8 +371,8 @@ class TestTheCustomerOnlySeesTheirHalf(WebsocketTestCase):
     async def test_the_agents_progress_is_not_relayed(self) -> None:
         await self.subscribe_ready(self.topic)
 
-        await TicketTopic.broadcast(
-            self.topic,
+        await publish(
+            str(self.ticket.id),
             AgentProgressMessage(
                 payload=AgentProgressPayload(stage="decided", detail="Escalate")
             ),
@@ -617,8 +618,8 @@ class TestWhatACustomerIsShownOfATool(WebsocketTestCase):
         await self.subscribe_ready(self.topic)
         event = await self.ran()
 
-        await TicketTopic.broadcast(
-            self.topic,
+        await publish(
+            str(self.ticket.id),
             NewEventMessage(
                 payload=NewEventPayload(
                     event=await database_sync_to_async(serialize_event)(event)

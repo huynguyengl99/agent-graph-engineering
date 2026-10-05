@@ -45,9 +45,11 @@ class TestRelayingTheProposal(WebsocketTestCase):
         self.user.save(update_fields=["is_staff"])
         self.ticket = TicketFactory.create(created_by=self.user)
         self.topic = f"ticket:{self.ticket.id}"
+        # Staff watch both halves; these assertions are about the team's.
+        self.team_topic = f"ticket:{self.ticket.id}:team"
 
     async def test_the_proposal_reaches_the_browser_with_its_schema(self) -> None:
-        await self.subscribe_ready(self.topic)
+        await self.subscribe_ready(self.team_topic)
         await relay(str(self.ticket.id)).on_event(ToolApprovalMessage(payload=REFUND))
 
         messages = await self.auth_communicator.receive_all_json()

@@ -101,14 +101,3 @@ class TicketViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
         if self.action in ("update", "partial_update"):
             return TicketUpdateSerializer
         return TicketSerializer
-
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        """Answer with the full representation, not the create fields.
-
-        The create serializer has no `id`, so a client had no way to reach the
-        ticket it had just made.
-        """
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        ticket = serializer.save(created_by=request.user)
-        return Response(TicketSerializer(ticket).data, status=status.HTTP_201_CREATED)

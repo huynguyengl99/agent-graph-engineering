@@ -132,6 +132,8 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     isConnected,
   } = useTicketChat({
     ticketId,
+    // The console is staff-only, so it watches the team's half too.
+    team: true,
     onNewEvent,
     onAgentProgress,
     onApprovalRequired,

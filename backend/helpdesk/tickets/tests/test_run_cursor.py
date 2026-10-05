@@ -10,7 +10,7 @@ from helpdesk.agent_client.agent_hub_support_topic.client import (
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
-from helpdesk.tickets.services.support import ticket_topic
+from helpdesk.tickets.services.publish import ticket_topic
 
 
 class TestTheKeyComesFromTheContract(WebsocketTestCase):

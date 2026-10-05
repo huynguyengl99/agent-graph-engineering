@@ -22,8 +22,16 @@ interface UseTicketChatOptions {
   onTicketUpdated?: (status: string, priority: string) => void;
   onReasoning?: (step: string, delta: string) => void;
   onAgentWorking?: (working: boolean) => void;
+  /** Subscribe to the team's half as well. Staff only; the server refuses it
+   *  to anyone else. */
+  team?: boolean;
 }
 
+/**
+ * Two topics, because what a customer may see is decided where a connection
+ * joins: `ticket:<id>` carries their half, `ticket:<id>:team` the rest, and
+ * only staff may subscribe to the second.
+ */
 export function useTicketChat({
   ticketId,
   onNewEvent,
@@ -33,6 +41,7 @@ export function useTicketChat({
   onTicketUpdated,
   onReasoning,
   onAgentWorking,
+  team = false,
 }: UseTicketChatOptions) {
   const { send, subscribed } = useTopic(
     hub,
@@ -42,22 +51,29 @@ export function useTicketChat({
       // renders, and changing a handler does not rejoin the topic.
       on: {
         new_event: (message) => onNewEvent?.(message.payload.event),
-        agent_progress: (message) =>
-          onAgentProgress?.(message.payload.stage, message.payload.detail),
-        approval_required: (message) =>
-          onApprovalRequired?.(
-            message.payload.draft,
-            message.payload.findings ?? [],
-          ),
-        tool_proposal: (message) => onToolProposal?.(message.payload),
-        reasoning_delta: (message) =>
-          onReasoning?.(message.payload.step ?? '', message.payload.delta),
         agent_working: (message) => onAgentWorking?.(message.payload.working),
         ticket_updated: (message) =>
           onTicketUpdated?.(message.payload.status, message.payload.priority),
       },
     },
   );
+
+  useTopic(hub, hub.topics.ticketTeamTopic.with({ ticket_id: ticketId }), {
+    enabled: team,
+    on: {
+      new_event: (message) => onNewEvent?.(message.payload.event),
+      agent_progress: (message) =>
+        onAgentProgress?.(message.payload.stage, message.payload.detail),
+      approval_required: (message) =>
+        onApprovalRequired?.(
+          message.payload.draft,
+          message.payload.findings ?? [],
+        ),
+      tool_proposal: (message) => onToolProposal?.(message.payload),
+      reasoning_delta: (message) =>
+        onReasoning?.(message.payload.step ?? '', message.payload.delta),
+    },
+  });
 
   const sendMessage = (content: string, isPublic = false) => {
     send({ action: 'send_message', payload: { content, public: isPublic } });

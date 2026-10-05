@@ -12,7 +12,7 @@ export interface AIResponseEvent {
   tokensUsed?: number;
 }
 
-/** Intermediate triage progress, so the UI is not silent while it works. */
+/** Progress while a run works, so the UI is not silent. */
 export interface AgentProgressMessage {
   action: 'agent_progress';
   payload: AgentProgressPayload;

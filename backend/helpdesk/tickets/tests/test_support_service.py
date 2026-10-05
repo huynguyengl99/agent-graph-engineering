@@ -28,6 +28,7 @@ from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.models import AIResponseEvent
 from helpdesk.tickets.services.support import relay
+from helpdesk.tickets.topics.team_topic import TeamFeedEvent
 from helpdesk.tickets.topics.ticket_topic import TicketFeedEvent
 
 
@@ -42,6 +43,8 @@ class TestTriageService(WebsocketTestCase):
         self.user.save(update_fields=["is_staff"])
         self.ticket = TicketFactory.create(created_by=self.user)
         self.topic = f"ticket:{self.ticket.id}"
+        # Staff watch both halves; these assertions are about the team's.
+        self.team_topic = f"ticket:{self.ticket.id}:team"
 
     def client_for_ticket(self) -> Any:
         return relay(str(self.ticket.id))
@@ -63,7 +66,7 @@ class TestTriageService(WebsocketTestCase):
         assert await self._ai_response_count() == 0
 
     async def test_approval_request_reaches_the_reviewer(self) -> None:
-        await self.subscribe_ready(self.topic)
+        await self.subscribe_ready(self.team_topic)
         client = self.client_for_ticket()
 
         await client.on_event(
@@ -74,7 +77,7 @@ class TestTriageService(WebsocketTestCase):
             )
         )
 
-        messages = await self.receive_topic_messages(TicketFeedEvent)
+        messages = await self.receive_topic_messages(TeamFeedEvent)
         assert [m.action for m in messages] == ["approval_required"]
         assert messages[0].payload.draft == "Draft reply."
         assert await self._ai_response_count() == 0
@@ -103,7 +106,7 @@ class TestTriageService(WebsocketTestCase):
         assert await self._ai_response_count() == 1
 
     async def test_progress_stages_reach_the_group_without_persisting(self) -> None:
-        await self.subscribe_ready(self.topic)
+        await self.subscribe_ready(self.team_topic)
         client = self.client_for_ticket()
 
         # Each broadcast terminates with its own `group_complete`, so drain
@@ -118,7 +121,7 @@ class TestTriageService(WebsocketTestCase):
                 )
             )
         )
-        classified = await self.receive_topic_messages(TicketFeedEvent)
+        classified = await self.receive_topic_messages(TeamFeedEvent)
 
         await client.on_event(
             DecidedMessage(
@@ -129,7 +132,7 @@ class TestTriageService(WebsocketTestCase):
                 )
             )
         )
-        decided = await self.receive_topic_messages(TicketFeedEvent)
+        decided = await self.receive_topic_messages(TeamFeedEvent)
 
         stages = [
             m.payload.stage
@@ -142,7 +145,7 @@ class TestTriageService(WebsocketTestCase):
         assert await self._ai_response_count() == 0
 
     async def test_agent_failure_surfaces_to_the_client(self) -> None:
-        await self.subscribe_ready(self.topic)
+        await self.subscribe_ready(self.team_topic)
         client = self.client_for_ticket()
 
         await client.on_event(
@@ -154,7 +157,7 @@ class TestTriageService(WebsocketTestCase):
             )
         )
 
-        messages = await self.receive_topic_messages(TicketFeedEvent)
+        messages = await self.receive_topic_messages(TeamFeedEvent)
         assert [m.payload.stage for m in messages] == ["failed"]
 
     @database_sync_to_async

@@ -33,7 +33,10 @@ afterEach(() => {
 type Handlers = Omit<Parameters<typeof useTicketChat>[0], 'ticketId'>;
 
 function mount(handlers: Handlers = {}) {
-  return renderHook(() => useTicketChat({ ticketId: TICKET, ...handlers }));
+  // Staff: the team's events arrive on the topic only they may join.
+  return renderHook(() =>
+    useTicketChat({ ticketId: TICKET, team: true, ...handlers }),
+  );
 }
 
 describe('useTicketChat', () => {
@@ -94,7 +97,7 @@ describe('useTicketChat', () => {
 
     await act(async () =>
       FakeSocket.last.receive({
-        topic: `ticket:${TICKET}`,
+        topic: `ticket:${TICKET}:team`,
         action: 'agent_progress',
         payload: { stage: 'classified', detail: 'billing / medium' },
       }),
@@ -113,7 +116,7 @@ describe('useTicketChat', () => {
 
     await act(async () =>
       FakeSocket.last.receive({
-        topic: `ticket:${TICKET}`,
+        topic: `ticket:${TICKET}:team`,
         action: 'approval_required',
         payload: { draft: 'Proration explains the second charge.' },
       }),

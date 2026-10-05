@@ -33,22 +33,34 @@ export type HubTicketTopicToServer =
 export type HubTicketTopicToClient =
   | AgentProgressMessage
   | AgentWorkingMessage
+  | NewEventMessage
+  | TicketUpdatedMessage;
+export type HubTicketTeamTopicToServer = never;
+export type HubTicketTeamTopicToClient =
+  | AgentProgressMessage
   | ApprovalRequiredMessage
   | NewEventMessage
   | ReasoningDeltaMessage
-  | TicketUpdatedMessage
   | ToolProposalMessage;
 
-/** One connection, many subscriptions: a topic per ticket */
+/** One connection, many subscriptions: a ticket, and the team's half of it */
 export const hub = defineChannel<HubToServer, HubToClient>()({
   name: 'hub',
   address: 'ws/',
   heartbeat: true,
   topics: {
-    /** One ticket's activity, addressed as `ticket:<id>`. Customer-visible: everything here is the record of what was said on the ticket, which is why sending a reply goes through the approval gate. */
+    /** One ticket's activity, addressed as `ticket:<id>`. Everything published here may be read by the customer. The team's half is `ticket:<id>:team`, and staff subscribe to both - so the actions a reviewer takes arrive here, where both audiences already are. */
     ticketTopic: defineTopic<HubTicketTopicToServer, HubTicketTopicToClient>()({
       name: 'ticket_topic',
       pattern: 'ticket:{ticket_id}',
+    }),
+    /** Outbound only: the actions a reviewer takes are sent on the ticket's own topic, which they are also subscribed to. */
+    ticketTeamTopic: defineTopic<
+      HubTicketTeamTopicToServer,
+      HubTicketTeamTopicToClient
+    >()({
+      name: 'ticket_team_topic',
+      pattern: 'ticket:{ticket_id}:team',
     }),
   },
 });

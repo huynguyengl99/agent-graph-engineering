@@ -3,7 +3,7 @@ from typing import Any
 from channels.db import database_sync_to_async
 from django.conf import settings
 
-from chanx.core.decorators import event_handler, ws_handler
+from chanx.core.decorators import ws_handler
 from chanx.core.topic import Topic
 
 from helpdesk.tickets.messages import (
@@ -23,11 +23,13 @@ from helpdesk.tickets.messages import (
     ToolProposalMessage,
     UpdateTicketMessage,
 )
+from helpdesk.tickets.messages.events import TicketEvent
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import CommentEvent, Handling, Ticket, Visibility
 from helpdesk.tickets.serializers.event import serialize_event
 from helpdesk.tickets.services.handoff import hand_off, handling_of
 from helpdesk.tickets.services.placeholders import UnfilledError, refuse_if_unfilled
+from helpdesk.tickets.services.publish import publish
 from helpdesk.tickets.services.status import set_priority, set_status, ticket_state
 
 TicketFeedEvent = (
@@ -44,8 +46,9 @@ TicketFeedEvent = (
 class TicketTopic(Topic[TicketFeedEvent]):
     """One ticket's activity, addressed as `ticket:<id>`.
 
-    Customer-visible: everything here is the record of what was said on the
-    ticket, which is why sending a reply goes through the approval gate.
+    Everything published here may be read by the customer. The team's half is
+    `ticket:<id>:team`, and staff subscribe to both - so the actions a reviewer
+    takes arrive here, where both audiences already are.
     """
 
     pattern = "ticket:{ticket_id}"
@@ -66,8 +69,8 @@ class TicketTopic(Topic[TicketFeedEvent]):
             user=self.scope.get("user"),
             public=message.payload.public,
         )
-        await self.broadcast(
-            f"ticket:{ticket_id}",
+        await publish(
+            ticket_id,
             NewEventMessage(
                 payload=NewEventPayload(event=await self._serialize(event))
             ),
@@ -135,8 +138,8 @@ class TicketTopic(Topic[TicketFeedEvent]):
             event = await self._create_comment_event(
                 ticket_id=ticket_id, content=question, user=user, public=False
             )
-            await self.broadcast(
-                f"ticket:{ticket_id}",
+            await publish(
+                ticket_id,
                 NewEventMessage(
                     payload=NewEventPayload(event=await self._serialize(event))
                 ),
@@ -231,83 +234,22 @@ class TicketTopic(Topic[TicketFeedEvent]):
             await self._announce(
                 ticket_id, await set_status(ticket_id, status, self.scope.get("user"))
             )
-        await self.broadcast(f"ticket:{ticket_id}", await ticket_state(ticket_id))
+        await publish(ticket_id, await ticket_state(ticket_id))
 
-    async def _announce(self, ticket_id: str, event: Any) -> None:
+    async def _announce(self, ticket_id: str, event: TicketEvent | None) -> None:
+        """`hand_off` answers with nothing when the ticket already stands where
+        it is being moved to, and that is not an event."""
         if event is None:
             return
-        await self.broadcast(
-            f"ticket:{ticket_id}", NewEventMessage(payload=NewEventPayload(event=event))
-        )
+        await publish(ticket_id, NewEventMessage(payload=NewEventPayload(event=event)))
 
-    # Relays: an event published to this topic goes to the clients allowed it.
-    # One group carries the whole ticket, so the fan-out is where the customer's
-    # half is separated from the team's - the REST list already does the same.
-    @event_handler
-    async def handle_new_event(self, event: NewEventMessage) -> NewEventMessage | None:
-        wire = event.payload.event
-        if wire.visibility != "public" and not self._staff:
-            return None
-        if self._staff:
-            return event
-
-        # Visible is not the same as readable: a handoff's reason and a tool
-        # call's arguments are the team's, on an event the customer may see.
-        hidden: dict[str, Any] = {}
-        if wire.event_type == "handoff" and wire.reason:
-            hidden = {"reason": ""}
-        elif wire.event_type == "tool_call":
-            hidden = {"arguments": {}, "result": "", "error": ""}
-        if not hidden:
-            return event
-        return event.model_copy(
-            update={
-                "payload": event.payload.model_copy(
-                    update={"event": wire.model_copy(update=hidden)}
-                )
-            }
-        )
-
-    @event_handler
-    async def handle_progress(
-        self, event: AgentProgressMessage
-    ) -> AgentProgressMessage | None:
-        """What the agent decided is the team's business."""
-        return event if self._staff else None
-
-    @event_handler
-    async def handle_working(self, event: AgentWorkingMessage) -> AgentWorkingMessage:
-        """That someone is dealing with your ticket is yours to know. It is only
-        ever sent for a run answering the customer, and it carries nothing but
-        the fact."""
-        return event
-
-    @event_handler
-    async def handle_approval_required(
-        self, event: ApprovalRequiredMessage
-    ) -> ApprovalRequiredMessage | None:
-        """A draft that has not been approved has not been sent."""
-        return event if self._staff else None
-
-    @event_handler
-    async def handle_reasoning(
-        self, event: ReasoningDeltaMessage
-    ) -> ReasoningDeltaMessage | None:
-        """The workings are the team's, even on a run the customer started."""
-        return event if self._staff else None
-
-    @event_handler
-    async def handle_ticket_updated(
-        self, event: TicketUpdatedMessage
-    ) -> TicketUpdatedMessage:
-        return event
-
-    @event_handler
-    async def handle_tool_proposal(
-        self, event: ToolProposalMessage
-    ) -> ToolProposalMessage | None:
-        """A tool nobody has approved has not run."""
-        return event if self._staff else None
+    # Everything published here is the customer's to read; what is not goes to
+    # `ticket:<id>:team`, which only staff may join. See `services/publish.py`.
+    passthrough_events = [
+        NewEventMessage,
+        AgentWorkingMessage,
+        TicketUpdatedMessage,
+    ]
 
     @property
     def _staff(self) -> bool:

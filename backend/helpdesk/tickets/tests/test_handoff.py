@@ -116,6 +116,9 @@ class TestTakingTheTicket(WebsocketTestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        # The one replying is a rep, not the requester, so the socket is staff.
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
         self.customer = UserFactory.create()
         self.ticket = TicketFactory.create(created_by=self.customer)
         self.topic = f"ticket:{self.ticket.id}"

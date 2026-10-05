@@ -54,7 +54,10 @@ class TicketTopic(Topic[TicketFeedEvent]):
     pattern = "ticket:{ticket_id}"
 
     async def authorize(self, **params: str) -> bool:
-        return bool(await self._ticket_exists(params["ticket_id"]))
+        """Staff watch the queue; everyone else watches their own ticket. The
+        REST list says the same, and a socket that said less was a way round
+        it."""
+        return bool(await self._may_watch(params["ticket_id"]))
 
     @ws_handler(
         summary="Post a comment",
@@ -257,8 +260,14 @@ class TicketTopic(Topic[TicketFeedEvent]):
         return bool(user is not None and getattr(user, "is_staff", False))
 
     @database_sync_to_async
-    def _ticket_exists(self, ticket_id: str) -> bool:
-        return Ticket.objects.filter(id=ticket_id).exists()
+    def _may_watch(self, ticket_id: str) -> bool:
+        user = self.scope.get("user")
+        if user is None or not user.is_authenticated:
+            return False
+        tickets = Ticket.objects.filter(id=ticket_id)
+        if not user.is_staff:
+            tickets = tickets.filter(created_by=user)
+        return tickets.exists()
 
     @database_sync_to_async
     def _create_comment_event(

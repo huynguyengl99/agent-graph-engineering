@@ -14,15 +14,11 @@ from django.conf import settings  # noqa: E402
 
 from chanx.channels.routing import include  # noqa: E402
 
-from helpdesk.core.ws_auth import JWTCookieAuthMiddleware  # noqa: E402
-
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
         "websocket": OriginValidator(
-            CookieMiddleware(
-                JWTCookieAuthMiddleware(include("helpdesk.config.routing"))
-            ),
+            CookieMiddleware(include("helpdesk.config.routing")),
             settings.WEBSOCKET_ALLOWED_ORIGINS,
         ),
     }

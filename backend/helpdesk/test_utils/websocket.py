@@ -101,14 +101,24 @@ class WebsocketTestCase(BaseWebsocketTestCase):
             pass
         return messages
 
+    async def connect_ok(self, communicator: Any = None) -> Any:
+        """Connect and read the frame chanx sends with the DRF auth result.
+
+        It is not part of the consumer's outgoing union, so leaving it in the
+        buffer makes the next read fail to parse.
+        """
+        communicator = communicator or self.auth_communicator
+        await communicator.connect()
+        await communicator.assert_authenticated_status_ok()
+        return communicator
+
     async def subscribe_ready(self, topic: str, communicator: Any = None) -> Any:
         """Connect and join a topic, ready to receive its broadcasts.
 
         Subscribing is itself a round-trip, so its reply also proves the
         consumer has finished joining the group.
         """
-        communicator = communicator or self.auth_communicator
-        await communicator.connect()
+        communicator = await self.connect_ok(communicator)
         return await communicator.subscribe(topic)
 
     async def connect_ready(self, communicator: Any = None) -> Any:
@@ -120,8 +130,7 @@ class WebsocketTestCase(BaseWebsocketTestCase):
         Round-tripping a ping proves the consumer has processed at least one
         message, which means `post_authentication` has completed.
         """
-        communicator = communicator or self.auth_communicator
-        await communicator.connect()
+        communicator = await self.connect_ok(communicator)
         await communicator.send_message(PingMessage())
         await communicator.receive_all_messages()
         return communicator

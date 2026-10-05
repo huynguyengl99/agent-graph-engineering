@@ -1,5 +1,8 @@
 from typing import Any, ClassVar
 
+from rest_framework.permissions import IsAuthenticated
+
+from chanx.channels.authenticator import DjangoAuthenticator
 from chanx.channels.websocket import AsyncJsonWebsocketConsumer
 from chanx.core.decorators import channel, ws_handler
 from chanx.core.topic import Topic
@@ -8,6 +11,13 @@ from chanx.messages.outgoing import PongMessage
 
 from helpdesk.tickets.topics.team_topic import TicketTeamTopic
 from helpdesk.tickets.topics.ticket_topic import TicketTopic
+
+
+class HubAuthenticator(DjangoAuthenticator):
+    """The socket authenticates the way the REST API does, with DRF's own
+    classes, so one identity covers both."""
+
+    permission_classes = [IsAuthenticated]
 
 
 @channel(
@@ -25,6 +35,12 @@ class HubConsumer(AsyncJsonWebsocketConsumer):
     """
 
     topics: ClassVar[list[type[Topic[Any]]]] = [TicketTopic, TicketTeamTopic]
+    authenticator_class = HubAuthenticator
+    authenticator: HubAuthenticator
+
+    async def post_authentication(self) -> None:
+        """Topics read `scope["user"]`, which the authenticator does not set."""
+        self.scope["user"] = self.authenticator.user
 
     @ws_handler
     async def handle_ping(self, _message: PingMessage) -> PongMessage:

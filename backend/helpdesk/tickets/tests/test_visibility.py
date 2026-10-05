@@ -23,6 +23,13 @@ class TestWhoACommentIsFor(WebsocketTestCase):
     consumer = HubConsumer
     ws_path = "/ws/"
 
+    def setUp(self) -> None:
+        super().setUp()
+        # Named for staff, so it is staff: a ticket's own feed is the
+        # requester's or the team's, and nobody else can subscribe to it.
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+
     async def _post(self, ticket: Any, public: bool) -> CommentEvent:
         topic = f"ticket:{ticket.id}"
         await self.subscribe_ready(topic)

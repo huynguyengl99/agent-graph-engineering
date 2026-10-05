@@ -79,7 +79,7 @@ class TestTicketTopic(WebsocketTestCase):
     async def test_an_unknown_ticket_cannot_be_subscribed(self) -> None:
         """One socket serves every ticket now, so a bad id refuses the
         subscription rather than closing the connection."""
-        await self.auth_communicator.connect()
+        await self.connect_ok()
         reply = await self.auth_communicator.subscribe(
             "ticket:00000000-0000-0000-0000-000000000000"
         )

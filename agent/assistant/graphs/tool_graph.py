@@ -1,8 +1,7 @@
-from typing import Any
+from typing import Any, Literal
 
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import interrupt
+from langgraph.types import Command, interrupt
 
 # Imported for the side effect: importing registers the tools.
 import assistant.tools  # noqa: F401  # pyright: ignore[reportUnusedImport]
@@ -65,7 +64,14 @@ class ToolGraph(BaseGraph):
         super().__init__(config, emitter)
         self.planner = ToolPlannerAgent(self.config)
 
-    async def plan(self, state: ToolState) -> Update:
+    async def tool_plan(
+        self, state: ToolState
+    ) -> Command[Literal["tool_gate", "tool_execute", "__end__"]]:
+        """Pick a tool, or report that none fits.
+
+        `__end__` is spelled out because LangGraph reads this annotation to draw
+        the edges: a destination missing from it is missing from the diagram.
+        """
         context = state.context
         prompt = (
             f"{context.render(state.request, with_audience=False)}"
@@ -73,24 +79,38 @@ class ToolGraph(BaseGraph):
         )
         decision = await self.reason("plan", self.planner, prompt, context)
 
-        update: Update = {"plan": decision}
-        if isinstance(decision, ToolProposal):
-            if decision.tool not in all_tools():
-                # A hallucinated tool id never reaches a human, let alone a
-                # call: it is a planning failure, reported as one.
-                return {
+        if not isinstance(decision, ToolProposal):
+            # Nothing to run. The parent reports no tool call, because there
+            # was none.
+            return Command(update={"plan": decision}, goto="__end__")
+
+        if decision.tool not in all_tools():
+            # A hallucinated tool id never reaches a human, let alone a call:
+            # it is a planning failure, reported as one.
+            return Command(
+                update={
                     "plan": decision,
                     "tool_error": f"No such tool: {decision.tool!r}.",
-                }
-            meta = metadata_for(decision.tool)
-            kept, unknown = split_arguments(meta.arguments, dict(decision.arguments))
-            kept.update(_from_the_run(meta, context))
-            update["tool"] = decision.tool
-            update["arguments"] = kept
-            update["unknown_arguments"] = unknown
-        return update
+                },
+                goto="__end__",
+            )
 
-    async def gate(self, state: ToolState) -> Update:
+        meta = metadata_for(decision.tool)
+        kept, unknown = split_arguments(meta.arguments, dict(decision.arguments))
+        kept.update(_from_the_run(meta, context))
+        return Command(
+            update={
+                "plan": decision,
+                "tool": decision.tool,
+                "arguments": kept,
+                "unknown_arguments": unknown,
+            },
+            goto="tool_gate" if meta.requires_approval else "tool_execute",
+        )
+
+    async def tool_gate(
+        self, state: ToolState
+    ) -> Command[Literal["tool_execute", "__end__"]]:
         """Park until a human approves, corrects the arguments, or cancels."""
         meta = metadata_for(state.tool)
         answer = interrupt(
@@ -111,9 +131,15 @@ class ToolGraph(BaseGraph):
         )
 
         if not isinstance(answer, dict):
-            return {"approved": bool(answer), "cancelled": not answer}
+            approved = bool(answer)
+            return Command(
+                update={"approved": approved, "cancelled": not approved},
+                goto="tool_execute" if approved else "__end__",
+            )
         if answer.get("decision") == "cancel":
-            return {"approved": False, "cancelled": True}
+            return Command(
+                update={"approved": False, "cancelled": True}, goto="__end__"
+            )
 
         # Corrections replace the proposed arguments wholesale, so what a
         # reviewer saw is exactly what runs.
@@ -126,9 +152,10 @@ class ToolGraph(BaseGraph):
         if isinstance(corrected, dict) and corrected:
             update["arguments"] = dict(corrected)
             update["corrected"] = corrected != state.arguments
-        return update
+        return Command(update=update, goto="tool_execute")
 
-    async def execute(self, state: ToolState) -> Update:
+    async def tool_execute(self, state: ToolState) -> Update:
+        """The call itself. Nothing follows it inside this subgraph."""
         meta = metadata_for(state.tool)
         arguments: dict[str, Any] = dict(state.arguments)
 
@@ -191,39 +218,20 @@ class ToolGraph(BaseGraph):
             case Failed(user_error=user_error):
                 return {"tool_error": user_error}
 
-    def route_after_plan(self, state: ToolState) -> str:
-        if state.tool_error or not state.tool:
-            return END
-        return "gate" if metadata_for(state.tool).requires_approval else "execute"
-
-    def route_after_gate(self, state: ToolState) -> str:
-        return "execute" if state.approved else END
+    # --- wiring -------------------------------------------------------------
 
     def nodes(self) -> dict[str, Node]:
-        return {"plan": self.plan, "gate": self.gate, "execute": self.execute}
+        return {
+            "tool_plan": self.tool_plan,
+            "tool_gate": self.tool_gate,
+            "tool_execute": self.tool_execute,
+        }
 
     def build(self) -> StateGraph[ToolState, None, ToolState, ToolState]:
         graph: StateGraph[ToolState, None, ToolState, ToolState] = StateGraph(ToolState)
         self.add_nodes(graph)
 
-        graph.add_edge(START, "plan")
-        graph.add_conditional_edges(
-            "plan",
-            self.route_after_plan,
-            {"gate": "gate", "execute": "execute", END: END},
-        )
-        graph.add_conditional_edges(
-            "gate", self.route_after_gate, {"execute": "execute", END: END}
-        )
-        graph.add_edge("execute", END)
+        graph.add_edge(START, "tool_plan")
+        graph.add_edge("tool_execute", END)
 
         return graph
-
-
-def build_tool_graph(
-    config: AgentConfig | None = None,
-    emitter: Emitter = silent,
-) -> CompiledStateGraph[ToolState, None, ToolState, ToolState]:
-    """Compiled, so a parent can add it as a node directly. The emitter comes
-    with it: a subgraph that explains itself needs somewhere to say it."""
-    return ToolGraph(config, emitter).build().compile()

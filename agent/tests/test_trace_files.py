@@ -40,18 +40,18 @@ class TestFileStore:
         assert files.runs() == []
 
     def test_a_run_is_one_file(self, files: TraceFiles) -> None:
-        files.write("run-1", record("a", "node.classify"))
+        files.write("run-1", record("a", "node.support_classify"))
         files.write("run-1", record("b", "chat gpt-4o", parent="a"))
         files.write("run-2", record("c", "node.route"))
 
         assert sorted(files.runs()) == ["run-1", "run-2"]
         assert [s.name for s in files.spans("run-1")] == [
-            "node.classify",
+            "node.support_classify",
             "chat gpt-4o",
         ]
 
     def test_spans_round_trip_with_their_parents(self, files: TraceFiles) -> None:
-        files.write("run-1", record("a", "node.classify"))
+        files.write("run-1", record("a", "node.support_classify"))
         files.write("run-1", record("b", "chat gpt-4o", parent="a"))
 
         [root, child] = files.spans("run-1")
@@ -63,11 +63,11 @@ class TestFileStore:
     def test_a_torn_last_line_does_not_lose_the_rest(self, files: TraceFiles) -> None:
         """A killed process can leave half a line; the spans that finished are
         still worth reading."""
-        files.write("run-1", record("a", "node.classify"))
+        files.write("run-1", record("a", "node.support_classify"))
         with files._path("run-1").open("a", encoding="utf-8") as handle:
             handle.write('{"span_id": "b", "nam')
 
-        assert [s.name for s in files.spans("run-1")] == ["node.classify"]
+        assert [s.name for s in files.spans("run-1")] == ["node.support_classify"]
 
     def test_an_unwritable_directory_does_not_fail_the_run(
         self, tmp_path: Path
@@ -77,12 +77,12 @@ class TestFileStore:
         blocked.write_text("")
         files = TraceFiles(blocked / "traces")
 
-        files.write("run-1", record("a", "node.classify"))
+        files.write("run-1", record("a", "node.support_classify"))
 
         assert files.spans("run-1") == []
 
     def test_a_run_id_cannot_escape_the_directory(self, files: TraceFiles) -> None:
-        files.write("../../etc/passwd", record("a", "node.classify"))
+        files.write("../../etc/passwd", record("a", "node.support_classify"))
 
         written = list(files.directory.glob("*.jsonl"))
         assert [p.name for p in written] == ["passwd.jsonl"]
@@ -99,22 +99,22 @@ class TestFileStore:
 class TestStoreBackedByFiles:
     def test_a_run_survives_losing_the_memory(self, files: TraceFiles) -> None:
         store = TraceStore(files=files)
-        store.add("run-1", record("a", "node.classify"))
+        store.add("run-1", record("a", "node.support_classify"))
 
         store.clear()  # as a restart would
 
-        assert [s["name"] for s in store.tree("run-1")] == ["node.classify"]
+        assert [s["name"] for s in store.tree("run-1")] == ["node.support_classify"]
         assert store.runs() == ["run-1"]
 
     def test_memory_is_preferred_over_disk(self, files: TraceFiles) -> None:
         store = TraceStore(files=files)
-        store.add("run-1", record("a", "node.classify"))
+        store.add("run-1", record("a", "node.support_classify"))
 
         assert len(store.spans("run-1")) == 1
 
     def test_without_files_a_restart_loses_the_run(self) -> None:
         store = TraceStore(files=None)
-        store.add("run-1", record("a", "node.classify"))
+        store.add("run-1", record("a", "node.support_classify"))
         store.clear()
 
         assert store.tree("run-1") == []
@@ -123,7 +123,7 @@ class TestStoreBackedByFiles:
         """A test clearing its own spans has no business deleting a run someone
         was looking at."""
         store = TraceStore(files=files)
-        store.add("run-1", record("a", "node.classify"))
+        store.add("run-1", record("a", "node.support_classify"))
 
         store.clear()
 
@@ -212,7 +212,7 @@ class TestRedactingExporterWiring:
             def force_flush(self, timeout_millis: int = 30_000) -> bool:
                 return True
 
-        with tracer().start_as_current_span("node.classify") as span:
+        with tracer().start_as_current_span("node.support_classify") as span:
             span.set_attribute("gen_ai.input.messages", "the customer wrote this")
             span.set_attribute("model_name", "gpt-4o")
             finished = span
@@ -223,5 +223,5 @@ class TestRedactingExporterWiring:
         attributes = dict(out.attributes or {})  # type: ignore[attr-defined]
         assert attributes["gen_ai.input.messages"] == PLACEHOLDER
         assert attributes["model_name"] == "gpt-4o"
-        assert out.name == "node.classify"  # type: ignore[attr-defined]
+        assert out.name == "node.support_classify"  # type: ignore[attr-defined]
         assert out.get_span_context().span_id == finished.get_span_context().span_id  # type: ignore[attr-defined]

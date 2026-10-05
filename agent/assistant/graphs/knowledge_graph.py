@@ -1,5 +1,9 @@
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
+"""Search the knowledge base, and search again if nothing came back."""
+
+from typing import Literal
+
+from langgraph.graph import START, StateGraph
+from langgraph.types import Command
 
 from assistant.agents import AgentConfig
 from assistant.agents.deps import Context
@@ -7,7 +11,7 @@ from assistant.agents.refiner import RefinerAgent
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.limits import KB_MAX_ATTEMPTS
-from assistant.graphs.states import KnowledgeState, Update
+from assistant.graphs.states import KnowledgeState
 from assistant.tools.core import Failed, Succeeded
 from assistant.tools.knowledge_base import search_knowledge_base
 from assistant.tracing.nodes import Node
@@ -30,6 +34,10 @@ class KnowledgeGraph(BaseGraph):
     A subgraph rather than a node because it loops, and because the parent has
     no business knowing how many attempts it took: only `kb_snippets` crosses
     back out.
+
+    Each node says in its return type where the run can go next, so the branch
+    is in the signature the type checker reads rather than in an edge map
+    somewhere else in the file.
     """
 
     name = "knowledge"
@@ -40,7 +48,17 @@ class KnowledgeGraph(BaseGraph):
         super().__init__(config, emitter)
         self.refiner = RefinerAgent(self.config)
 
-    async def search(self, state: KnowledgeState) -> Update:
+    # --- nodes, in the order a run meets them -------------------------------
+
+    async def knowledge_search(
+        self, state: KnowledgeState
+    ) -> Command[Literal["knowledge_refine", "__end__"]]:
+        """Search once. Nothing found and attempts left means try better terms.
+
+        `__end__` is spelled out because LangGraph reads this annotation to
+        draw the edges: a destination missing from it is missing from the
+        diagram the graphs page renders.
+        """
         query = state.kb_query or _searchable(state.context)
         attempts = state.kb_attempts + 1
 
@@ -52,9 +70,15 @@ class KnowledgeGraph(BaseGraph):
                 # nothing.
                 snippets = []
 
-        return {"kb_snippets": snippets, "kb_attempts": attempts}
+        found = bool(snippets) or attempts >= KB_MAX_ATTEMPTS
+        return Command(
+            update={"kb_snippets": snippets, "kb_attempts": attempts},
+            goto="__end__" if found else "knowledge_refine",
+        )
 
-    async def refine(self, state: KnowledgeState) -> Update:
+    async def knowledge_refine(
+        self, state: KnowledgeState
+    ) -> Command[Literal["knowledge_search"]]:
         """Ask for broader terms. Only reached when the last search was empty."""
         refined = await self.reason(
             "refine",
@@ -64,35 +88,20 @@ class KnowledgeGraph(BaseGraph):
             state.context,
         )
         # A model that returns nothing usable must not restart the same search.
-        return {"kb_query": refined.query}
+        return Command(update={"kb_query": refined.query}, goto="knowledge_search")
 
-    def route_after_search(self, state: KnowledgeState) -> str:
-        if state.kb_snippets or state.kb_attempts >= KB_MAX_ATTEMPTS:
-            return END
-        return "refine"
+    # --- wiring -------------------------------------------------------------
 
     def nodes(self) -> dict[str, Node]:
-        return {"search": self.search, "refine": self.refine}
+        return {
+            "knowledge_search": self.knowledge_search,
+            "knowledge_refine": self.knowledge_refine,
+        }
 
     def build(self) -> StateGraph[KnowledgeState, None, KnowledgeState, KnowledgeState]:
         graph: StateGraph[KnowledgeState, None, KnowledgeState, KnowledgeState] = (
             StateGraph(KnowledgeState)
         )
         self.add_nodes(graph)
-
-        graph.add_edge(START, "search")
-        graph.add_conditional_edges(
-            "search", self.route_after_search, {"refine": "refine", END: END}
-        )
-        graph.add_edge("refine", "search")
-
+        graph.add_edge(START, "knowledge_search")
         return graph
-
-
-def build_knowledge_graph(
-    config: AgentConfig | None = None,
-    emitter: Emitter = silent,
-) -> CompiledStateGraph[KnowledgeState, None, KnowledgeState, KnowledgeState]:
-    """Compiled, so the parent can add it as a node directly. The emitter comes
-    with it: a subgraph that explains itself needs somewhere to say it."""
-    return KnowledgeGraph(config, emitter).build().compile()

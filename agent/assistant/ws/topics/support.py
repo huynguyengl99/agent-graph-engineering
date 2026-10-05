@@ -12,8 +12,9 @@ from assistant.agents.config import AgentConfig
 from assistant.conversations import history
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
+from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.states import SupportState
-from assistant.graphs.support_graph import SupportGraph, build_support_graph
+from assistant.graphs.support_graph import SupportGraph
 from assistant.messages.support import (
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
@@ -149,10 +150,10 @@ class SupportTopic(Replays, Topic[SupportEvent]):
     def _graph(self, models: Any) -> Any:
         """Built per run: the topology is fixed, but which model fills each
         purpose comes from the requesting user."""
-        return build_support_graph(
+        return SupportGraph(
             AgentConfig.from_slugs(models.model_dump() if models else None),
-            emitter=emitter_for(self),
-        )
+            emitter_for(self),
+        ).compile(checkpointer())
 
     async def _consume(self, graph: Any, start: Any) -> None:
         """Drained for its side effects.

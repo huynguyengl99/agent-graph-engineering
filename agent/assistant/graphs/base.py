@@ -109,6 +109,15 @@ class BaseGraph:
         for name, node in self.nodes().items():
             graph.add_node(name, traced(name, node))
 
+    def subgraph(self) -> CompiledStateGraph[Any, Any, Any, Any]:
+        """Compiled to be added to a parent as a node.
+
+        No checkpointer of its own - it shares the parent's, which is what lets
+        a resume reach an interrupt one level down - and no run span, because
+        the run it belongs to is the parent's.
+        """
+        return self.build().compile()
+
     def compile(
         self, checkpointer: BaseCheckpointSaver[Any] | None = None
     ) -> CompiledStateGraph[Any, Any, Any, Any]:

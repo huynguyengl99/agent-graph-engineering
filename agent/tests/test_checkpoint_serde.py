@@ -84,7 +84,8 @@ class TestAGraphGetsItsModelsBack:
         import uuid
 
         from assistant.agents import AgentConfig
-        from assistant.graphs.support_graph import build_support_graph
+        from assistant.graphs.checkpointer import checkpointer
+        from assistant.graphs.support_graph import SupportGraph
         from assistant.outputs.support import Answer
 
         from tests.helpers.openai_mock import mock_openai, tool_call
@@ -101,7 +102,7 @@ class TestAGraphGetsItsModelsBack:
                 "final_result", {"content": "Proration.", "requires_approval": False}
             ),
         ):
-            graph = build_support_graph(AgentConfig.resolve())
+            graph = SupportGraph(AgentConfig.resolve()).compile(checkpointer())
             await graph.ainvoke(
                 {
                     "context": ticket_context(

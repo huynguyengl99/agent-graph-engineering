@@ -47,7 +47,7 @@ class TestWhatASpanRecords:
 class TestPreparingTheTree:
     SPANS = [
         {
-            "name": "node.decide",
+            "name": "node.support_decide",
             "duration_ms": 20.1,
             "attributes": {
                 "decision": "SearchKnowledgeBase",
@@ -85,7 +85,7 @@ class TestPreparingTheTree:
     def test_nesting_is_preserved(self) -> None:
         [span] = prepare(self.SPANS)
 
-        assert span["name"] == "node.decide"
+        assert span["name"] == "node.support_decide"
         assert [child["name"] for child in span["children"]] == ["invoke_agent agent"]
 
     def test_a_long_value_is_truncated_rather_than_wrapped(self) -> None:
@@ -107,7 +107,7 @@ class TestFramesThatOnlyWrap:
     def frame(self, children: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [
             {
-                "name": "node.decide",
+                "name": "node.support_decide",
                 "duration_ms": 20.0,
                 "attributes": {"graph.state_update": "{}"},
                 "children": [
@@ -157,4 +157,4 @@ class TestFramesThatOnlyWrap:
         [run] = prepare(roots)
 
         assert run["name"] == "support run"
-        assert [child["name"] for child in run["children"]] == ["node.decide"]
+        assert [child["name"] for child in run["children"]] == ["node.support_decide"]

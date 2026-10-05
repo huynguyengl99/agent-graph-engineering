@@ -10,7 +10,7 @@ from typing import Any
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.states import SupportState
-from assistant.graphs.support_graph import build_support_graph
+from assistant.graphs.support_graph import SupportGraph
 from langgraph.types import Command
 
 from tests.helpers.contexts import FLAGGED, flagged_ticket_context
@@ -41,7 +41,7 @@ async def triage_once(graph: Any, config: dict[str, Any]) -> dict[str, Any]:
 
 
 async def test_a_second_triage_starts_clean() -> None:
-    graph = build_support_graph(scripted(), memory_checkpointer())
+    graph = SupportGraph(scripted()).compile(memory_checkpointer())
     config = {"configurable": {"thread_id": TICKET}}
 
     first = await triage_once(graph, config)
@@ -57,7 +57,7 @@ async def test_a_second_triage_starts_clean() -> None:
 
 async def test_a_partial_update_leaks_the_old_receipt() -> None:
     """Names the bug, so nobody passes an update where a state belongs."""
-    graph = build_support_graph(scripted(), memory_checkpointer())
+    graph = SupportGraph(scripted()).compile(memory_checkpointer())
     config = {"configurable": {"thread_id": "leaky"}}
 
     await graph.ainvoke(SupportState(context=context()), config=config)

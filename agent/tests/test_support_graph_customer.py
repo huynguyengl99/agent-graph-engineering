@@ -1,6 +1,7 @@
 from assistant.agents import Audience, Context
+from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.states import SupportState
-from assistant.graphs.support_graph import SupportGraph, build_support_graph
+from assistant.graphs.support_graph import SupportGraph, _route_for
 from assistant.outputs.support import Escalate, RunTool, SearchKnowledgeBase
 
 from tests.helpers.contexts import ticket_context
@@ -46,8 +47,10 @@ async def test_knowledge_base_branch_grounds_the_answer() -> None:
             },
         ),
     ) as route:
-        state = await build_support_graph().ainvoke(
-            {"context": ticket()}, config=config(thread)
+        state = (
+            await SupportGraph()
+            .compile(checkpointer())
+            .ainvoke({"context": ticket()}, config=config(thread))
         )
 
     assert route.call_count == 3
@@ -73,8 +76,10 @@ async def test_an_ordinary_reply_is_sent_without_a_person() -> None:
             },
         ),
     ):
-        state = await build_support_graph().ainvoke(
-            {"context": ticket()}, config=config(thread)
+        state = (
+            await SupportGraph()
+            .compile(checkpointer())
+            .ainvoke({"context": ticket()}, config=config(thread))
         )
 
     assert "__interrupt__" not in state
@@ -98,8 +103,10 @@ async def test_a_flagged_ticket_stops_for_one() -> None:
             {"content": "Here is what the policy says.", "requires_approval": False},
         ),
     ):
-        state = await build_support_graph().ainvoke(
-            {"context": flagged}, config=config(thread)
+        state = (
+            await SupportGraph()
+            .compile(checkpointer())
+            .ainvoke({"context": flagged}, config=config(thread))
         )
 
     assert state["__interrupt__"][0].value["kind"] == "reply_approval"
@@ -115,8 +122,10 @@ async def test_escalation_skips_the_answer_agent() -> None:
             {"reason": "Needs a refund decision.", "suggested_team": "billing"},
         ),
     ) as route:
-        state = await build_support_graph().ainvoke(
-            {"context": ticket()}, config=config(thread)
+        state = (
+            await SupportGraph()
+            .compile(checkpointer())
+            .ainvoke({"context": ticket()}, config=config(thread))
         )
 
     # Two calls, not three: escalation terminates before synthesis.
@@ -137,8 +146,10 @@ async def test_classification_is_typed_not_parsed() -> None:
             "final_result_Escalate", {"reason": "x", "suggested_team": "billing"}
         ),
     ):
-        state = await build_support_graph().ainvoke(
-            {"context": ticket()}, config=config(thread)
+        state = (
+            await SupportGraph()
+            .compile(checkpointer())
+            .ainvoke({"context": ticket()}, config=config(thread))
         )
 
     classification = state["classification"]
@@ -162,31 +173,15 @@ class TestWhatEachAudienceIsOffered:
         """The gate parks on a person either way, so a customer asking for a
         refund proposes one rather than waiting for someone to propose the same
         thing."""
-        graph = SupportGraph()
-        state = SupportState(
-            context=Context(thread_id="t", audience=Audience.CUSTOMER),
-            decision=RunTool(reasoning="Refund it."),
-        )
-
-        assert graph.route_decision(state) == "tool"
+        assert _route_for(RunTool(reasoning="Refund it."), for_customer=True) == "tool"
 
     def test_the_team_gets_the_gate(self) -> None:
-        graph = SupportGraph()
-        state = SupportState(
-            context=Context(thread_id="c", audience=Audience.TEAM),
-            decision=RunTool(reasoning="Refund it."),
-        )
-
-        assert graph.route_decision(state) == "tool"
+        assert _route_for(RunTool(reasoning="Refund it."), for_customer=False) == "tool"
 
     def test_the_team_is_never_escalated_to_itself(self) -> None:
-        graph = SupportGraph()
-        state = SupportState(
-            context=Context(thread_id="c", audience=Audience.TEAM),
-            decision=Escalate(reason="Needs a person.", suggested_team="billing"),
-        )
+        escalate = Escalate(reason="Needs a person.", suggested_team="billing")
 
-        assert graph.route_decision(state) == "respond"
+        assert _route_for(escalate, for_customer=False) == "support_respond"
 
 
 class TestWhatCountsAsAToolCall:
@@ -200,7 +195,7 @@ class TestWhatCountsAsAToolCall:
         graph = SupportGraph()
         state = SupportState(context=Context(thread_id="t", audience=Audience.CUSTOMER))
 
-        assert graph.route_after_tool(state) == "respond"
+        assert graph.route_after_tool(state) == "support_respond"
 
     def test_a_tool_that_ran_is_reported(self) -> None:
         graph = SupportGraph()
@@ -210,7 +205,7 @@ class TestWhatCountsAsAToolCall:
             result="refund_1 issued",
         )
 
-        assert graph.route_after_tool(state) == "report_tool"
+        assert graph.route_after_tool(state) == "support_report_tool"
 
     def test_a_tool_that_failed_is_reported_too(self) -> None:
         """A reviewer cancelling it, or the call erroring, is still something
@@ -222,4 +217,4 @@ class TestWhatCountsAsAToolCall:
             cancelled=True,
         )
 
-        assert graph.route_after_tool(state) == "report_tool"
+        assert graph.route_after_tool(state) == "support_report_tool"

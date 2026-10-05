@@ -1,7 +1,8 @@
 """Tracing has to answer 'what happened to this one ticket', not 'list calls'."""
 
 import pytest
-from assistant.graphs.support_graph import build_support_graph
+from assistant.graphs.checkpointer import checkpointer
+from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
 from langgraph.types import Command
 
@@ -63,8 +64,10 @@ async def run(ticket_id: str) -> str:
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),
     ):
-        await build_support_graph().ainvoke(
-            {"context": context}, config=config(ticket_id)
+        await (
+            SupportGraph()
+            .compile(checkpointer())
+            .ainvoke({"context": context}, config=config(ticket_id))
         )
     return context.trace_key
 
@@ -74,19 +77,19 @@ async def test_trace_records_the_route_that_was_taken() -> None:
 
     flat = names(trace_store.tree(run_key))
 
-    assert "node.classify" in flat
-    assert "node.decide" in flat
+    assert "node.support_classify" in flat
+    assert "node.support_decide" in flat
     # The retrieval subgraph appears by its own node name.
-    assert "node.search" in flat
+    assert "node.knowledge_search" in flat
     # The branch that was not taken leaves no span.
-    assert "node.escalate" not in flat
+    assert "node.support_escalate" not in flat
 
 
 async def test_model_calls_nest_under_the_node_that_made_them() -> None:
     """A flat list of completions is what the series complains about."""
     run_key = await run("t-nest")
 
-    classify = find(trace_store.tree(run_key), "node.classify")
+    classify = find(trace_store.tree(run_key), "node.support_classify")
 
     assert classify["children"], "the model call should be a child of the node"
     assert any(AGENT_SPAN in child["name"] for child in classify["children"])
@@ -96,7 +99,7 @@ async def test_model_call_spans_carry_usage() -> None:
     """Pydantic AI's own attributes survive nesting under the node span."""
     run_key = await run("t-attrs")
 
-    classify = find(trace_store.tree(run_key), "node.classify")
+    classify = find(trace_store.tree(run_key), "node.support_classify")
     runs = [c for c in classify["children"] if AGENT_SPAN in c["name"]]
 
     assert runs, f"no {AGENT_SPAN!r} span under the node"
@@ -119,14 +122,16 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
     run_key = await run("t-resume")
     before = len(names(trace_store.tree(run_key)))
 
-    await build_support_graph().ainvoke(
-        Command(resume={"approved": True}), config=config("t-resume")
+    await (
+        SupportGraph()
+        .compile(checkpointer())
+        .ainvoke(Command(resume={"approved": True}), config=config("t-resume"))
     )
 
     flat = names(trace_store.tree(run_key))
     assert len(flat) > before
     # The irreversible step is visible in the same ticket's trace.
-    assert "node.send_reply" in flat
+    assert "node.delivery_send" in flat
 
 
 async def test_a_run_is_one_trace_not_one_per_node() -> None:
@@ -139,8 +144,8 @@ async def test_a_run_is_one_trace_not_one_per_node() -> None:
     assert len(tree) == 1, "a run should have exactly one root"
     assert tree[0]["name"] == "support run"
     children = [child["name"] for child in tree[0]["children"]]
-    assert "node.classify" in children
-    assert "node.decide" in children
+    assert "node.support_classify" in children
+    assert "node.support_decide" in children
 
 
 async def test_a_streamed_run_is_one_trace_too() -> None:
@@ -159,14 +164,18 @@ async def test_a_streamed_run_is_one_trace_too() -> None:
         ),
     ):
         context = ticket_context(ticket_id="t-stream", title="t", description="d")
-        async for _ in build_support_graph().astream(
-            {"context": context},
-            config=config("t-stream"),
-            stream_mode="updates",
+        async for _ in (
+            SupportGraph()
+            .compile(checkpointer())
+            .astream(
+                {"context": context},
+                config=config("t-stream"),
+                stream_mode="updates",
+            )
         ):
             pass
 
     tree = trace_store.tree(context.trace_key)
 
     assert [root["name"] for root in tree] == ["support run"]
-    assert "node.classify" in names(tree)
+    assert "node.support_classify" in names(tree)

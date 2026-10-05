@@ -237,7 +237,7 @@ class TestMisnamedArguments:
         """Belt and braces: filtering happens in `plan`, but a graph wired to
         call `execute` with anything else must not take the turn down."""
         graph = ToolGraph(openai_config())
-        done = await graph.execute(
+        done = await graph.tool_execute(
             ToolState(
                 context=Context(thread_id="c-signature"),
                 tool="issue_refund",

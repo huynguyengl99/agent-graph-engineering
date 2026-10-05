@@ -1,8 +1,7 @@
-from typing import Any
+from typing import Any, Literal
 
-from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Command
 
 from assistant.agents import (
     AgentConfig,
@@ -17,12 +16,11 @@ from assistant.agents.chat import TeamAgent
 from assistant.conversations import history
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
-from assistant.graphs.checkpointer import checkpointer
-from assistant.graphs.delivery_graph import build_delivery_graph
+from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.feed import AnswerFeed
-from assistant.graphs.knowledge_graph import build_knowledge_graph
+from assistant.graphs.knowledge_graph import KnowledgeGraph
 from assistant.graphs.states import SupportState, Update
-from assistant.graphs.tool_graph import build_tool_graph
+from assistant.graphs.tool_graph import ToolGraph
 from assistant.guardrails import screen_input
 from assistant.messages.support import (
     ChatCompleteMessage,
@@ -44,6 +42,27 @@ from assistant.outputs.support import (
     TicketAnswer,
 )
 from assistant.tracing.nodes import Node
+
+
+def _route_for(
+    decision: Decision, for_customer: bool
+) -> Literal["knowledge", "tool", "support_escalate", "support_respond"]:
+    """Where a decision sends the run.
+
+    A pure function rather than an edge map: the node still declares its
+    destinations in its own return type, and this is the one line of it worth
+    reading on its own.
+    """
+    match decision:
+        case SearchKnowledgeBase():
+            return "knowledge"
+        case RunTool():
+            return "tool"
+        case Escalate() if for_customer:
+            return "support_escalate"
+        case _:
+            # The team is the human it would be escalating to.
+            return "support_respond"
 
 
 def _reasoning(decision: Decision) -> str:
@@ -78,7 +97,17 @@ class SupportGraph(AnswerFeed, BaseGraph):
         self.answerer = AnswerAgent(self.config)
         self.team = TeamAgent(self.config)
 
-    async def classify(self, state: SupportState) -> Update:
+    async def support_start(
+        self, state: SupportState
+    ) -> Command[Literal["support_classify", "support_decide"]]:
+        """Only a customer's ticket is graded; the team's question is not one."""
+        return Command(
+            goto="support_classify" if state.context.for_customer else "support_decide"
+        )
+
+    async def support_classify(
+        self, state: SupportState
+    ) -> Command[Literal["support_decide"]]:
         context = state.context
         # Recorded, not refused: see assistant/guardrails/input.py.
         attempts = screen_input(context.untrusted_text())
@@ -95,12 +124,18 @@ class SupportGraph(AnswerFeed, BaseGraph):
                 )
             )
         )
-        return {
-            "classification": classification,
-            "guardrail_findings": attempts.rendered(),
-        }
+        return Command(
+            update={
+                "classification": classification,
+                "guardrail_findings": attempts.rendered(),
+            },
+            goto="support_decide",
+        )
 
-    async def decide(self, state: SupportState) -> Update:
+    async def support_decide(
+        self, state: SupportState
+    ) -> Command[Literal["knowledge", "tool", "support_escalate", "support_respond"]]:
+        """What happens next, and where the run goes to do it."""
         context = state.context
         prompt = context.render(state.question, with_history=context.for_customer)
 
@@ -129,9 +164,15 @@ class SupportGraph(AnswerFeed, BaseGraph):
         elif isinstance(decision, RunTool):
             # The tool subgraph plans against the asker's own words.
             update["request"] = state.question or context.render(with_history=True)
-        return update
+        return Command(update=update, goto=_route_for(decision, context.for_customer))
 
-    async def escalate(self, state: SupportState) -> Update:
+    async def support_escalate(
+        self, state: SupportState
+    ) -> Command[Literal["delivery"]]:
+        """Hand the ticket over, and tell the customer so.
+
+        The notice leaves by the one route out, like any other reply.
+        """
         decision = state.decision
         team = getattr(decision, "suggested_team", "general")
         reason = getattr(decision, "reason", None) or getattr(decision, "reasoning", "")
@@ -143,11 +184,14 @@ class SupportGraph(AnswerFeed, BaseGraph):
             requires_approval=False,
         )
         await self.answered(state.context.ticket_id, answer)
-        return {"escalation_reason": reason, "answer": answer}
+        return Command(
+            update={"escalation_reason": reason, "answer": answer}, goto="delivery"
+        )
 
-    async def report_tool(self, state: SupportState) -> Update:
-        """What ran, before the model turns it into prose. Only reached when
-        something did - see `route_after_tool`."""
+    async def support_report_tool(
+        self, state: SupportState
+    ) -> Command[Literal["support_respond"]]:
+        """What ran, before the model turns it into prose."""
         await self.emit(
             ToolRanMessage(
                 payload=ToolRanPayload(
@@ -160,13 +204,19 @@ class SupportGraph(AnswerFeed, BaseGraph):
                 )
             )
         )
-        return {}
+        return Command(goto="support_respond")
 
-    async def respond(self, state: SupportState) -> Update:
-        """The one node both audiences end at, writing for whoever is reading."""
+    async def support_respond(
+        self, state: SupportState
+    ) -> Command[Literal["delivery", "__end__"]]:
+        """The one node both audiences end at, writing for whoever is reading.
+
+        A customer's reply is sent by the delivery subgraph; the team's is
+        already where it was going.
+        """
         if state.context.for_customer:
-            return await self._reply_to_customer(state)
-        return await self._answer_the_team(state)
+            return Command(update=await self._reply_to_customer(state), goto="delivery")
+        return Command(update=await self._answer_the_team(state), goto="__end__")
 
     async def _reply_to_customer(self, state: SupportState) -> Update:
         """Written here, screened and sent by the delivery subgraph.
@@ -242,46 +292,29 @@ class SupportGraph(AnswerFeed, BaseGraph):
             return None
         return await history().load(state.context.thread_id)
 
-    def route_start(self, state: SupportState) -> str:
-        """Only a customer's ticket is graded; the team's question is not one."""
-        return "classify" if state.context.for_customer else "decide"
-
-    def route_decision(self, state: SupportState) -> str:
-        match state.decision:
-            case SearchKnowledgeBase():
-                return "knowledge"
-            case RunTool():
-                return "tool"
-            case Escalate() if state.context.for_customer:
-                return "escalate"
-            case Escalate():
-                # The team is the human it would be escalating to.
-                return "respond"
-            case _:
-                return "respond"
-
     def route_after_tool(self, state: SupportState) -> str:
         """A planner asked for a tool and finding none is not a tool call.
 
         The decider can route here and the planner still answer `NoToolNeeded`,
         which used to file a tool call with no tool in it: on a customer's run
         that reached them as a box saying `RAN` about nothing at all.
-        """
-        return "report_tool" if state.tool else "respond"
 
-    def route_answer(self, state: SupportState) -> str:
-        """A customer's reply is sent by the delivery subgraph; the team's is
-        already where it was going."""
-        return "delivery" if state.context.for_customer else END
+        A routing method rather than a `Command`, because the node it follows
+        is a compiled subgraph: only the parent can say what comes after one.
+        """
+        return "support_report_tool" if state.tool else "support_respond"
+
+    # --- wiring -------------------------------------------------------------
 
     def nodes(self) -> dict[str, Node]:
         """Only this graph's own steps. Subgraphs are added whole, in build()."""
         return {
-            "classify": self.classify,
-            "decide": self.decide,
-            "escalate": self.escalate,
-            "report_tool": self.report_tool,
-            "respond": self.respond,
+            "support_start": self.support_start,
+            "support_classify": self.support_classify,
+            "support_decide": self.support_decide,
+            "support_escalate": self.support_escalate,
+            "support_report_tool": self.support_report_tool,
+            "support_respond": self.support_respond,
         }
 
     def build(self) -> StateGraph[SupportState, None, SupportState, SupportState]:
@@ -291,49 +324,23 @@ class SupportGraph(AnswerFeed, BaseGraph):
         self.add_nodes(graph)
 
         # Compiled subgraphs go in as nodes. They share the keys they need with
-        # this state, so nothing has to be mapped across the boundary.
-        graph.add_node("knowledge", build_knowledge_graph(self.config, self.emit))
-        graph.add_node("tool", build_tool_graph(self.config, self.emit))
-        graph.add_node("delivery", build_delivery_graph(self.config, self.emit))
+        # this state, so nothing has to be mapped across the boundary - and
+        # where a run goes after one is the parent's to say, because a subgraph
+        # cannot route into the graph that owns it.
+        graph.add_node("knowledge", KnowledgeGraph(self.config, self.emit).subgraph())
+        graph.add_node("tool", ToolGraph(self.config, self.emit).subgraph())
+        graph.add_node("delivery", DeliveryGraph(self.config, self.emit).subgraph())
 
-        graph.add_conditional_edges(
-            START, self.route_start, {"classify": "classify", "decide": "decide"}
-        )
-        graph.add_edge("classify", "decide")
-        graph.add_conditional_edges(
-            "decide",
-            self.route_decision,
-            {
-                "knowledge": "knowledge",
-                "tool": "tool",
-                "escalate": "escalate",
-                "respond": "respond",
-            },
-        )
-        graph.add_edge("knowledge", "respond")
+        graph.add_edge(START, "support_start")
+        graph.add_edge("knowledge", "support_respond")
         graph.add_conditional_edges(
             "tool",
             self.route_after_tool,
-            {"report_tool": "report_tool", "respond": "respond"},
-        )
-        graph.add_edge("report_tool", "respond")
-        # The handover notice is a reply to the customer, so it leaves by the
-        # one route out: screened, recorded when it is sent, and not left as a
-        # draft nobody persists.
-        graph.add_edge("escalate", "delivery")
-        graph.add_conditional_edges(
-            "respond", self.route_answer, {"delivery": "delivery", END: END}
+            {
+                "support_report_tool": "support_report_tool",
+                "support_respond": "support_respond",
+            },
         )
         graph.add_edge("delivery", END)
 
         return graph
-
-
-def build_support_graph(
-    config: AgentConfig | None = None,
-    saver: BaseCheckpointSaver[str] | None = None,
-    emitter: Emitter = silent,
-) -> CompiledStateGraph[SupportState, None, SupportState, SupportState]:
-    """Compile a run's graph. Cheap, and the topology never varies; what varies
-    is which model each purpose resolves to, and where its events go."""
-    return SupportGraph(config, emitter).compile(saver or checkpointer())

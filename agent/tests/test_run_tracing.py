@@ -38,6 +38,6 @@ async def test_a_turn_says_which_conversation_it_was() -> None:
     run = await ask("hello", Context(thread_id="conv-42"))
 
     assert trace_store.summary(run)["thread"] == "conv-42"
-    assert "node.respond" in [
+    assert "node.support_respond" in [
         child["name"] for child in trace_store.tree(run)[0]["children"]
     ]

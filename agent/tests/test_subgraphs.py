@@ -17,7 +17,7 @@ from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import KnowledgeGraph
 from assistant.graphs.limits import KB_MAX_ATTEMPTS
-from assistant.graphs.support_graph import SupportGraph, build_support_graph
+from assistant.graphs.support_graph import SupportGraph
 from langgraph.types import Command
 
 from tests.helpers.contexts import FLAGGED, ticket_context
@@ -70,14 +70,15 @@ class TestComposition:
         parent = SupportGraph().nodes()
 
         assert set(parent) == {
-            "classify",
-            "decide",
-            "escalate",
-            "report_tool",
-            "respond",
+            "support_start",
+            "support_classify",
+            "support_decide",
+            "support_escalate",
+            "support_report_tool",
+            "support_respond",
         }
         # The gate is one level down, and there is no other route to it.
-        assert "send_reply" in DeliveryGraph().nodes()
+        assert "delivery_send" in DeliveryGraph().nodes()
 
     def test_subgraphs_appear_as_nodes_in_the_parent(self) -> None:
         graph = SupportGraph().build().compile().get_graph()
@@ -92,8 +93,8 @@ class TestComposition:
         flat = compiled.get_graph().draw_mermaid()
         expanded = compiled.get_graph(xray=True).draw_mermaid()
 
-        assert "await_approval" not in flat
-        assert "await_approval" in expanded
+        assert "delivery_approval" not in flat
+        assert "delivery_approval" in expanded
         assert "refine" in expanded
 
 
@@ -105,7 +106,7 @@ class TestApprovalThroughASubgraph:
     """
 
     async def build(self) -> Any:
-        return build_support_graph(scripted(), memory_checkpointer())
+        return SupportGraph(scripted()).compile(memory_checkpointer())
 
     async def test_a_run_parks_inside_the_delivery_subgraph(self) -> None:
         graph = await self.build()

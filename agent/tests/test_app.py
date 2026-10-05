@@ -71,8 +71,8 @@ async def test_xray_is_the_difference_between_a_box_and_the_flow(
     expanded = (await client.get("/graphs/support.mermaid")).text
     flat = (await client.get("/graphs/support.mermaid?xray=false")).text
 
-    assert "await_approval" in expanded, "xray should expand the subgraphs"
-    assert "await_approval" not in flat
+    assert "delivery_approval" in expanded, "xray should expand the subgraphs"
+    assert "delivery_approval" not in flat
     assert "delivery" in flat, "collapsed, the subgraph is still a node"
 
 

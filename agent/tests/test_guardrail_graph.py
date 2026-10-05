@@ -127,6 +127,6 @@ def test_the_guard_is_a_node_on_the_only_path_to_a_customer() -> None:
     """
     delivery = DeliveryGraph().nodes()
 
-    assert "screen" in delivery
-    assert "send_reply" in delivery
+    assert "delivery_screen" in delivery
+    assert "delivery_send" in delivery
     assert "send_reply" not in SupportGraph().nodes()

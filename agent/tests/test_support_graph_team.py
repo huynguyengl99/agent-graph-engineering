@@ -55,7 +55,7 @@ async def test_the_answer_arrives_as_deltas_not_one_block() -> None:
 
     assert len(deltas) > 1, "a single delta means nothing is actually streaming"
     # What streamed and what was saved must be the same text.
-    assert "".join(deltas) == updates["respond"]["answer"].content
+    assert "".join(deltas) == updates["support_respond"]["answer"].content
 
 
 async def test_a_ticket_linked_conversation_sees_the_ticket() -> None:
@@ -84,7 +84,7 @@ async def test_a_standalone_conversation_needs_no_ticket() -> None:
     assert "No ticket is attached" in prompt
 
     deltas, updates = await run(context)
-    assert updates["respond"]["answer"].content
+    assert updates["support_respond"]["answer"].content
 
 
 async def test_history_is_not_flattened_into_the_prompt() -> None:
@@ -173,9 +173,9 @@ async def test_the_answer_is_grounded_in_what_retrieval_found() -> None:
     seen: list[str] = []
 
     class Capturing(SupportGraph):
-        async def respond(self, state: Any) -> Any:
+        async def support_respond(self, state: Any) -> Any:
             seen.append(str(state.kb_snippets))
-            return await super().respond(state)
+            return await super().support_respond(state)
 
     with mock_openai(
         tool_call(

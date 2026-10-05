@@ -1,9 +1,8 @@
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import interrupt
+from typing import Literal
 
-from assistant.agents import AgentConfig
-from assistant.events import Emitter, silent
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
+
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.feed import AnswerFeed
 from assistant.graphs.states import DeliveryState, Update
@@ -33,11 +32,16 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     name = "delivery"
 
-    async def screen(self, state: DeliveryState) -> Update:
+    async def delivery_screen(
+        self, state: DeliveryState
+    ) -> Command[Literal["delivery_approval", "delivery_send", "__end__"]]:
         """The machine check that runs before the human one.
 
         A reviewer should never be asked to approve something a regex could
         have caught, and a blocked draft never reaches the approval gate.
+
+        `__end__` is spelled out because LangGraph reads this annotation to
+        draw the edges.
         """
         answer = state.answer
         ticket_id = state.context.ticket_id
@@ -54,9 +58,22 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
                     )
                 )
             )
-        return {"guardrail_findings": findings, "reply_blocked": result.blocked}
+            return Command(
+                update={"guardrail_findings": findings, "reply_blocked": True},
+                goto="__end__",
+            )
 
-    async def await_approval(self, state: DeliveryState) -> Update:
+        update = {"guardrail_findings": findings, "reply_blocked": False}
+        waiting = self.needs_a_person(
+            state.model_copy(update={"guardrail_findings": findings})
+        )
+        return Command(
+            update=update, goto="delivery_approval" if waiting else "delivery_send"
+        )
+
+    async def delivery_approval(
+        self, state: DeliveryState
+    ) -> Command[Literal["delivery_send", "__end__"]]:
         """Park the run until a human accepts, edits, or rejects the draft."""
         answer = state.answer
         # Findings ride the interrupt rather than the state: a subgraph's
@@ -80,16 +97,24 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
                 update={"content": "The draft reply was rejected by a reviewer."}
             )
             await self.answered(state.context.ticket_id, rejected)
-            return {"approval_granted": False, "answer": rejected}
+            return Command(
+                update={"approval_granted": False, "answer": rejected},
+                goto="__end__",
+            )
 
         edited = decision.get("content") if isinstance(decision, dict) else None
-        return {
-            "approval_granted": True,
-            "answer": answer.model_copy(update={"content": edited or answer.content}),
-        }
+        return Command(
+            update={
+                "approval_granted": True,
+                "answer": answer.model_copy(
+                    update={"content": edited or answer.content}
+                ),
+            },
+            goto="delivery_send",
+        )
 
-    async def send_reply(self, state: DeliveryState) -> Update:
-        """The irreversible step, reachable only once approval is granted."""
+    async def delivery_send(self, state: DeliveryState) -> Update:
+        """The irreversible step. Nothing follows it."""
         answer = state.answer
         ticket_id = state.context.ticket_id
         outcome = await send_reply_to_customer(ticket_id, answer.content, approved=True)
@@ -126,19 +151,13 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
             return False
         return state.answer.requires_approval or bool(state.guardrail_findings)
 
-    def route_after_screen(self, state: DeliveryState) -> str:
-        if state.reply_blocked:
-            return END
-        return "await_approval" if self.needs_a_person(state) else "send_reply"
-
-    def route_after_approval(self, state: DeliveryState) -> str:
-        return "send_reply" if state.approval_granted else END
+    # --- wiring -------------------------------------------------------------
 
     def nodes(self) -> dict[str, Node]:
         return {
-            "screen": self.screen,
-            "await_approval": self.await_approval,
-            "send_reply": self.send_reply,
+            "delivery_screen": self.delivery_screen,
+            "delivery_approval": self.delivery_approval,
+            "delivery_send": self.delivery_send,
         }
 
     def build(self) -> StateGraph[DeliveryState, None, DeliveryState, DeliveryState]:
@@ -147,28 +166,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         )
         self.add_nodes(graph)
 
-        graph.add_edge(START, "screen")
-        graph.add_conditional_edges(
-            "screen",
-            self.route_after_screen,
-            {"await_approval": "await_approval", "send_reply": "send_reply", END: END},
-        )
-        graph.add_conditional_edges(
-            "await_approval",
-            self.route_after_approval,
-            {"send_reply": "send_reply", END: END},
-        )
-        graph.add_edge("send_reply", END)
+        graph.add_edge(START, "delivery_screen")
+        graph.add_edge("delivery_send", END)
 
         return graph
-
-
-def build_delivery_graph(
-    config: AgentConfig | None = None, emitter: Emitter = silent
-) -> CompiledStateGraph[DeliveryState, None, DeliveryState, DeliveryState]:
-    """Compiled, so the parent can add it as a node directly.
-
-    No checkpointer of its own: a subgraph shares the parent's, which is what
-    lets a resume reach the interrupt inside it.
-    """
-    return DeliveryGraph(config, emitter).build().compile()

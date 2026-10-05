@@ -117,8 +117,6 @@ ok('the customer lands on the portal, not the console');
 // Through the dialog, not through fetch: what they type is the ticket's first
 // message, and the agent picks it up from there. Priority is not asked for -
 // the agent grades it, because everyone's own problem is urgent.
-const TICKET_LINK = 'aside a[href*="/tickets/"]';
-const ticketsBefore = await customerPage.locator(TICKET_LINK).count();
 await customerPage.click('button:has-text("New ticket")');
 await customerPage.fill('[role="dialog"] input', 'Charged twice this month');
 await customerPage.fill(
@@ -126,16 +124,13 @@ await customerPage.fill(
   'My card shows two charges for the same plan.',
 );
 await customerPage.click('[role="dialog"] button[type="submit"]');
-await customerPage.waitForFunction(
-  ([selector, n]) => document.querySelectorAll(selector).length > n,
-  [TICKET_LINK, ticketsBefore],
-  { timeout: 20000 },
-);
-const ticketId = await customerPage
-  .locator(TICKET_LINK)
-  .first()
-  .getAttribute('href')
-  .then((href) => href.split('/').pop());
+// Read from the navigation the dialog performs, not from the sidebar: taking
+// the first link there once put a whole pass onto a ticket somebody had opened
+// by hand, and every assertion after it was about the wrong thread.
+await customerPage.waitForURL(/\/portal\/tickets\/[0-9a-f-]+$/, {
+  timeout: 20000,
+});
+const ticketId = customerPage.url().split('/').pop();
 ok(`reported a problem through the dialog (${ticketId.slice(0, 8)})`);
 
 console.log('== ticket triage, end to end ==');

@@ -70,6 +70,20 @@ class TestLettingItGo:
         assert queued is not None
         assert queued.question == "answer this next"
 
+    def test_the_lane_stays_claimed_while_that_one_is_answered(
+        self, ticket: Any
+    ) -> None:
+        """Handing the claim back first left the lane open for the length of
+        the follow-up, which is the race the claim exists to stop."""
+        lanes.claim_sync(str(ticket.id), Visibility.PUBLIC, "", None)
+        lanes.claim_sync(str(ticket.id), Visibility.PUBLIC, "and this", None)
+
+        lanes.release_sync(str(ticket.id), Visibility.PUBLIC)
+
+        held = TicketRun.objects.get(ticket=ticket, visibility=Visibility.PUBLIC)
+        assert not held.waiting
+        assert not lanes.claim_sync(str(ticket.id), Visibility.PUBLIC, "later", None)
+
     def test_a_parked_run_keeps_it(self, ticket: Any) -> None:
         """Waiting for a person is not being finished, and the resume needs the
         interrupt it parked on to still be there."""

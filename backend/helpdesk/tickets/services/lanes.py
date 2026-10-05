@@ -96,10 +96,18 @@ def release_sync(ticket_id: str, visibility: str) -> Queued | None:
         )
         if run is None:
             return None
-        queued = (
-            Queued(run.waiting_question, run.waiting_user_id) if run.waiting else None
-        )
-        run.delete()
+        if not run.waiting:
+            run.delete()
+            return None
+
+        # The claim stays with the run that is about to answer what waited.
+        # Handing it back first left the lane open for the length of that
+        # answer, which is the race this exists to stop.
+        queued = Queued(run.waiting_question, run.waiting_user_id)
+        run.waiting = False
+        run.waiting_question = ""
+        run.waiting_user_id = None
+        run.save(update_fields=["waiting", "waiting_question", "waiting_user_id"])
     return queued
 
 

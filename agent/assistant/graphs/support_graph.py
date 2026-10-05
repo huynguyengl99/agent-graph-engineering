@@ -13,7 +13,7 @@ from assistant.agents import (
     TeamDecisionAgent,
 )
 from assistant.agents.chat import TeamAgent
-from assistant.conversations import history
+from assistant.conversations import as_messages, dump_messages, load_messages
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.delivery_graph import DeliveryGraph
@@ -144,7 +144,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
             self.deciders[context.audience],
             prompt,
             context,
-            await self._history(state) if state.question else None,
+            self._history(state) if state.question else None,
         )
         await self.emit(
             DecidedMessage(
@@ -233,7 +233,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
         context = state.context
         parts: list[str] = []
         async for delta in self.team.stream(
-            self._prompt(state), context, await self._history(state)
+            self._prompt(state), context, self._history(state)
         ):
             parts.append(delta)
             # Published, not written to the graph's stream: every subscriber
@@ -249,9 +249,6 @@ class SupportGraph(AnswerFeed, BaseGraph):
             )
 
         answer = "".join(parts)
-        # Everything this turn saw, the model's own reply included, so the next
-        # turn reads its actions as the calls they were rather than as prose.
-        await history().replace(context.thread_id, self.team.messages)
         await self.emit(
             ChatCompleteMessage(
                 payload=ChatCompletePayload(
@@ -261,7 +258,13 @@ class SupportGraph(AnswerFeed, BaseGraph):
                 )
             )
         )
-        return {"answer": TicketAnswer(content=answer, requires_approval=False)}
+        return {
+            "answer": TicketAnswer(content=answer, requires_approval=False),
+            # Everything this turn saw, the model's own reply included, so the
+            # next turn reads its actions as the calls they were rather than as
+            # prose about them.
+            "messages_json": dump_messages(self.team.messages),
+        }
 
     def _prompt(self, state: SupportState) -> str:
         context = state.context
@@ -286,11 +289,20 @@ class SupportGraph(AnswerFeed, BaseGraph):
             prompt += f"\n\nA tool failed:\n{state.tool_error}"
         return prompt
 
-    async def _history(self, state: SupportState) -> Any:
-        """A single pass carries the thread in its prompt instead."""
+    def _history(self, state: SupportState) -> Any:
+        """What the model remembers of this thread.
+
+        A customer's run is a single pass and carries the thread in its prompt
+        instead. The team's remembers, and when it has nothing to remember yet
+        it starts from the record the backend sent - so the memory is a cache
+        over that record rather than a second copy of it, and losing a
+        checkpoint costs the shape of past tool calls, not the conversation.
+        """
         if state.context.for_customer:
             return None
-        return await history().load(state.context.thread_id)
+        if state.messages_json:
+            return load_messages(state.messages_json)
+        return as_messages(state.context.history)
 
     def route_after_tool(self, state: SupportState) -> str:
         """A planner asked for a tool and finding none is not a tool call.

@@ -5,6 +5,8 @@ the service table are in the [README](../README.md).
 
 The backend owns users, tickets, and the thread as a person reads it. The agent service owns the graphs, the tools, the checkpoints, and the thread as the *model* remembers it - Pydantic AI's own message history, which is not the same thing as a list of rows and is why both exist.
 
+That memory rides on the graph's state, so the checkpointer that already persists a parked run persists it too. It had a table and a process-wide singleton of its own until the two copies of one thread became the problem they look like: written separately, a crash between them left them disagreeing, and neither could be rebuilt from the other. A lane with nothing remembered yet starts from the record the backend sends, which makes the memory a cache over that record - lose a checkpoint and what is lost is the shape of past tool calls, not the conversation.
+
 Every browser tab holds **one** WebSocket at `/ws/`. Each ticket is a *topic* on it, addressed per frame, so watching four tickets is one connection rather than four. Publishing needs no consumer instance: `Topic.broadcast` is a classmethod, which is what a background task driving the agent requires.
 
 ## A note on the agent's boundary

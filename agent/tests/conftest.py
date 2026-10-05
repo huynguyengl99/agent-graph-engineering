@@ -22,7 +22,6 @@ os.environ["ASSISTANT_TRACE_DIR"] = ""
 
 
 import pytest
-from assistant.conversations import MemoryHistoryStore, install_history
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.checkpointer import install_checkpointer, memory_checkpointer
 from assistant.runs import MemoryEventStore, install_run_events
@@ -44,7 +43,6 @@ def _per_test_state() -> None:
     install_checkpointer(memory_checkpointer())
     install_ledger(MemoryLedger())
     install_run_events(MemoryEventStore())
-    install_history(MemoryHistoryStore())
     register_channel_layer(LAYER_ALIAS, InMemoryChannelLayer())
     trace_store.use_files(None)
     trace_store.clear()

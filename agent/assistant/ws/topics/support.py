@@ -9,7 +9,6 @@ from langgraph.types import Command
 
 from assistant.agents import Audience, Context, Ticket, Turn
 from assistant.agents.config import AgentConfig
-from assistant.conversations import history
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.checkpointer import checkpointer
@@ -95,8 +94,6 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         )
 
         try:
-            # Only used when this service has no history of its own yet.
-            await history().seed(self.thread_id, context.history)
             await self._consume(
                 self._graph(payload.models),
                 # A whole state, not an update: the thread holds the last run's

@@ -120,7 +120,7 @@ test. Keep that property when adding more.
 
 ### Things that will bite
 
-- `TRIAGE_ON_COMMENT` gates the automatic trigger and is `False` in test settings. Without it, every consumer test would reach for a live agent on :8001 and pass or fail depending on whether one happens to be running.
+- `AGENT_ON_COMMENT` gates the automatic trigger and is `False` in test settings. Without it, every consumer test would reach for a live agent on :8001 and pass or fail depending on whether one happens to be running.
 - Agent tests set a dummy `OPENAI_API_KEY` in `tests/conftest.py`, otherwise the agents fall back to `ScriptedModel` and the respx mocks match nothing.
 - `graph.astream(..., stream_mode="updates")` yields `{node_name: update}` per step, not a `(name, update)` tuple. The graph tests use `ainvoke` and cannot catch a mistake here; `tests/test_consumer_streaming.py` exists for that.
 - Each service reads the `.env` beside it (`backend/.env`, `agent/.env`, `web/.env`), never a shared one. environs resolves the nearest file walking up from the working directory, and every recipe runs a service from its own. A variable one service sets and another reads by accident is not a hypothetical: the backend's `DJANGO_SETTINGS_MODULE` used to reach the agent, where chanx reads it to pick an integration, and every topic broadcast would have failed.

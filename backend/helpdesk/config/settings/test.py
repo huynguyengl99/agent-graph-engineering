@@ -11,7 +11,7 @@ PASSWORD_HASHERS = [
 # Origin policy is an integration concern; these tests exercise consumers.
 WEBSOCKET_ALLOWED_ORIGINS = ["*"]
 
-TRIAGE_ON_COMMENT = False
+AGENT_ON_COMMENT = False
 
 # Marks the end of a handler's output so receive_all_messages() can stop reading.
 CHANX = {**CHANX, "SEND_COMPLETION": True}  # noqa: F405

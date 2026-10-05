@@ -59,7 +59,7 @@ class TestWhoACommentIsFor(WebsocketTestCase):
         assert comment.visibility == Visibility.PUBLIC
 
 
-@override_settings(TRIAGE_ON_COMMENT=True)
+@override_settings(AGENT_ON_COMMENT=True)
 class TestWhatAsksForAReply(WebsocketTestCase):
     """Triage drafts a reply to the customer, so only the customer asks for one.
 

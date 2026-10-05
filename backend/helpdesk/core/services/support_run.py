@@ -23,7 +23,6 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ApprovalDecisionPayload,
     ApprovalRequiredMessage,
     ChatCompleteMessage,
-    ChatErrorMessage,
     ChatTokenMessage,
     ClassifiedMessage,
     DecidedMessage,
@@ -34,13 +33,13 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ReplayRequestPayload,
     ReplyBlockedMessage,
     ReplySentMessage,
+    RunFailedMessage,
     RunRequestMessage,
     RunRequestPayload,
     ToolApprovalMessage,
     ToolDecisionMessage,
     ToolDecisionPayload,
     ToolRanMessage,
-    TriageErrorMessage,
 )
 from helpdesk.core.agent_connection import agent_headers
 from helpdesk.core.services.cursors import advance, last_handled
@@ -191,7 +190,7 @@ class SupportRun(AgentClient):
                 done = False
             case ChatCompleteMessage(payload=p):
                 await self.sink.answered(p.content, p.model)
-            case TriageErrorMessage(payload=p) | ChatErrorMessage(payload=p):
+            case RunFailedMessage(payload=p):
                 await self.sink.failed(p.message)
             case _:
                 # A heartbeat, or a message type the agent gained and this relay

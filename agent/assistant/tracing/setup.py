@@ -37,7 +37,7 @@ def setup_tracing(force: bool = False) -> None:
         return
 
     provider = TracerProvider(
-        resource=Resource.create({"service.name": "triage-agent"})
+        resource=Resource.create({"service.name": "support-agent"})
     )
 
     if settings.trace_export.writes_files and settings.trace_dir:
@@ -97,4 +97,4 @@ def otlp_processor() -> BatchSpanProcessor | None:
 
 
 def tracer() -> trace.Tracer:
-    return trace.get_tracer("triage")
+    return trace.get_tracer("support")

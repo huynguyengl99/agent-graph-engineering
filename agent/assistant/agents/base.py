@@ -89,12 +89,16 @@ class BaseAgent[OutputT]:
             # A planner that proposed the right tool and mis-shaped the object
             # around it used to take the whole run down, and the gate the
             # reviewer was waiting at never appeared.
-            logger.warning("agent.stream_output_invalid", agent=type(self).__name__)
+            await logger.awarning(
+                "agent.stream_output_invalid", agent=type(self).__name__
+            )
             return await self.run(prompt, deps, history)
 
         if output is None:
             # Nothing validated at all: the same situation, reached quietly.
-            logger.warning("agent.stream_output_empty", agent=type(self).__name__)
+            await logger.awarning(
+                "agent.stream_output_empty", agent=type(self).__name__
+            )
             return await self.run(prompt, deps, history)
         return output  # type: ignore[no-any-return]
 

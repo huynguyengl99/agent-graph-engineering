@@ -70,14 +70,7 @@ def _as_json(value: Any) -> str:
 
 
 def traced(name: str, node: Node) -> Node:
-    """Wrap a node so its run, and the model calls inside it, share one span.
-
-    The wrapper carries the wrapped node's annotations. LangGraph reads a
-    node's return type to learn where a `Command` can send the run, so a
-    wrapper that dropped them left the graph with almost no edges: it still ran,
-    because `Command` routes at runtime, but the diagram showed a node with
-    nothing after it and `xray` had no subgraph to expand.
-    """
+    """Wrap a node so its run, and the model calls inside it, share one span."""
 
     async def run(state: Any) -> Any:
         with tracer().start_as_current_span(
@@ -86,8 +79,6 @@ def traced(name: str, node: Node) -> Node:
             span.set_attribute(STATE_IN, _as_json(state))
             outcome = await node(state)
 
-            # A node that routes itself returns the update wrapped in where it
-            # is going. Recording the wrapper would lose every decision in it.
             written = outcome
             if isinstance(outcome, Command):
                 span.set_attribute(GOTO, str(outcome.goto))
@@ -98,7 +89,8 @@ def traced(name: str, node: Node) -> Node:
                 span.set_attribute(key, value)
             return outcome
 
+    # The annotations carry a node's `Command` destinations, which LangGraph
+    # reads to build the edges.
     functools.update_wrapper(run, node)
-    # After the copy: the span and the node key are this name, not the method's.
     run.__name__ = name
     return run

@@ -17,12 +17,6 @@ class SupportState(BaseState, Knowledge, Tools, Delivery):
     decision: Decision | None = None
     answer: TicketAnswer | None = None
 
-    # What the model was told, in Pydantic AI's own messages, as the JSON its
-    # own adapter writes. A tool call is a call in here, not a sentence about
-    # one, which is the whole reason the team's lane keeps it at all.
-    #
-    # A blob rather than the message types: those are a dozen classes belonging
-    # to another library, and the checkpoint serde allows types by name - one
-    # missing comes back as nothing. Their adapter owns that schema, so it does
-    # the reading and the writing.
+    # A blob, not the message types: the serde allows types by name and a
+    # missing one comes back as nothing.
     messages_json: Annotated[str, remembered] = ""

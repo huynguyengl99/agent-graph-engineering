@@ -111,4 +111,4 @@ async def test_handler_reports_failure_instead_of_raising(
         )
     )
 
-    assert events.actions() == ["triage_error"]
+    assert events.actions() == ["run_failed"]

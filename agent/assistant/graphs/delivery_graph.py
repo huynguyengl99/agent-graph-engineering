@@ -35,14 +35,8 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
     async def delivery_screen(
         self, state: DeliveryState
     ) -> Command[Literal["delivery_approval", "delivery_send", "__end__"]]:
-        """The machine check that runs before the human one.
-
-        A reviewer should never be asked to approve something a regex could
-        have caught, and a blocked draft never reaches the approval gate.
-
-        `__end__` is spelled out because LangGraph reads this annotation to
-        draw the edges.
-        """
+        """The machine check before the human one: a blocked draft never
+        reaches the gate."""
         answer = state.answer
         ticket_id = state.context.ticket_id
         result = screen_reply(
@@ -114,7 +108,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         )
 
     async def delivery_send(self, state: DeliveryState) -> Update:
-        """The irreversible step. Nothing follows it."""
+        """The irreversible step."""
         answer = state.answer
         ticket_id = state.context.ticket_id
         outcome = await send_reply_to_customer(ticket_id, answer.content, approved=True)
@@ -130,22 +124,11 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         return {"delivery_receipt": receipt}
 
     def needs_a_person(self, state: DeliveryState) -> bool:
-        """Whether a human reads this one before the customer does.
+        """Whether a person reads this before the customer does.
 
-        Not every reply, which is what it used to be: a desk whose assistant
-        can never finish a sentence has no assistant, and the customer sat in
-        front of an empty thread while the answer waited on a screen they
-        cannot see.
-
-        What is left here is the machine saying it is unsure. Everything the
-        output screen finds is severe enough to stop the draft outright, so by
-        this point a finding is the *input* screen's: something in the ticket
-        addressed the model directly. That is worth a person's eyes on the
-        reply, and it is rare.
-
-        A handover is the exception: it says a colleague is picking this up,
-        somebody has already been sent for, and holding the sentence that says
-        so behind that same person helps nobody.
+        Output findings all block outright, so a finding surviving to here is
+        the input screen's: something in the ticket addressed the model. A
+        handover has already sent for a person, so it does not wait for one.
         """
         if state.escalation_reason:
             return False

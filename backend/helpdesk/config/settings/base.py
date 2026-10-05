@@ -299,7 +299,7 @@ AGENT_WS_URL = env.str("AGENT_WS_URL", "ws://localhost:8001")
 AGENT_TOKEN = env.str("ASSISTANT_AGENT_TOKEN", "")
 # Tests drive the triage client explicitly; leaving the automatic
 # trigger on would make results depend on whether the agent is running.
-TRIAGE_ON_COMMENT = env.bool("TRIAGE_ON_COMMENT", True)
+AGENT_ON_COMMENT = env.bool("AGENT_ON_COMMENT", True)
 
 # How long one run may hold a ticket's lane before another may take it over. A
 # run parked on a person holds it for as long as they take, so this only has to
@@ -308,4 +308,4 @@ AGENT_RUN_CLAIM_TIMEOUT = env.int("AGENT_RUN_CLAIM_TIMEOUT", 300)
 # Only a fallback now: the agent reports which model wrote a reply, and this
 # service records what it was told. A reply that arrives without one is a
 # replay from before that, not something to label with today's setting.
-AGENT_ANSWER_MODEL = env.str("TRIAGE_ANSWER_MODEL", "the assistant")
+AGENT_ANSWER_MODEL = env.str("AGENT_ANSWER_MODEL", "the assistant")

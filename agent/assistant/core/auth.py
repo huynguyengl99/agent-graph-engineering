@@ -57,7 +57,7 @@ class SharedTokenMiddleware:
             await self.app(scope, receive, send)
             return
 
-        logger.warning("agent.unauthenticated", path=path, kind=scope["type"])
+        await logger.awarning("agent.unauthenticated", path=path, kind=scope["type"])
         await self._reject(scope, send)
 
     async def _reject(self, scope: Scope, send: Send) -> None:

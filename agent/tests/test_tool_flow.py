@@ -289,7 +289,7 @@ class TestDeciding:
             )
         )
 
-        assert events.actions() == ["chat_error"]
+        assert events.actions() == ["run_failed"]
 
 
 class TestTheParkAndTheResumeAreOneRun:

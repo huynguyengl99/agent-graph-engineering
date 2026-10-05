@@ -10,8 +10,6 @@ from .messages import (
     ApprovalRequiredPayload,
     ChatCompleteMessage,
     ChatCompletePayload,
-    ChatErrorMessage,
-    ChatErrorPayload,
     ChatTokenMessage,
     ChatTokenPayload,
     ClassifiedMessage,
@@ -31,6 +29,8 @@ from .messages import (
     ReplyBlockedPayload,
     ReplySentMessage,
     ReplySentPayload,
+    RunFailedMessage,
+    RunFailedPayload,
     RunRequestMessage,
     RunRequestPayload,
     RunTurn,
@@ -41,8 +41,6 @@ from .messages import (
     ToolDecisionPayload,
     ToolRanMessage,
     ToolRanPayload,
-    TriageErrorMessage,
-    TriageErrorPayload,
 )
 
 __all__ = [
@@ -55,8 +53,6 @@ __all__ = [
     "ApprovalRequiredPayload",
     "ChatCompleteMessage",
     "ChatCompletePayload",
-    "ChatErrorMessage",
-    "ChatErrorPayload",
     "ChatTokenMessage",
     "ChatTokenPayload",
     "ClassifiedMessage",
@@ -76,6 +72,8 @@ __all__ = [
     "ReplyBlockedPayload",
     "ReplySentMessage",
     "ReplySentPayload",
+    "RunFailedMessage",
+    "RunFailedPayload",
     "RunRequestMessage",
     "RunRequestPayload",
     "RunTurn",
@@ -86,6 +84,4 @@ __all__ = [
     "ToolDecisionPayload",
     "ToolRanMessage",
     "ToolRanPayload",
-    "TriageErrorMessage",
-    "TriageErrorPayload",
 ]

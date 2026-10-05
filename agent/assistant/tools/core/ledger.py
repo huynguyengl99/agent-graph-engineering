@@ -142,7 +142,7 @@ async def setup_ledger(pool: Any | None) -> ToolLedger:
     _live.ledger = ToolLedger(pool) if pool is not None else MemoryLedger()
     await _live.ledger.setup()
     if pool is None:
-        logger.warning(
+        await logger.awarning(
             "ledger.in_memory",
             detail="a restart mid-tool could repeat an irreversible call",
         )

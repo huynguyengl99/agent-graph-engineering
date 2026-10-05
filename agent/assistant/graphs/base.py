@@ -58,18 +58,7 @@ class BaseGraph:
         context: Any,
         history: Any = None,
     ) -> Any:
-        """Run a step, reporting its reasoning as the model writes it.
-
-        Structured output arrives in pieces, so every step that explains itself
-        can be read while it decides rather than after.
-
-        The deltas go out the way every other event does, as messages on the
-        run's topic. They used to ride LangGraph's custom stream channel, which
-        meant only the connection draining `astream` ever saw them: a second
-        tab watching the same ticket got the finished reasoning and none of the
-        writing. They are not replayable, because a reader who missed a
-        half-written sentence has the finished one.
-        """
+        """Run a step, publishing its reasoning as the model writes it."""
 
         async def aloud(delta: str) -> None:
             await self.emit(
@@ -110,12 +99,8 @@ class BaseGraph:
             graph.add_node(name, traced(name, node))
 
     def subgraph(self) -> CompiledStateGraph[Any, Any, Any, Any]:
-        """Compiled to be added to a parent as a node.
-
-        No checkpointer of its own - it shares the parent's, which is what lets
-        a resume reach an interrupt one level down - and no run span, because
-        the run it belongs to is the parent's.
-        """
+        """Compiled for a parent to add as a node: it shares the parent's
+        checkpointer, so a resume reaches an interrupt one level down."""
         return self.build().compile()
 
     def compile(

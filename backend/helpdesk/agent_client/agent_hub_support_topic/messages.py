@@ -49,20 +49,6 @@ class ChatCompleteMessage(BaseModel):
     payload: ChatCompletePayload
 
 
-class ChatErrorPayload(BaseModel):
-    """ChatErrorPayload"""
-
-    conversation_id: str
-    message: str
-
-
-class ChatErrorMessage(BaseModel):
-    """ChatErrorMessage"""
-
-    action: Literal["chat_error"] = "chat_error"
-    payload: ChatErrorPayload
-
-
 class ChatTokenPayload(BaseModel):
     """ChatTokenPayload"""
 
@@ -213,6 +199,22 @@ class ReplySentMessage(BaseModel):
     payload: ReplySentPayload
 
 
+class RunFailedPayload(BaseModel):
+    """RunFailedPayload"""
+
+    thread_id: str
+    message: str
+
+
+class RunFailedMessage(BaseModel):
+    """A run died. One message for both audiences: the backend hands a failed
+    customer run to a person and tells the team their question died, and that
+    is the reader's decision rather than two events."""
+
+    action: Literal["run_failed"] = "run_failed"
+    payload: RunFailedPayload
+
+
 class RunTurn(BaseModel):
     """One thing already said on the thread."""
 
@@ -299,20 +301,6 @@ class ToolRanMessage(BaseModel):
     payload: ToolRanPayload
 
 
-class TriageErrorPayload(BaseModel):
-    """TriageErrorPayload"""
-
-    ticket_id: str
-    message: str
-
-
-class TriageErrorMessage(BaseModel):
-    """TriageErrorMessage"""
-
-    action: Literal["triage_error"] = "triage_error"
-    payload: TriageErrorPayload
-
-
 IncomingMessage = (
     ClassifiedMessage
     | DecidedMessage
@@ -324,8 +312,7 @@ IncomingMessage = (
     | ChatCompleteMessage
     | ToolApprovalMessage
     | ToolRanMessage
-    | TriageErrorMessage
-    | ChatErrorMessage
+    | RunFailedMessage
     | ReasoningDeltaMessage
     | ReasonedMessage
 )

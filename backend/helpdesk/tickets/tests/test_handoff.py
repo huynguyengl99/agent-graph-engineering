@@ -18,12 +18,12 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ChatCompletePayload,
     ReplySentMessage,
     ReplySentPayload,
+    RunFailedMessage,
+    RunFailedPayload,
     ToolApprovalMessage,
     ToolApprovalPayload,
     ToolRanMessage,
     ToolRanPayload,
-    TriageErrorMessage,
-    TriageErrorPayload,
 )
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
@@ -140,7 +140,7 @@ class TestTakingTheTicket(WebsocketTestCase):
 
         assert await handling_of(str(self.ticket.id)) == Handling.AGENT
 
-    @override_settings(TRIAGE_ON_COMMENT=True)
+    @override_settings(AGENT_ON_COMMENT=True)
     @patch("helpdesk.tickets.services.support.start_run")
     async def test_the_agent_stays_quiet_once_staff_have_it(
         self, start: AsyncMock
@@ -182,7 +182,7 @@ class TestTheAgentStillAnswers(WebsocketTestCase):
         self.ticket = TicketFactory.create(created_by=self.user)
         self.topic = f"ticket:{self.ticket.id}"
 
-    @override_settings(TRIAGE_ON_COMMENT=True)
+    @override_settings(AGENT_ON_COMMENT=True)
     @patch("helpdesk.tickets.services.support.start_run")
     async def test_the_requester_asking_again_reaches_the_agent(
         self, start: AsyncMock
@@ -398,9 +398,9 @@ class TestAFailedRunDoesNotStrandTheCustomer(WebsocketTestCase):
         client = relay(str(self.ticket.id))
 
         await client.on_event(
-            TriageErrorMessage(
-                payload=TriageErrorPayload(
-                    ticket_id=str(self.ticket.id), message="The run died."
+            RunFailedMessage(
+                payload=RunFailedPayload(
+                    thread_id=str(self.ticket.id), message="The run died."
                 )
             )
         )

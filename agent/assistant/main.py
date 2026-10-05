@@ -44,8 +44,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Triage Agent",
-    description="LangGraph ticket triage over a typed WebSocket",
+    title="Support Agent",
+    description="LangGraph support graphs over a typed WebSocket",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -68,7 +68,7 @@ else:
     )
 
 asyncapi_conf = AsyncAPIConfig(
-    description="WebSocket contract between the Django backend and the triage agent",
+    description="WebSocket contract between the Django backend and the agent",
     version="0.1.0",
 )
 

@@ -5,11 +5,6 @@ def last_wins(_current: object, incoming: object) -> object:
 
 
 def remembered(current: str, incoming: str) -> str:
-    """Keep what is there when the new value says nothing.
-
-    A new question on a thread arrives as a whole state, so the last run's tool
-    result cannot be read as this one's - and that resets every field to its
-    default. What the model remembers is not this run's to forget, so an empty
-    incoming value leaves it alone.
-    """
+    """Keep what is there when the new value says nothing: a new question
+    arrives as a whole state, which would otherwise reset the memory."""
     return incoming or current

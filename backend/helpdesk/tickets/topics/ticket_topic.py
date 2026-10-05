@@ -84,7 +84,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
             )
             return
 
-        if not settings.TRIAGE_ON_COMMENT or not from_requester:
+        if not settings.AGENT_ON_COMMENT or not from_requester:
             return
         if event.visibility != Visibility.PUBLIC:
             return

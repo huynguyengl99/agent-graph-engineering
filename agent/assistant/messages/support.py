@@ -25,21 +25,6 @@ class ModelOverrides(BaseModel):
     answer: str | None = None
 
 
-class TriageRequestPayload(BaseModel):
-    ticket_id: str
-    title: str
-    description: str
-    history: list[str] = []
-    models: ModelOverrides | None = None
-
-
-class TriageRequestMessage(BaseMessage):
-    """Backend asks the agent to work a ticket."""
-
-    action: Literal["triage_request"] = "triage_request"
-    payload: TriageRequestPayload
-
-
 class ClassifiedPayload(BaseModel):
     ticket_id: str
     category: Category
@@ -84,14 +69,18 @@ class AnswerMessage(BaseMessage):
     payload: AnswerPayload
 
 
-class TriageErrorPayload(BaseModel):
-    ticket_id: str
+class RunFailedPayload(BaseModel):
+    thread_id: str
     message: str
 
 
-class TriageErrorMessage(BaseMessage):
-    action: Literal["triage_error"] = "triage_error"
-    payload: TriageErrorPayload
+class RunFailedMessage(BaseMessage):
+    """A run died. One message for both audiences: the backend hands a failed
+    customer run to a person and tells the team their question died, and that
+    is the reader's decision rather than two events."""
+
+    action: Literal["run_failed"] = "run_failed"
+    payload: RunFailedPayload
 
 
 class ApprovalRequiredPayload(BaseModel):
@@ -256,16 +245,6 @@ class ToolRanMessage(BaseMessage):
     payload: ToolRanPayload
 
 
-class ChatErrorPayload(BaseModel):
-    conversation_id: str
-    message: str
-
-
-class ChatErrorMessage(BaseMessage):
-    action: Literal["chat_error"] = "chat_error"
-    payload: ChatErrorPayload
-
-
 class TicketRef(BaseModel):
     """The ticket a run is about. Absent for a question with no ticket behind it."""
 
@@ -345,8 +324,7 @@ SupportEvent = (
     | ChatCompleteMessage
     | ToolApprovalMessage
     | ToolRanMessage
-    | TriageErrorMessage
-    | ChatErrorMessage
+    | RunFailedMessage
     | ReasoningDeltaMessage
     | ReasonedMessage
 )

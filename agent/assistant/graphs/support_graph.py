@@ -47,12 +47,7 @@ from assistant.tracing.nodes import Node
 def _route_for(
     decision: Decision, for_customer: bool
 ) -> Literal["knowledge", "tool", "support_escalate", "support_respond"]:
-    """Where a decision sends the run.
-
-    A pure function rather than an edge map: the node still declares its
-    destinations in its own return type, and this is the one line of it worth
-    reading on its own.
-    """
+    """Where a decision sends the run."""
     match decision:
         case SearchKnowledgeBase():
             return "knowledge"
@@ -169,10 +164,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
     async def support_escalate(
         self, state: SupportState
     ) -> Command[Literal["delivery"]]:
-        """Hand the ticket over, and tell the customer so.
-
-        The notice leaves by the one route out, like any other reply.
-        """
+        """Hand the ticket over, and tell the customer so."""
         decision = state.decision
         team = getattr(decision, "suggested_team", "general")
         reason = getattr(decision, "reason", None) or getattr(decision, "reasoning", "")
@@ -209,11 +201,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
     async def support_respond(
         self, state: SupportState
     ) -> Command[Literal["delivery", "__end__"]]:
-        """The one node both audiences end at, writing for whoever is reading.
-
-        A customer's reply is sent by the delivery subgraph; the team's is
-        already where it was going.
-        """
+        """Where both audiences end up. A customer's reply goes out through
+        delivery; the team's is already where it was going."""
         if state.context.for_customer:
             return Command(update=await self._reply_to_customer(state), goto="delivery")
         return Command(update=await self._answer_the_team(state), goto="__end__")
@@ -236,9 +225,6 @@ class SupportGraph(AnswerFeed, BaseGraph):
             self._prompt(state), context, self._history(state)
         ):
             parts.append(delta)
-            # Published, not written to the graph's stream: every subscriber
-            # watching this ticket sees it arrive, not only the socket that
-            # asked. The finished text follows as the record.
             await self.emit(
                 ChatTokenMessage(
                     payload=ChatTokenPayload(
@@ -260,9 +246,6 @@ class SupportGraph(AnswerFeed, BaseGraph):
         )
         return {
             "answer": TicketAnswer(content=answer, requires_approval=False),
-            # Everything this turn saw, the model's own reply included, so the
-            # next turn reads its actions as the calls they were rather than as
-            # prose about them.
             "messages_json": dump_messages(self.team.messages),
         }
 
@@ -290,14 +273,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
         return prompt
 
     def _history(self, state: SupportState) -> Any:
-        """What the model remembers of this thread.
-
-        A customer's run is a single pass and carries the thread in its prompt
-        instead. The team's remembers, and when it has nothing to remember yet
-        it starts from the record the backend sent - so the memory is a cache
-        over that record rather than a second copy of it, and losing a
-        checkpoint costs the shape of past tool calls, not the conversation.
-        """
+        """What the model remembers. A customer's run is a single pass and
+        carries the thread in its prompt instead."""
         if state.context.for_customer:
             return None
         if state.messages_json:
@@ -305,15 +282,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
         return as_messages(state.context.history)
 
     def route_after_tool(self, state: SupportState) -> str:
-        """A planner asked for a tool and finding none is not a tool call.
-
-        The decider can route here and the planner still answer `NoToolNeeded`,
-        which used to file a tool call with no tool in it: on a customer's run
-        that reached them as a box saying `RAN` about nothing at all.
-
-        A routing method rather than a `Command`, because the node it follows
-        is a compiled subgraph: only the parent can say what comes after one.
-        """
+        """A planner finding no tool is not a tool call. A method rather than
+        a `Command` because only a parent can route after a subgraph."""
         return "support_report_tool" if state.tool else "support_respond"
 
     # --- wiring -------------------------------------------------------------

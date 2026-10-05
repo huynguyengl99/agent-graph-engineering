@@ -18,15 +18,13 @@ from assistant.messages.support import (
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
-    ChatErrorMessage,
-    ChatErrorPayload,
+    RunFailedMessage,
+    RunFailedPayload,
     RunRequestMessage,
     SupportEvent,
     ToolApprovalMessage,
     ToolApprovalPayload,
     ToolDecisionMessage,
-    TriageErrorMessage,
-    TriageErrorPayload,
 )
 from assistant.ws.feed import emitter_for
 from assistant.ws.replay import Replays
@@ -102,7 +100,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
                 SupportState(context=context, question=payload.question),
             )
         except Exception:
-            logger.exception("support.run_failed", thread=self.topic)
+            await logger.aexception("support.run_failed", thread=self.topic)
             await self._fail()
 
     @ws_handler(
@@ -141,7 +139,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         try:
             await self._consume(self._graph(models), command)
         except Exception:
-            logger.exception("support.resume_failed", thread=self.topic)
+            await logger.aexception("support.resume_failed", thread=self.topic)
             await self._fail()
 
     def _graph(self, models: Any) -> Any:
@@ -210,18 +208,15 @@ class SupportTopic(Replays, Topic[SupportEvent]):
                 )
 
     async def _fail(self) -> None:
-        """Said in the audience's own words: the backend hands a failed
-        customer run to a person, and tells the team its question died."""
-        message = "The agent could not finish that."
+        """One event for both audiences. What to do about a dead run - hand the
+        ticket to a person, or tell the team their question died - is the
+        reader's to decide, and the backend decides it by which lane it is in."""
         await self.broadcast(
             self.topic,
-            TriageErrorMessage(
-                payload=TriageErrorPayload(ticket_id=self.thread_id, message=message)
-            )
-            if self.audience is Audience.CUSTOMER
-            else ChatErrorMessage(
-                payload=ChatErrorPayload(
-                    conversation_id=self.thread_id, message=message
+            RunFailedMessage(
+                payload=RunFailedPayload(
+                    thread_id=self.thread_id,
+                    message="The agent could not finish that.",
                 )
             ),
         )

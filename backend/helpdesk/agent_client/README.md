@@ -1,6 +1,6 @@
-# Triage Agent AsyncAPI documentation
+# Support Agent AsyncAPI documentation
 
-WebSocket contract between the Django backend and the triage agent
+WebSocket contract between the Django backend and the agent
 
 **Version:** 0.1.0
 

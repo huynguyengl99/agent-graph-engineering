@@ -9,7 +9,7 @@ from assistant.tracing.store import RUN_ATTRIBUTE, THREAD_ATTRIBUTE
 
 
 def state_key(state: Any) -> str:
-    """What a run is filed under: a ticket for triage, a turn for chat."""
+    """What a run is filed under: one question answered, whoever asked."""
     context = (
         state.get("context")
         if isinstance(state, dict)

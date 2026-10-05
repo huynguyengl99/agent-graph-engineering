@@ -67,11 +67,7 @@ class ToolGraph(BaseGraph):
     async def tool_plan(
         self, state: ToolState
     ) -> Command[Literal["tool_gate", "tool_execute", "__end__"]]:
-        """Pick a tool, or report that none fits.
-
-        `__end__` is spelled out because LangGraph reads this annotation to draw
-        the edges: a destination missing from it is missing from the diagram.
-        """
+        """Pick a tool, or report that none fits."""
         context = state.context
         prompt = (
             f"{context.render(state.request, with_audience=False)}"
@@ -155,7 +151,7 @@ class ToolGraph(BaseGraph):
         return Command(update=update, goto="tool_execute")
 
     async def tool_execute(self, state: ToolState) -> Update:
-        """The call itself. Nothing follows it inside this subgraph."""
+        """The call itself."""
         meta = metadata_for(state.tool)
         arguments: dict[str, Any] = dict(state.arguments)
 

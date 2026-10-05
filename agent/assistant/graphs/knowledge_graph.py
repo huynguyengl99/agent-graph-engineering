@@ -31,13 +31,7 @@ def _described(context: Context) -> str:
 class KnowledgeGraph(BaseGraph):
     """Search, and if nothing comes back, search again with better terms.
 
-    A subgraph rather than a node because it loops, and because the parent has
-    no business knowing how many attempts it took: only `kb_snippets` crosses
-    back out.
-
-    Each node says in its return type where the run can go next, so the branch
-    is in the signature the type checker reads rather than in an edge map
-    somewhere else in the file.
+    A subgraph because it loops: only `kb_snippets` crosses back out.
     """
 
     name = "knowledge"
@@ -53,12 +47,7 @@ class KnowledgeGraph(BaseGraph):
     async def knowledge_search(
         self, state: KnowledgeState
     ) -> Command[Literal["knowledge_refine", "__end__"]]:
-        """Search once. Nothing found and attempts left means try better terms.
-
-        `__end__` is spelled out because LangGraph reads this annotation to
-        draw the edges: a destination missing from it is missing from the
-        diagram the graphs page renders.
-        """
+        """Search once; nothing found with attempts left means better terms."""
         query = state.kb_query or _searchable(state.context)
         attempts = state.kb_attempts + 1
 

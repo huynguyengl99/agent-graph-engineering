@@ -20,8 +20,8 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     DecidedPayload,
     ReplySentMessage,
     ReplySentPayload,
-    TriageErrorMessage,
-    TriageErrorPayload,
+    RunFailedMessage,
+    RunFailedPayload,
 )
 from helpdesk.core.consumers.hub import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
@@ -147,9 +147,9 @@ class TestTriageService(WebsocketTestCase):
         client = self.client_for_ticket()
 
         await client.on_event(
-            TriageErrorMessage(
-                payload=TriageErrorPayload(
-                    ticket_id=str(self.ticket.id),
+            RunFailedMessage(
+                payload=RunFailedPayload(
+                    thread_id=str(self.ticket.id),
                     message="The triage agent could not complete this ticket.",
                 )
             )

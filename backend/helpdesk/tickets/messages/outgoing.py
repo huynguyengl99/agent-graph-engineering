@@ -80,6 +80,23 @@ class ToolProposalMessage(BaseMessage):
     payload: ToolProposalPayload
 
 
+class AgentWorkingPayload(BaseModel):
+    """Whether the assistant is working on this ticket right now.
+
+    Deliberately a boolean and nothing else. Which step it is on, what it
+    decided and what it is reading are the team's; that someone is dealing
+    with your ticket is the customer's, and without it they watch an empty
+    thread and wonder whether anything was received.
+    """
+
+    working: bool
+
+
+class AgentWorkingMessage(BaseMessage):
+    action: Literal["agent_working"] = "agent_working"
+    payload: AgentWorkingPayload
+
+
 class TicketUpdatedPayload(BaseModel):
     status: str
     priority: str

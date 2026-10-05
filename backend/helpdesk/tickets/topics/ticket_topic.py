@@ -9,6 +9,7 @@ from chanx.core.topic import Topic
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,
+    AgentWorkingMessage,
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
     AskAgentMessage,
@@ -32,6 +33,7 @@ from helpdesk.tickets.services.status import set_priority, set_status, ticket_st
 TicketFeedEvent = (
     NewEventMessage
     | AgentProgressMessage
+    | AgentWorkingMessage
     | ApprovalRequiredMessage
     | ToolProposalMessage
     | TicketUpdatedMessage
@@ -272,6 +274,13 @@ class TicketTopic(Topic[TicketFeedEvent]):
     ) -> AgentProgressMessage | None:
         """What the agent decided is the team's business."""
         return event if self._staff else None
+
+    @event_handler
+    async def handle_working(self, event: AgentWorkingMessage) -> AgentWorkingMessage:
+        """That someone is dealing with your ticket is yours to know. It is only
+        ever sent for a run answering the customer, and it carries nothing but
+        the fact."""
+        return event
 
     @event_handler
     async def handle_approval_required(

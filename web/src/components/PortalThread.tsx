@@ -18,12 +18,14 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [events, setEvents] = useState<TicketEvent[]>([]);
   const [draft, setDraft] = useState('');
+  const [working, setWorking] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
 
   const { sendMessage, askAgent, isConnected } = useTicketChat({
     ticketId,
     onNewEvent: (event) =>
       setEvents((current) => mergeEvents(current, [event])),
+    onAgentWorking: setWorking,
   });
 
   // The opening message is the ticket, so nothing posted it: hand it over as
@@ -53,7 +55,7 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [events]);
+  }, [events, working]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +84,22 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
         {events.map((event) => (
           <TicketEventItem key={event.id} event={event} />
         ))}
+        {working && (
+          // Nothing about what it is doing: which step it is on and what it
+          // decided are the team's. That somebody has your ticket is yours.
+          <li className="flex items-center gap-2 px-4 py-3 text-sm text-gray-500">
+            <span className="flex gap-1" aria-hidden>
+              {[0, 150, 300].map((delay) => (
+                <span
+                  key={delay}
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+                  style={{ animationDelay: `${delay}ms` }}
+                />
+              ))}
+            </span>
+            Support is looking at this…
+          </li>
+        )}
         <div ref={bottom} />
       </ul>
 

@@ -28,6 +28,8 @@ from helpdesk.core.services.support_run import Sink, SupportRun, spawn
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,
+    AgentWorkingMessage,
+    AgentWorkingPayload,
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     NewEventMessage,
@@ -83,6 +85,10 @@ class TicketSink(Sink):
         self.seq = 0
         self.agent_topic = ""
         self.draft: str | None = None
+        # What the agent said wrote the reply. The ticket used to be stamped
+        # with this service's own guess at the model, which was wrong the
+        # moment the agent was pointed somewhere else.
+        self.model = ""
 
     async def _progress(
         self, stage: Literal["classified", "decided", "failed"], detail: str
@@ -110,9 +116,10 @@ class TicketSink(Sink):
         if decision == "Escalate":
             await self._to_a_person(why)
 
-    async def drafted(self, content: str, requires_approval: bool) -> None:
+    async def drafted(self, content: str, requires_approval: bool, model: str) -> None:
         # Remembered, not persisted: a draft becomes an event only if it is sent.
         self.draft = content
+        self.model = model or self.model
         # A customer's reply is recorded when delivery actually sends it, gate
         # or no gate. Recording it here as well as there put the same answer on
         # the ticket twice as soon as the agent was allowed to reply by itself.
@@ -146,7 +153,8 @@ class TicketSink(Sink):
     async def reply_blocked(self, findings: list[str]) -> None:
         await self._progress("failed", "; ".join(findings) or "The reply was blocked.")
 
-    async def answered(self, content: str) -> None:
+    async def answered(self, content: str, model: str) -> None:
+        self.model = model or self.model
         await self._event(await self._persist(content))
 
     async def tool_proposed(self, payload: Any) -> None:
@@ -277,7 +285,9 @@ class TicketSink(Sink):
             event = AIResponseEvent.objects.create(
                 ticket_id=self.ticket_id,
                 content=content,
-                model_name=settings.AGENT_ANSWER_MODEL,
+                # The fallback is for a replayed event from before the agent
+                # reported this, not for ordinary use.
+                model_name=self.model or settings.AGENT_ANSWER_MODEL,
                 visibility=self.visibility,
             )
             advance_sync(self.agent_topic, self.seq)
@@ -365,6 +375,20 @@ def relay(
     )
 
 
+async def working(ticket_id: str, visibility: str, *, is_working: bool) -> None:
+    """Tell the ticket whether the assistant is busy on it.
+
+    Only for the lane the customer reads. A run in the team's lane is the
+    team's, and they have the reasoning and the progress to watch instead.
+    """
+    if visibility != Visibility.PUBLIC:
+        return
+    await broadcast(
+        ticket_topic(ticket_id),
+        AgentWorkingMessage(payload=AgentWorkingPayload(working=is_working)),
+    )
+
+
 async def run(
     ticket_id: str, *, question: str = "", visibility: str, user_id: Any = None
 ) -> None:
@@ -381,6 +405,7 @@ async def run(
 
     audience = CUSTOMER if visibility == Visibility.PUBLIC else TEAM
     while True:
+        await working(ticket_id, visibility, is_working=True)
         try:
             request = await _request(
                 ticket_id, question, await model_overrides(user_id)
@@ -401,6 +426,9 @@ async def run(
 
         queued = await release(ticket_id, visibility)
         if queued is None:
+            # Said before returning, and before a park: a run waiting on a
+            # person is not one the customer should watch a spinner for.
+            await working(ticket_id, visibility, is_working=False)
             return
         question, user_id = queued.question, queued.user_id
 

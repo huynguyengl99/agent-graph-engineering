@@ -9,6 +9,7 @@ class AnswerPayload(BaseModel):
     ticket_id: str
     content: str
     requires_approval: bool
+    model: str = ""
 
 
 class AnswerMessage(BaseModel):
@@ -38,6 +39,7 @@ class ChatCompletePayload(BaseModel):
 
     conversation_id: str
     content: str
+    model: str = ""
 
 
 class ChatCompleteMessage(BaseModel):

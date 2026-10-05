@@ -198,7 +198,9 @@ class SupportGraph(AnswerFeed, BaseGraph):
         await self.emit(
             ChatCompleteMessage(
                 payload=ChatCompletePayload(
-                    conversation_id=context.thread_id, content=answer
+                    conversation_id=context.thread_id,
+                    content=answer,
+                    model=self.answer_model,
                 )
             )
         )

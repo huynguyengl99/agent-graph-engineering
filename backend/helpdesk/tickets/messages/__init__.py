@@ -23,6 +23,8 @@ from .incoming import (
 from .outgoing import (
     AgentProgressMessage,
     AgentProgressPayload,
+    AgentWorkingMessage,
+    AgentWorkingPayload,
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     CompleteStreamingMessage,
@@ -43,6 +45,8 @@ __all__ = [
     "AIResponseEvent",
     "AgentProgressMessage",
     "AgentProgressPayload",
+    "AgentWorkingMessage",
+    "AgentWorkingPayload",
     "ApprovalDecisionMessage",
     "ApprovalDecisionPayload",
     "ApprovalRequiredMessage",

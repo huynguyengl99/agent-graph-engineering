@@ -23,6 +23,16 @@ export interface AgentProgressPayload {
   detail: string;
 }
 
+export interface AgentWorkingMessage {
+  action: 'agent_working';
+  payload: AgentWorkingPayload;
+}
+
+/** Whether the assistant is working on this ticket right now. Deliberately a boolean and nothing else. Which step it is on, what it decided and what it is reading are the team's; that someone is dealing with your ticket is the customer's, and without it they watch an empty thread and wonder whether anything was received. */
+export interface AgentWorkingPayload {
+  working: boolean;
+}
+
 /** A reviewer accepts, edits, or rejects the drafted reply. */
 export interface ApprovalDecisionMessage {
   action: 'approval_decision';

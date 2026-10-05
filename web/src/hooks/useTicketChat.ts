@@ -21,6 +21,7 @@ interface UseTicketChatOptions {
   onToolProposal?: (proposal: ToolProposalPayload) => void;
   onTicketUpdated?: (status: string, priority: string) => void;
   onReasoning?: (step: string, delta: string) => void;
+  onAgentWorking?: (working: boolean) => void;
 }
 
 export function useTicketChat({
@@ -31,6 +32,7 @@ export function useTicketChat({
   onToolProposal,
   onTicketUpdated,
   onReasoning,
+  onAgentWorking,
 }: UseTicketChatOptions) {
   const { send, subscribed } = useTopic(
     hub,
@@ -50,6 +52,7 @@ export function useTicketChat({
         tool_proposal: (message) => onToolProposal?.(message.payload),
         reasoning_delta: (message) =>
           onReasoning?.(message.payload.step ?? '', message.payload.delta),
+        agent_working: (message) => onAgentWorking?.(message.payload.working),
         ticket_updated: (message) =>
           onTicketUpdated?.(message.payload.status, message.payload.priority),
       },

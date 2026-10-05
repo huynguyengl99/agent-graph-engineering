@@ -252,6 +252,32 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
             await AIResponseEvent.objects.filter(ticket_id=self.ticket.id).acount() == 1
         )
 
+    async def test_the_reply_is_labelled_with_the_model_that_wrote_it(self) -> None:
+        """This service used to stamp its own setting on every reply, so
+        pointing the agent at another model left them all labelled with the
+        old one."""
+        client = self.client_for(Visibility.PUBLIC)
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+
+        await client.on_event(
+            AnswerMessage(
+                payload=AnswerPayload(
+                    ticket_id=str(self.ticket.id),
+                    content="Sorted.",
+                    requires_approval=False,
+                    model="anthropic:claude-sonnet-5",
+                )
+            )
+        )
+        await client.on_event(
+            ReplySentMessage(
+                payload=ReplySentPayload(ticket_id=str(self.ticket.id), receipt="ok")
+            )
+        )
+
+        event = await AIResponseEvent.objects.aget(ticket_id=self.ticket.id)
+        assert event.model_name == "anthropic:claude-sonnet-5"
+
     async def test_a_receipt_with_no_draft_behind_it_records_nothing(self) -> None:
         """A fresh relay replaying somebody else's terminal event has no draft,
         and used to write that down as an empty message from the agent."""

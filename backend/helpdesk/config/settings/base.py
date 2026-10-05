@@ -305,4 +305,7 @@ TRIAGE_ON_COMMENT = env.bool("TRIAGE_ON_COMMENT", True)
 # run parked on a person holds it for as long as they take, so this only has to
 # outlast the agent working, not a reviewer deciding.
 AGENT_RUN_CLAIM_TIMEOUT = env.int("AGENT_RUN_CLAIM_TIMEOUT", 300)
-AGENT_ANSWER_MODEL = env.str("TRIAGE_ANSWER_MODEL", "gpt-4o")
+# Only a fallback now: the agent reports which model wrote a reply, and this
+# service records what it was told. A reply that arrives without one is a
+# replay from before that, not something to label with today's setting.
+AGENT_ANSWER_MODEL = env.str("TRIAGE_ANSWER_MODEL", "the assistant")

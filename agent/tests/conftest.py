@@ -5,11 +5,18 @@ HTTP call, so the respx mocks would match nothing. Setting a dummy key here
 (before anything imports `assistant.core.config`) keeps the tests exercising the
 genuine OpenAI request/response pipeline, which is the point of mocking at the
 HTTP layer rather than stubbing Pydantic AI.
+
+The models are pinned here for the same reason. `settings` reads the `.env`
+beside it, so without this the suite tests whichever provider the developer
+happens to be pointing at - and pointing it at Anthropic made thirty-three
+tests fail at the first model call, because the mocks are OpenAI's.
 """
 
 import os
 
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-respx")
+os.environ["ASSISTANT_DECISION_MODEL"] = "openai:gpt-4o-mini"
+os.environ["ASSISTANT_ANSWER_MODEL"] = "openai:gpt-4o"
 # `setup_tracing` would otherwise write test spans into the repo.
 os.environ["ASSISTANT_TRACE_DIR"] = ""
 

@@ -6,6 +6,7 @@ only the reasoning is canned. Set OPENAI_API_KEY to get real answers.
 """
 
 import asyncio
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -214,14 +215,45 @@ class ScriptedStreamedResponse(StreamedResponse):
     def timestamp(self) -> datetime:
         return self._timestamp
 
+    async def _streamed_tool(
+        self, name: str, args: dict[str, Any], written: str
+    ) -> AsyncIterator[ModelResponseStreamEvent]:
+        """The arguments a piece at a time, so a structured answer streams too."""
+        head, tail = json.dumps(args).split(json.dumps(written), 1)
+        pieces = (
+            [head + '"']
+            + [json.dumps(chunk)[1:-1] for chunk in _chunks(written)]
+            + ['"' + tail]
+        )
+        for index, piece in enumerate(pieces):
+            if settings.scripted_stream_delay:
+                await asyncio.sleep(settings.scripted_stream_delay)
+            event = self._parts_manager.handle_tool_call_delta(
+                vendor_part_id="tool",
+                tool_name=name if index == 0 else None,
+                args=piece,
+                tool_call_id="scripted",
+            )
+            if event is not None:
+                yield event
+
     async def _get_event_iterator(self) -> AsyncIterator[ModelResponseStreamEvent]:
         if self._tool is not None:
             name, args = self._tool
-            event = self._parts_manager.handle_tool_call_part(
-                vendor_part_id="tool", tool_name=name, args=args
-            )
             self._usage += RequestUsage(input_tokens=1, output_tokens=1)
-            yield event
+            # The field a reader watches being written, if this output has one.
+            written = next(
+                (args[f] for f in ("content", "reasoning", "reason") if args.get(f)),
+                None,
+            )
+            if not isinstance(written, str) or not written:
+                yield self._parts_manager.handle_tool_call_part(
+                    vendor_part_id="tool", tool_name=name, args=args
+                )
+                return
+
+            async for event in self._streamed_tool(name, args, written):
+                yield event
             return
 
         for chunk in _chunks(self._text):

@@ -79,6 +79,6 @@ Decision = SearchKnowledgeBase | RunTool | Escalate | Answer
 
 
 class TicketAnswer(BaseModel):
-    """The final customer-facing text."""
+    """What a step settled on saying, to a customer or to the team."""
 
-    content: str
+    content: str = Field(description="The reply text.")

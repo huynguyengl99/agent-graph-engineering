@@ -22,7 +22,12 @@ from assistant.tracing import setup_tracing, trace_store
 from assistant.ws.topics import SupportTopic
 
 from tests.helpers.events import Recorded, recording
-from tests.helpers.openai_mock import Recorder, mock_openai, text_stream, tool_call
+from tests.helpers.openai_mock import (
+    Recorder,
+    answer_stream,
+    mock_openai,
+    tool_call,
+)
 
 CONVERSATION = "c-tool"
 
@@ -87,7 +92,7 @@ async def decide(
     consumer: DetachedTopic, *, approved: bool, arguments: dict[str, Any]
 ) -> Recorder:
     """Resume, and hand back what the answering model was told."""
-    with mock_openai(text_stream("Done", " - ", "refunded.")) as recorder:
+    with mock_openai(answer_stream("Done", " - ", "refunded.")) as recorder:
         await consumer.handle_tool_decision(
             ToolDecisionMessage(
                 payload=ToolDecisionPayload(
@@ -180,7 +185,7 @@ class TestOneTurnDoesNotLeakIntoTheNext:
         answer_directly = tool_call(
             "final_result_Answer", {"reasoning": "Already covered."}
         )
-        with mock_openai(answer_directly, text_stream("Here you go.")) as recorder:
+        with mock_openai(answer_directly, answer_stream("Here you go.")) as recorder:
             await consumer.handle_run_request(request())
 
         assert "A tool was run" not in recorder.last_user_prompt

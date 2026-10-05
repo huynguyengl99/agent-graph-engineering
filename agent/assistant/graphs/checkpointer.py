@@ -66,7 +66,7 @@ async def setup_checkpointer() -> BaseCheckpointSaver[str]:
         return _live.saver
 
     if not settings.checkpoint_database_url:
-        logger.warning(
+        await logger.awarning(
             "checkpointer.in_memory",
             detail="paused approvals will not survive a restart",
             fix="set CHECKPOINT_DATABASE_URL",
@@ -88,7 +88,7 @@ async def setup_checkpointer() -> BaseCheckpointSaver[str]:
     saver = AsyncPostgresSaver(_live.pool, serde=serde)  # type: ignore[arg-type]
     await saver.setup()
     _live.saver = saver
-    logger.info("checkpointer.postgres", pool_size=settings.checkpoint_pool_size)
+    await logger.ainfo("checkpointer.postgres", pool_size=settings.checkpoint_pool_size)
     return saver
 
 

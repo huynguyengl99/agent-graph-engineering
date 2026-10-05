@@ -56,34 +56,8 @@ class BaseAgent[OutputT]:
         *,
         on_delta: Callable[[str, str], Awaitable[None]],
     ) -> OutputT:
-        """Run the step, reporting what it writes while it writes it.
-
-        Pydantic AI streams plain text and structured output through different
-        APIs, which is the only reason there are two paths below. A caller
-        should not have to know which its agent has.
-        """
-        if self.output_type is str:
-            return await self._streamed_text(prompt, deps, history, on_delta)
+        """Run the step, reporting what it writes while it writes it."""
         return await self._streamed_output(prompt, deps, history, on_delta)
-
-    async def _streamed_text(
-        self,
-        prompt: str,
-        deps: Any,
-        history: list[ModelMessage] | None,
-        on_delta: Callable[[str, str], Awaitable[None]],
-    ) -> OutputT:
-        parts: list[str] = []
-        async with self.agent.run_stream(
-            prompt, deps=deps, message_history=history
-        ) as result:
-            async for delta in result.stream_text(
-                delta=True, debounce_by=settings.stream_debounce
-            ):
-                parts.append(delta)
-                await on_delta(delta, ANSWER)
-            self.messages = list(result.all_messages())
-        return "".join(parts)  # type: ignore[return-value]
 
     async def _streamed_output(
         self,
@@ -99,6 +73,7 @@ class BaseAgent[OutputT]:
         itself, while `run` can. A validation failure ends the watching, not
         the run.
         """
+        written = ""
         said = ""
         output: Any = None
         try:
@@ -109,6 +84,12 @@ class BaseAgent[OutputT]:
                     debounce_by=settings.stream_debounce
                 ):
                     output = partial
+                    # A step either writes the answer or the reasoning for one.
+                    if content := str(getattr(partial, "content", "") or ""):
+                        if delta := content[len(written) :]:
+                            await on_delta(delta, ANSWER)
+                            written = content
+                        continue
                     # `Escalate` calls it a reason; everything else reasoning.
                     reasoning = str(
                         getattr(partial, "reasoning", None)

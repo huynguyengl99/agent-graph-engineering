@@ -224,13 +224,13 @@ class SupportGraph(AnswerFeed, BaseGraph):
             ChatCompleteMessage(
                 payload=ChatCompletePayload(
                     conversation_id=context.thread_id,
-                    content=answer,
+                    content=answer.content,
                     model=self.answer_model,
                 )
             )
         )
         return {
-            "answer": TicketAnswer(content=answer),
+            "answer": answer,
             "messages_json": dump_messages(self.team.messages),
         }
 

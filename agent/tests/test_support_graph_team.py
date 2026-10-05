@@ -17,7 +17,7 @@ from assistant.agents import (
 from assistant.graphs.support_graph import SupportGraph
 from assistant.outputs.support import Answer, SearchKnowledgeBase
 
-from tests.helpers.openai_mock import mock_openai, text_stream, tool_call
+from tests.helpers.openai_mock import answer_stream, mock_openai, tool_call
 
 QUESTION = "What do I tell them about the double charge?"
 
@@ -117,7 +117,7 @@ class TestRouting:
     async def run_routed(self, route_call: dict[str, Any]) -> dict[str, Any]:
         with mock_openai(
             route_call,
-            text_stream("Per ", "[kb-003]", ", annual plans refund within 14 days."),
+            answer_stream("Per ", "[kb-003]", ", annual plans refund within 14 days."),
         ):
             config = AgentConfig(
                 models=dict.fromkeys(
@@ -182,7 +182,7 @@ async def test_the_answer_is_grounded_in_what_retrieval_found() -> None:
             "final_result_SearchKnowledgeBase",
             {"query": "refund policy annual", "reasoning": "Documented."},
         ),
-        text_stream("Per [kb-003]."),
+        answer_stream("Per [kb-003]."),
     ):
         config = AgentConfig(
             models=dict.fromkeys(

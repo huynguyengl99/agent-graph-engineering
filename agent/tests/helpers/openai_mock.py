@@ -80,6 +80,53 @@ def text_stream(*chunks: str) -> dict[str, Any]:
     return {"__sse__": list(chunks)}
 
 
+def answer_stream(*chunks: str) -> dict[str, Any]:
+    """A streamed structured answer: the content arrives as tool-call argument
+    deltas, which is how a typed output streams."""
+    return {"__sse_tool__": list(chunks)}
+
+
+def _sse_tool(chunks: list[str]) -> str:
+    """`{"content": "..."}` assembled a piece at a time.
+
+    Only the first frame names the call: repeating the id and the name on every
+    frame reads as a new tool call each time.
+    """
+
+    def frame(delta: dict[str, Any], finish: str | None = None) -> str:
+        return json.dumps(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "gpt-4o",
+                "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+            }
+        )
+
+    pieces = ['{"content": "'] + [json.dumps(c)[1:-1] for c in chunks] + ['"}']
+    frames = [
+        frame(
+            {
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "call_stream",
+                        "type": "function",
+                        "function": {"name": "final_result", "arguments": ""},
+                    }
+                ]
+            }
+        )
+    ]
+    frames += [
+        frame({"tool_calls": [{"index": 0, "function": {"arguments": piece}}]})
+        for piece in pieces
+    ]
+    frames.append(frame({}, finish="tool_calls"))
+    return "".join(f"data: {f}\n\n" for f in frames) + "data: [DONE]\n\n"
+
+
 def _sse(chunks: list[str]) -> str:
     frames = [
         json.dumps(
@@ -228,6 +275,12 @@ def mock_openai(*responses: dict[str, Any]) -> Iterator[Recorder]:
             return httpx2.Response(
                 200,
                 text=_sse(body["__sse__"]),
+                headers={"content-type": "text/event-stream"},
+            )
+        if "__sse_tool__" in body:
+            return httpx2.Response(
+                200,
+                text=_sse_tool(body["__sse_tool__"]),
                 headers={"content-type": "text/event-stream"},
             )
         if recorder.bodies[-1].get("stream"):

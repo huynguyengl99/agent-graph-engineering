@@ -73,7 +73,7 @@ class MemoryEventStore(RunEventStore):
         self._events: dict[str, list[StoredEvent]] = {}
 
     async def setup(self) -> None:
-        logger.warning(
+        await logger.awarning(
             "runs.memory_store",
             detail="run events are in memory; a restart loses what a run said",
         )

@@ -149,44 +149,55 @@ class SupportRun(AgentClient):
         await super().disconnect(code, reason)
 
     async def on_event(self, message: IncomingMessage) -> None:  # noqa: PLR0912
+        """Apply one event, move the cursor, and close if that was the last.
+
+        The cursor moves before the socket does. Closing it first loses the
+        advance - the run ends with its final event unrecorded, and the next
+        run on that topic asks for a replay that starts one too early and
+        applies it again.
+        """
+        done = True
         match message:
             case ClassifiedMessage(payload=p):
                 await self.sink.classified(p.category, p.priority, p.reasoning)
+                done = False
             case DecidedMessage(payload=p):
                 await self.sink.decided(p.decision, p.reasoning)
+                done = False
             case AnswerMessage(payload=p):
                 await self.sink.drafted(p.content, p.requires_approval)
+                done = False
             case ApprovalRequiredMessage(payload=p):
                 await self.sink.approval_required(p.draft, list(p.findings or []))
-                await self.disconnect()
             case ReplySentMessage():
                 await self.sink.reply_sent()
-                await self.disconnect()
             case ReplyBlockedMessage(payload=p):
                 await self.sink.reply_blocked(list(p.findings or []))
-                await self.disconnect()
             case ChatTokenMessage(payload=p):
                 await self.sink.token(p.delta)
+                done = False
             case ReasoningDeltaMessage(payload=p):
                 await self.sink.reasoning_delta(p.step, p.delta)
+                done = False
             case ReasonedMessage(payload=p):
                 await self.sink.reasoned(p.step, p.content, p.decision, p.model)
+                done = False
             case ToolApprovalMessage(payload=p):
                 await self.sink.tool_proposed(p)
-                await self.disconnect()
             case ToolRanMessage(payload=p):
                 await self.sink.tool_ran(p)
+                done = False
             case ChatCompleteMessage(payload=p):
                 await self.sink.answered(p.content)
-                await self.disconnect()
             case TriageErrorMessage(payload=p) | ChatErrorMessage(payload=p):
                 await self.sink.failed(p.message)
-                await self.disconnect()
             case _:
                 # A heartbeat, or a message type the agent gained and this relay
                 # has not been taught yet. Ignored on purpose, and said so,
                 # because an unhandled branch that falls off the end reads like
                 # an oversight.
-                pass
+                done = False
 
         await advance(self.agent_topic, self.incoming_seq)
+        if done:
+            await self.disconnect()

@@ -130,7 +130,18 @@ class TicketSink(Sink):
         )
 
     async def reply_sent(self) -> None:
-        await self._event(await self._persist(await self._sent_text()))
+        """A receipt with no text behind it records nothing.
+
+        `reply_sent` carries a receipt, not the reply, so the text comes from
+        the draft this relay saw. A relay that never saw one is not reporting a
+        reply it sent - it is replaying somebody else's - and it used to write
+        that down as an empty message from the agent.
+        """
+        text = await self._sent_text()
+        if not text.strip():
+            logger.warning("support.empty_reply_ignored", ticket_id=self.ticket_id)
+            return
+        await self._event(await self._persist(text))
 
     async def reply_blocked(self, findings: list[str]) -> None:
         await self._progress("failed", "; ".join(findings) or "The reply was blocked.")

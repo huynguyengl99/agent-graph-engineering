@@ -83,7 +83,9 @@ class TestTriageService(WebsocketTestCase):
     async def test_reply_is_persisted_only_once_it_is_sent(self) -> None:
         await self.subscribe_ready(self.topic)
         client = self.client_for_ticket()
-        client.pending_reply = "Per [kb-002], the extra line is proration."
+        # On the sink, which is what `reply_sent` reads. Setting it on the
+        # client sent an empty reply, and the assertions below counted it.
+        client.sink.draft = "Per [kb-002], the extra line is proration."
 
         await client.on_event(
             ReplySentMessage(
@@ -96,6 +98,9 @@ class TestTriageService(WebsocketTestCase):
         messages = await self.receive_topic_messages(TicketFeedEvent)
         assert [m.action for m in messages] == ["new_event"]
         assert messages[0].payload.event.event_type == "ai_response"
+        assert messages[0].payload.event.content == (
+            "Per [kb-002], the extra line is proration."
+        )
         assert await self._ai_response_count() == 1
 
     async def test_progress_stages_reach_the_group_without_persisting(self) -> None:

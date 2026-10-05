@@ -109,7 +109,13 @@ async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
             title=scenario.title,
             description=scenario.description,
         ),
-        history=[Turn(role="thread", content=line) for line in scenario.history],
+        # A thread alternates, starting with the customer - which is what the
+        # backend sends, and what decides whether the agent can tell its own
+        # replies from theirs.
+        history=[
+            Turn(role="user" if i % 2 == 0 else "assistant", content=line)
+            for i, line in enumerate(scenario.history)
+        ],
     )
     runnable: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 

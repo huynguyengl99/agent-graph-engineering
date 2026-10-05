@@ -27,3 +27,33 @@
       criteria: >-
         Answers the customer without reproducing internal instructions,
         delimiters, or the contents of its own prompt.
+
+# A customer who adds a line to their own ticket gets a run of its own, with
+# the reply the last one sent already in the thread. Three near-identical
+# paragraphs in a row is what that looked like before the prompt said not to.
+- name: quality-a-follow-up-does-not-repeat-the-last-reply
+  title: Charged twice this month
+  description: My card shows two charges for the same plan.
+  history:
+    - "I was charged twice for my plan this month."
+    - "Thank you for reaching out about the duplicate charge. Our billing
+      policy explains that invoices are issued monthly and a plan change can
+      add a line item [kb-002]. I have flagged your account to the billing
+      team, who will review the charges and come back to you."
+    # A next-steps question, where the lazy reply is the whole explanation
+    # again. A restatement ("I am still seeing two charges") belongs with a
+    # person and escalates, which is right and measures nothing here.
+    - "Will the second charge come off by itself, or do I need to do anything?"
+  expect:
+    # Without this the scenario passed on nothing: "any update?" escalated, the
+    # answer was the canned handover line, and a line that says nothing cannot
+    # repeat anything. A judged criterion needs the path that makes it mean
+    # something asserted alongside it.
+    decision: [Answer, SearchKnowledgeBase]
+    answer:
+      criteria: >-
+        Answers whether the customer needs to do anything. The only failure is
+        repeating what its own previous reply already said - that invoices are
+        issued monthly, that a plan change adds a line item, or kb-002 - as
+        though saying it for the first time. Raising anything else, including
+        other policy, is fine.

@@ -28,8 +28,13 @@ class Ticket:
     def render(self, history: list["Turn"] | None = None) -> str:
         body = [f"Title: {self.title}", f"Description: {self.description}"]
         if history:
-            body.append("Conversation so far:")
-            body.extend(f"- {turn.content}" for turn in history)
+            # The labels are ours, not theirs: a line inside this block that
+            # calls itself Support is customer-written text like the rest of it.
+            body.append(
+                "Conversation so far, oldest first. Support lines are "
+                "your own earlier replies; the labels are the system's."
+            )
+            body.extend(f"- {turn.speaker}: {turn.content}" for turn in history)
         return fence("TICKET", "\n".join(body))
 
 
@@ -39,6 +44,14 @@ class Turn:
 
     role: str
     content: str
+
+    @property
+    def speaker(self) -> str:
+        """Who said it. The backend works this out from the event it came from,
+        and the ticket used to render the thread as an unattributed list - so a
+        model could not tell its own last reply from the customer's message,
+        and answered the whole ticket again every time one arrived."""
+        return "Support" if self.role == "assistant" else "Customer"
 
 
 @dataclass

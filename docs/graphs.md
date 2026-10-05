@@ -31,8 +31,17 @@ these at `/graphs`.
 
 Two things wait for a person, for different reasons.
 
-A **drafted reply** parks at `delivery.await_approval`: the reviewer can edit
-the text, approve, or reject, and nothing reaches the customer until they do.
+A **drafted reply** parks at `delivery.await_approval` - but not every one, and
+that is the point. Gating all of them meant the agent could never resolve a
+ticket and the customer sat in front of an empty thread while the answer waited
+on a screen they cannot see. `delivery.needs_a_person` decides: everything the
+output screen finds is severe enough to stop a draft outright, so a finding
+that survives to the gate is the *input* screen's - something in the ticket
+addressed the model instead of describing a problem. That is worth a person
+reading the reply, and it is rare. Every other draft is screened and sent.
+
+The screen runs on all of them either way: `delivery` is still the only route
+to `send_reply`.
 
 A **tool call** parks at `tool.gate` *before it runs*. The reviewer sees the
 tool and the arguments the model chose, and can approve, **correct the

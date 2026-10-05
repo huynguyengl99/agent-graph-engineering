@@ -80,11 +80,10 @@ async def test_every_graph_step_is_emitted_in_order(
     assert actions[:2] == ["reasoned", "classified"]
     assert "decided" in actions
     assert "answer" in actions
-    # The run ends parked at the approval gate, not at the answer.
-    assert actions[-1] == "approval_required"
-    assert events.last("approval_required").payload.draft == (
-        "Two charges means proration."
-    )
+    # Nothing in this ticket asked for a person, so the run ends at the reply
+    # rather than parked in front of one.
+    assert actions[-1] == "reply_sent"
+    assert events.last("answer").payload.content == "Two charges means proration."
 
 
 async def test_handler_reports_failure_instead_of_raising(

@@ -35,7 +35,9 @@ async def test_billing_ticket_routes_through_the_knowledge_base(
     # The scripted query is written to actually hit the built-in articles,
     # otherwise the retrieval branch would look like it works but return nothing.
     assert state["kb_snippets"]
-    assert state["answer"].requires_approval is True
+    # The fresh-clone path answers the customer rather than queueing work for
+    # somebody who has not signed up yet.
+    assert state["delivery_receipt"]
 
 
 async def test_account_ticket_is_classified_higher(

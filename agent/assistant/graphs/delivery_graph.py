@@ -26,6 +26,9 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
     A subgraph because it is the same pipeline wherever a draft comes from,
     and because keeping the gate in one place is the point: there is no second
     route to `send_reply`.
+
+    The screen runs on every draft; the gate does not. Which drafts stop for a
+    person is `needs_a_person`.
     """
 
     name = "delivery"
@@ -101,8 +104,26 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         )
         return {"delivery_receipt": receipt}
 
+    def needs_a_person(self, state: DeliveryState) -> bool:
+        """Whether a human reads this one before the customer does.
+
+        Not every reply, which is what it used to be: a desk whose assistant
+        can never finish a sentence has no assistant, and the customer sat in
+        front of an empty thread while the answer waited on a screen they
+        cannot see.
+
+        What is left here is the machine saying it is unsure. Everything the
+        output screen finds is severe enough to stop the draft outright, so by
+        this point a finding is the *input* screen's: something in the ticket
+        addressed the model directly. That is worth a person's eyes on the
+        reply, and it is rare.
+        """
+        return state.answer.requires_approval or bool(state.guardrail_findings)
+
     def route_after_screen(self, state: DeliveryState) -> str:
-        return END if state.reply_blocked else "await_approval"
+        if state.reply_blocked:
+            return END
+        return "await_approval" if self.needs_a_person(state) else "send_reply"
 
     def route_after_approval(self, state: DeliveryState) -> str:
         return "send_reply" if state.approval_granted else END
@@ -124,7 +145,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         graph.add_conditional_edges(
             "screen",
             self.route_after_screen,
-            {"await_approval": "await_approval", END: END},
+            {"await_approval": "await_approval", "send_reply": "send_reply", END: END},
         )
         graph.add_conditional_edges(
             "await_approval",

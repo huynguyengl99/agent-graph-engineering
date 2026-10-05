@@ -11,7 +11,7 @@ A support desk where one ticket has two lanes and one agent serves both:
 - **The public lane is the customer's.** A ticket arrives, the graph decides what to do with it - answer directly, search the knowledge base, run a tool, escalate - and anything the customer will read stops at a human first.
 - **The internal lane is the team's.** Notes to colleagues, questions to the assistant, its answers, its reasoning and the lookups it ran. Staff-only, so nothing there is gated on the way in.
 
-One rule falls out of that split: **inside the ticket the assistant acts freely; anything leaving for the customer requires a person.**
+One rule falls out of that split: **the assistant answers; a person authorises anything it cannot take back.** A refund, a message staff wrote, and a reply about a ticket the guards flagged all wait for someone. An ordinary question does not, because a desk whose assistant can never finish a sentence has no assistant.
 
 The domain was chosen so that the graph earns its place (real routing, not a two-node demo), the approval machinery solves a real problem (an irreversible action), and you can run the whole thing with only an LLM key. No OAuth, no third-party signups. With no key at all it still runs end to end on a scripted model, streaming included.
 
@@ -134,7 +134,7 @@ it.
 **The public lane is the customer's.** The agent drafts replies *to the
 customer*, and only the customer asking something starts a run of its own - a
 staff note is addressed to colleagues, and a staff reply has already answered.
-Every draft stops at the approval gate before it is posted.
+A draft is screened on its way out, and stops for a person when the machine has a reason to want one - which in practice means the ticket tried to talk to the model rather than describe a problem.
 
 **The internal lane is the team's.** Notes to colleagues, questions to the
 assistant, its answers, its reasoning and the lookups it ran: staff-only, so
@@ -190,10 +190,12 @@ Working end to end, with nothing mocked in `just e2e`:
   person once the agent escalates or someone replies to the customer, and back
   again through a button that introduces the change to the customer in a
   person's own words.
-- **Two human gates.** A drafted reply parks before it reaches a customer; a
-  tool call parks before it runs. Both survive a reload, both resume on a
-  different socket than the one that started the run, and a message arriving
-  while one is parked waits its turn instead of overwriting the run behind it.
+- **Human gates where they are earned.** A tool call parks before it runs,
+  always. A reply parks when the guards flagged the ticket it answers, which is
+  rare and is the machine saying it is unsure rather than a rule that the agent
+  may never speak. Both survive a reload, both resume on a different socket
+  than the one that started the run, and a message arriving while one is parked
+  waits its turn instead of overwriting the run behind it.
 - **The agent reasons out loud, at every step that explains itself.** Structured
   output arrives in pieces, so filing the ticket, choosing what to do, picking
   the tool and re-searching each report their reasoning while it is written,
@@ -226,7 +228,7 @@ event loop to detach a run onto.
 | Page | What it covers |
 |---|---|
 | [Architecture](docs/architecture.md) | What each service owns, the agent's boundary, how the two stay in sync, the generated contracts |
-| [Graphs and subgraphs](docs/graphs.md) | The one graph and its three subgraphs, the two human gates, forms from a schema |
+| [Graphs and subgraphs](docs/graphs.md) | The one graph and its three subgraphs, which drafts stop for a person, forms from a schema |
 | [Evals](docs/evals.md) | The golden set, the cascade judge, choosing the models, the guardrails |
 | [Observability](docs/observability.md) | Per-run traces, what a span may carry, moving them to object storage |
 | [Testing](docs/testing.md) | What each suite mocks, and the pass that mocks nothing |

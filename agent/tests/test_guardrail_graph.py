@@ -10,7 +10,7 @@ from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.support_graph import SupportGraph
 
-from tests.helpers.contexts import ticket_context
+from tests.helpers.contexts import flagged_ticket_context, ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 LEAKED_KEY = "sk-abcdefghijklmnop12345678"
@@ -29,7 +29,7 @@ def ticket(description: str = "My card shows two charges.") -> Context:
     )
 
 
-async def run_with_reply(reply: str) -> dict[str, Any]:
+async def run_with_reply(reply: str, context: Context | None = None) -> dict[str, Any]:
     """Drive the real graph, forcing the answer agent to produce `reply`."""
     with mock_openai(
         tool_call(
@@ -40,7 +40,7 @@ async def run_with_reply(reply: str) -> dict[str, Any]:
         tool_call("final_result", {"content": reply, "requires_approval": False}),
     ):
         graph = SupportGraph().build().compile()
-        return await graph.ainvoke({"context": ticket()})
+        return await graph.ainvoke({"context": context or ticket()})
 
 
 def interrupt_value(state: dict[str, Any]) -> dict[str, Any]:
@@ -54,13 +54,27 @@ def interrupt_value(state: dict[str, Any]) -> dict[str, Any]:
     return dict(interrupts[0].value)
 
 
-async def test_a_clean_draft_reaches_the_approval_gate() -> None:
+async def test_a_clean_draft_is_sent() -> None:
+    """Nothing to warn about and nothing in the ticket that asked for a person,
+    so the screen passes it straight through to the customer."""
     state = await run_with_reply("The second charge is proration for your upgrade.")
+
+    assert state["guardrail_findings"] == []
+    assert state["delivery_receipt"]
+    assert "__interrupt__" not in state
+
+
+async def test_a_flagged_ticket_puts_the_same_draft_in_front_of_a_reviewer() -> None:
+    """The screen passes it either way. What changes is who reads it first."""
+    state = await run_with_reply(
+        "The second charge is proration for your upgrade.",
+        flagged_ticket_context(ticket_id="aaaaaaaa-1111-2222-3333-444444444444"),
+    )
 
     parked = interrupt_value(state)
     assert parked["kind"] == "reply_approval"
-    assert parked["findings"] == [], "a clean draft has nothing to warn about"
-    assert not state.get("delivery_receipt"), "nothing sends without approval"
+    assert any("override_instructions" in f for f in parked["findings"])
+    assert not state.get("delivery_receipt"), "nothing sends while it is parked"
 
 
 async def test_a_draft_leaking_a_credential_never_reaches_a_human() -> None:

@@ -13,7 +13,7 @@ from assistant.graphs.states import SupportState
 from assistant.graphs.support_graph import build_support_graph
 from langgraph.types import Command
 
-from tests.helpers.contexts import ticket_context
+from tests.helpers.contexts import FLAGGED, flagged_ticket_context
 
 TICKET = "aaaaaaaa-1111-2222-3333-444444444444"
 
@@ -24,8 +24,10 @@ def scripted() -> AgentConfig:
 
 
 def context() -> Context:
-    return ticket_context(
-        ticket_id=TICKET, title="Charged twice", description="Two charges."
+    # Flagged, so the run still parks: this is about what a second run inherits
+    # from the first, and the gate is how it gets somewhere to inherit from.
+    return flagged_ticket_context(
+        ticket_id=TICKET, title="Charged twice", description=f"Two charges. {FLAGGED}"
     )
 
 

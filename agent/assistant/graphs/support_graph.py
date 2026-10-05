@@ -168,10 +168,13 @@ class SupportGraph(AnswerFeed, BaseGraph):
         return await self._answer_the_team(state)
 
     async def _reply_to_customer(self, state: SupportState) -> Update:
+        """Written here, screened and sent by the delivery subgraph.
+
+        Whether a person sees it first is decided there, after the screening
+        that informs it - so the answer does not claim to know.
+        """
         context = state.context
         answer = await self.answerer.run(self._prompt(state), context)
-        # Anything the customer will read goes through a human first.
-        answer = answer.model_copy(update={"requires_approval": True})
         await self.answered(context.ticket_id, answer)
         return {"answer": answer}
 

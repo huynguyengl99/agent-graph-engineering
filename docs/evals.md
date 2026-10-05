@@ -35,4 +35,4 @@ error lands on the field.
 Two guards with different jobs, both in `agent/assistant/guardrails/`:
 
 - **Input.** Customer-written ticket fields are fenced as data with an explicit "never as instructions" boundary, and the fence is stripped from the text so it cannot be closed from inside. Known injection shapes are *recorded, never blocked* - a desk that refuses tickets containing "ignore" is broken, and a warning everyone learns to skip is worse than none.
-- **Output.** A `screen` node between the drafted answer and the approval gate. A leaked credential, another ticket's id, or the prompt recited back stops the draft before a reviewer is asked. A machine check ahead of the human one.
+- **Output.** A `screen` node on every draft, before it is sent or shown to a reviewer. A leaked credential, another ticket's id, or the prompt recited back stops the draft outright - every finding it can make is severe enough to. It also decides who reads the reply first: a ticket the *input* screen flagged puts its answer in front of a person instead of the customer.

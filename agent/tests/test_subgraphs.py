@@ -20,9 +20,11 @@ from assistant.graphs.limits import KB_MAX_ATTEMPTS
 from assistant.graphs.support_graph import SupportGraph, build_support_graph
 from langgraph.types import Command
 
-from tests.helpers.contexts import ticket_context
+from tests.helpers.contexts import FLAGGED, ticket_context
 
 TICKET = "aaaaaaaa-1111-2222-3333-444444444444"
+# The gate is this class's subject, and only a flagged ticket reaches it now.
+FLAGGED_DESCRIPTION = f"Two charges on my card. {FLAGGED}"
 
 
 def scripted() -> AgentConfig:
@@ -96,7 +98,11 @@ class TestComposition:
 
 
 class TestApprovalThroughASubgraph:
-    """The gate moved down a level; resume still has to find it."""
+    """The gate moved down a level; resume still has to find it.
+
+    These tickets are flagged on the way in, which is what stops a reply for a
+    person now that an ordinary one is sent by the agent.
+    """
 
     async def build(self) -> Any:
         return build_support_graph(scripted(), memory_checkpointer())
@@ -106,7 +112,7 @@ class TestApprovalThroughASubgraph:
         config = {"configurable": {"thread_id": "sub-park"}}
 
         state = await graph.ainvoke(
-            {"context": ticket("Charged twice", "Two charges on my card.")},
+            {"context": ticket("Charged twice", FLAGGED_DESCRIPTION)},
             config=config,
         )
 
@@ -119,7 +125,7 @@ class TestApprovalThroughASubgraph:
         config = {"configurable": {"thread_id": "sub-resume"}}
 
         await graph.ainvoke(
-            {"context": ticket("Charged twice", "Two charges on my card.")},
+            {"context": ticket("Charged twice", FLAGGED_DESCRIPTION)},
             config=config,
         )
         state = await graph.ainvoke(
@@ -134,7 +140,7 @@ class TestApprovalThroughASubgraph:
         config = {"configurable": {"thread_id": "sub-reject"}}
 
         await graph.ainvoke(
-            {"context": ticket("Charged twice", "Two charges on my card.")},
+            {"context": ticket("Charged twice", FLAGGED_DESCRIPTION)},
             config=config,
         )
         state = await graph.ainvoke(
@@ -149,7 +155,7 @@ class TestApprovalThroughASubgraph:
         config = {"configurable": {"thread_id": "sub-edit"}}
 
         await graph.ainvoke(
-            {"context": ticket("Charged twice", "Two charges on my card.")},
+            {"context": ticket("Charged twice", FLAGGED_DESCRIPTION)},
             config=config,
         )
         state = await graph.ainvoke(

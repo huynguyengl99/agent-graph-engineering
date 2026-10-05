@@ -10,6 +10,8 @@ from rest_framework.test import APIClient
 
 from helpdesk.accounts.factories import UserFactory
 from helpdesk.agent_client.agent_hub_support_topic.messages import (
+    AnswerMessage,
+    AnswerPayload,
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     ChatCompleteMessage,
@@ -223,6 +225,32 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         )
 
         assert await parked_visibility(str(self.ticket.id)) == Visibility.INTERNAL
+
+    async def test_a_reply_the_agent_sends_itself_is_recorded_once(self) -> None:
+        """The agent answers an ordinary ticket without a reviewer now, and
+        both halves of that used to persist: the draft on its way past, and the
+        send. The ticket showed the same answer twice."""
+        client = self.client_for(Visibility.PUBLIC)
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+
+        await client.on_event(
+            AnswerMessage(
+                payload=AnswerPayload(
+                    ticket_id=str(self.ticket.id),
+                    content="Sorted.",
+                    requires_approval=False,
+                )
+            )
+        )
+        await client.on_event(
+            ReplySentMessage(
+                payload=ReplySentPayload(ticket_id=str(self.ticket.id), receipt="ok")
+            )
+        )
+
+        assert (
+            await AIResponseEvent.objects.filter(ticket_id=self.ticket.id).acount() == 1
+        )
 
     async def test_an_answer_the_agent_sends_reaches_the_customer(self) -> None:
         client = self.client_for(Visibility.PUBLIC)

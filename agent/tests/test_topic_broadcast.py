@@ -108,7 +108,7 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
     assert actions[:2] == ["reasoned", "classified"]
     assert "decided" in actions
     assert "answer" in actions
-    assert actions[-1] == "approval_required"
+    assert actions[-1] == "reply_sent"
 
 
 async def test_the_conversation_topic_carries_its_own_events(

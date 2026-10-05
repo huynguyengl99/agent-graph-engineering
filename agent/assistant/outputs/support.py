@@ -82,7 +82,3 @@ class TicketAnswer(BaseModel):
     """The final customer-facing text."""
 
     content: str
-    requires_approval: bool = Field(
-        default=False,
-        description="True when the text would be sent to the customer.",
-    )

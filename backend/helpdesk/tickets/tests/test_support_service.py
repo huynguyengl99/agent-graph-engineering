@@ -56,7 +56,6 @@ class TestTriageService(WebsocketTestCase):
                 payload=AnswerPayload(
                     ticket_id=str(self.ticket.id),
                     content="Per [kb-002], the extra line is proration.",
-                    requires_approval=True,
                 )
             )
         )

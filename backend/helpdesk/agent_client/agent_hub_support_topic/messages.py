@@ -8,7 +8,6 @@ class AnswerPayload(BaseModel):
 
     ticket_id: str
     content: str
-    requires_approval: bool
     model: str = ""
 
 

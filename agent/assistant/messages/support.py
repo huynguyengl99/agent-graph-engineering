@@ -55,7 +55,6 @@ class DecidedMessage(BaseMessage):
 class AnswerPayload(BaseModel):
     ticket_id: str
     content: str
-    requires_approval: bool
     # Which model wrote it. The backend records this on the ticket, and used to
     # stamp its own guess from a setting of its own - so changing the model the
     # agent answers with left every reply labelled with the old one.

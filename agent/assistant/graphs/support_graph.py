@@ -172,8 +172,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
             content=(
                 "Thanks for reaching out. I am handing this to a specialist on "
                 f"our {team} team, who will follow up here."
-            ),
-            requires_approval=False,
+            )
         )
         await self.answered(state.context.ticket_id, answer)
         return Command(
@@ -245,7 +244,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
             )
         )
         return {
-            "answer": TicketAnswer(content=answer, requires_approval=False),
+            "answer": TicketAnswer(content=answer),
             "messages_json": dump_messages(self.team.messages),
         }
 

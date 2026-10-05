@@ -22,7 +22,6 @@ class AnswerFeed:
                 payload=AnswerPayload(
                     ticket_id=ticket_id,
                     content=answer.content,
-                    requires_approval=answer.requires_approval,
                     model=self.answer_model,
                 )
             )

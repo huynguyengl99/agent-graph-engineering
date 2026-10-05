@@ -129,10 +129,11 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         Output findings all block outright, so a finding surviving to here is
         the input screen's: something in the ticket addressed the model. A
         handover has already sent for a person, so it does not wait for one.
+        The answer does not get a say: asked, a model says yes every time.
         """
         if state.escalation_reason:
             return False
-        return state.answer.requires_approval or bool(state.guardrail_findings)
+        return bool(state.guardrail_findings)
 
     # --- wiring -------------------------------------------------------------
 

@@ -116,14 +116,12 @@ class TicketSink(Sink):
         if decision == "Escalate":
             await self._to_a_person(why)
 
-    async def drafted(self, content: str, requires_approval: bool, model: str) -> None:
-        # Remembered, not persisted: a draft becomes an event only if it is sent.
+    async def drafted(self, content: str, model: str) -> None:
         self.draft = content
         self.model = model or self.model
-        # A customer's reply is recorded when delivery actually sends it, gate
-        # or no gate. Recording it here as well as there put the same answer on
-        # the ticket twice as soon as the agent was allowed to reply by itself.
-        if self.visibility == Visibility.PUBLIC or requires_approval:
+        # A customer's reply is recorded when delivery sends it. Recording it
+        # here too put the same answer on the ticket twice.
+        if self.visibility == Visibility.PUBLIC:
             return
         await self._event(await self._persist(content))
 

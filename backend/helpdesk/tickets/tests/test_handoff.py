@@ -238,7 +238,6 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
                 payload=AnswerPayload(
                     ticket_id=str(self.ticket.id),
                     content="Sorted.",
-                    requires_approval=False,
                 )
             )
         )
@@ -264,7 +263,6 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
                 payload=AnswerPayload(
                     ticket_id=str(self.ticket.id),
                     content="Sorted.",
-                    requires_approval=False,
                     model="anthropic:claude-sonnet-5",
                 )
             )

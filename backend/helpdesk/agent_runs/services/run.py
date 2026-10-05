@@ -41,8 +41,8 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ToolDecisionPayload,
     ToolRanMessage,
 )
-from helpdesk.core.agent_connection import agent_headers
-from helpdesk.core.services.cursors import advance, last_handled
+from helpdesk.agent_runs.connection import agent_headers
+from helpdesk.agent_runs.services.cursors import advance, last_handled
 
 logger = structlog.get_logger(__name__)
 

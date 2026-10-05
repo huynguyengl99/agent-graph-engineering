@@ -23,8 +23,8 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     TicketRef,
     ToolDecisionPayload,
 )
-from helpdesk.core.services.cursors import advance_sync
-from helpdesk.core.services.support_run import Sink, SupportRun, spawn
+from helpdesk.agent_runs.services.cursors import advance_sync
+from helpdesk.agent_runs.services.run import Sink, SupportRun, spawn
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,

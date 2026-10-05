@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django_structlog",
     # Local
     "helpdesk.accounts",
+    "helpdesk.agent_runs",
     "helpdesk.core",
     "helpdesk.tickets",
 ]

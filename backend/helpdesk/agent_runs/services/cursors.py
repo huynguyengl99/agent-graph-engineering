@@ -3,7 +3,7 @@
 from channels.db import database_sync_to_async
 from django.db import transaction
 
-from helpdesk.core.models import AgentRunCursor
+from helpdesk.agent_runs.models import AgentRunCursor
 
 
 @database_sync_to_async

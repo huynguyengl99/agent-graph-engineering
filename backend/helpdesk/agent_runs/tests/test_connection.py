@@ -2,7 +2,7 @@ from typing import Any
 
 from django.test import TestCase, override_settings
 
-from helpdesk.core.agent_connection import TOKEN_HEADER, agent_headers
+from helpdesk.agent_runs.connection import TOKEN_HEADER, agent_headers
 from helpdesk.tickets.services.support import relay
 
 

@@ -28,20 +28,25 @@ def scripted() -> AgentConfig:
 
 
 async def run(context: Context) -> tuple[list[str], dict[str, Any]]:
-    """The answer's deltas. The same channel carries the decider's reasoning,
-    which is a different thing being written."""
-    graph = SupportGraph(scripted()).build().compile()
+    """The answer's deltas, caught where every subscriber catches them.
+
+    They are published on the run's topic rather than written to the graph's
+    stream, so a second tab sees the answer being typed. The decider's
+    reasoning is published the same way and is a different thing being written,
+    which is what the action tells them apart by.
+    """
     deltas: list[str] = []
+
+    async def emit(event: Any, *, replayable: bool = True) -> None:
+        if event.action == "chat_token":
+            deltas.append(event.payload.delta)
+
+    graph = SupportGraph(scripted(), emit).build().compile()
     updates: dict[str, Any] = {}
-    async for mode, chunk in graph.astream(
-        {"context": context, "question": QUESTION},
-        stream_mode=["updates", "custom"],
+    async for chunk in graph.astream(
+        {"context": context, "question": QUESTION}, stream_mode="updates"
     ):
-        if mode == "custom":
-            if chunk.get("kind") == "answer":
-                deltas.append(chunk["delta"])
-        else:
-            updates.update(chunk)
+        updates.update(chunk)
     return deltas, updates
 
 

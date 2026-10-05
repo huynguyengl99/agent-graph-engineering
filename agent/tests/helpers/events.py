@@ -15,6 +15,12 @@ class Recorded:
     def actions(self) -> list[str]:
         return [record.event.action for record in self._captured]
 
+    def of(self, action: str) -> list[Any]:
+        """Every event of one action, in order."""
+        return [
+            record.event for record in self._captured if record.event.action == action
+        ]
+
     def last(self, action: str) -> Any:
         return next(
             record.event

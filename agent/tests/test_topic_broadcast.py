@@ -104,11 +104,15 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
         )
 
     actions = [frame["action"] for frame in await socket.receive_all_json()]
-    # A step explains itself while it decides, so its reasoning lands first.
-    assert actions[:2] == ["reasoned", "classified"]
-    assert "decided" in actions
-    assert "answer" in actions
-    assert actions[-1] == "reply_sent"
+    # The writing reaches this socket too, which is the point: it did not start
+    # the run, and it still watches the reasoning being written.
+    assert "reasoning_delta" in actions
+
+    settled = [a for a in actions if a != "reasoning_delta"]
+    assert settled[:2] == ["reasoned", "classified"]
+    assert "decided" in settled
+    assert "answer" in settled
+    assert settled[-1] == "reply_sent"
 
 
 async def test_the_conversation_topic_carries_its_own_events(

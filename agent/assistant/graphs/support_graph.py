@@ -1,7 +1,6 @@
 from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -28,6 +27,8 @@ from assistant.guardrails import screen_input
 from assistant.messages.support import (
     ChatCompleteMessage,
     ChatCompletePayload,
+    ChatTokenMessage,
+    ChatTokenPayload,
     ClassifiedMessage,
     ClassifiedPayload,
     DecidedMessage,
@@ -180,16 +181,22 @@ class SupportGraph(AnswerFeed, BaseGraph):
 
     async def _answer_the_team(self, state: SupportState) -> Update:
         context = state.context
-        # LangGraph's custom stream channel: deltas leave the node as they are
-        # produced rather than being returned in one block at the end.
-        writer = get_stream_writer()
-
         parts: list[str] = []
         async for delta in self.team.stream(
             self._prompt(state), context, await self._history(state)
         ):
             parts.append(delta)
-            writer({"kind": "answer", "delta": delta})
+            # Published, not written to the graph's stream: every subscriber
+            # watching this ticket sees it arrive, not only the socket that
+            # asked. The finished text follows as the record.
+            await self.emit(
+                ChatTokenMessage(
+                    payload=ChatTokenPayload(
+                        conversation_id=context.thread_id, delta=delta
+                    )
+                ),
+                replayable=False,
+            )
 
         answer = "".join(parts)
         # Everything this turn saw, the model's own reply included, so the next

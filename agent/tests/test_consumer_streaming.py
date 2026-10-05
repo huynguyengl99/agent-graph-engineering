@@ -76,13 +76,18 @@ async def test_every_graph_step_is_emitted_in_order(
         )
 
     actions = events.actions()
-    # A step explains itself while it decides, so its reasoning lands first.
-    assert actions[:2] == ["reasoned", "classified"]
-    assert "decided" in actions
-    assert "answer" in actions
+    # A step explains itself while it decides, so the pieces of its reasoning
+    # land before anything it settles on.
+    assert actions[0] == "reasoning_delta"
+
+    # The steps themselves, with the writing filtered out.
+    settled = [a for a in actions if a != "reasoning_delta"]
+    assert settled[:2] == ["reasoned", "classified"]
+    assert "decided" in settled
+    assert "answer" in settled
     # Nothing in this ticket asked for a person, so the run ends at the reply
     # rather than parked in front of one.
-    assert actions[-1] == "reply_sent"
+    assert settled[-1] == "reply_sent"
     assert events.last("answer").payload.content == "Two charges means proration."
 
 

@@ -44,9 +44,8 @@ PROPOSE_REFUND = tool_call(
 
 
 class DetachedTopic(SupportTopic):
-    """Drives a run without a socket. Token deltas still go to the one socket
-    that is streaming, so they arrive here; every other event is broadcast and
-    the `events` fixture captures it."""
+    """Drives a run without a socket. Everything a node says is broadcast now,
+    deltas included, so the `events` fixture captures all of it."""
 
     def __init__(self) -> None:  # noqa: D107 - deliberately skips chanx init
         self.sent: list[Any] = []
@@ -55,16 +54,6 @@ class DetachedTopic(SupportTopic):
 
     async def send_message(self, message: Any, **kwargs: Any) -> None:
         self.sent.append(message)
-
-    @property
-    def reasoning(self) -> str:
-        return "".join(
-            m.payload.delta for m in self.sent if m.action == "reasoning_delta"
-        )
-
-    @property
-    def deltas(self) -> list[str]:
-        return [m.payload.delta for m in self.sent if m.action == "chat_token"]
 
 
 @pytest.fixture
@@ -145,7 +134,7 @@ class TestParking:
         await park(consumer)
 
         assert "chat_complete" not in events.actions()
-        assert consumer.deltas == []
+        assert events.of("chat_token") == []
 
     async def test_the_schema_field_does_not_shadow_a_model_attribute(
         self, consumer: DetachedTopic, events: Recorded
@@ -361,7 +350,8 @@ class TestReasoningIsReported:
     ) -> None:
         await park(consumer)
 
-        assert consumer.reasoning, "no reasoning reached the socket"
+        streamed = "".join(e.payload.delta for e in events.of("reasoning_delta"))
+        assert streamed, "no reasoning was published while it was being written"
         reasoned = events.last("reasoned").payload
         assert reasoned.content
         assert reasoned.decision

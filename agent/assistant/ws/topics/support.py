@@ -20,10 +20,6 @@ from assistant.messages.support import (
     ApprovalRequiredPayload,
     ChatErrorMessage,
     ChatErrorPayload,
-    ChatTokenMessage,
-    ChatTokenPayload,
-    ReasoningDeltaMessage,
-    ReasoningDeltaPayload,
     RunRequestMessage,
     SupportEvent,
     ToolApprovalMessage,
@@ -159,8 +155,12 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         )
 
     async def _consume(self, graph: Any, start: Any) -> None:
-        """Drained for its side effects: the nodes emit their own events, and a
-        park is the one thing no node is running to report."""
+        """Drained for its side effects.
+
+        Every node publishes its own events, including the pieces of a
+        reasoning as it is written, so nothing is read out of the stream here
+        but the park - which is the one thing no node is running to report.
+        """
         config: RunnableConfig = {
             "configurable": {
                 "thread_id": SupportGraph.thread(f"{self.audience}:{self.thread_id}")
@@ -170,31 +170,9 @@ class SupportTopic(Replays, Topic[SupportEvent]):
 
         # StateT is invariant in astream, so a declared `SupportState | Command`
         # cannot satisfy it even though that is exactly what the graph accepts.
-        stream: Any = graph.astream(
-            start, config=config, stream_mode=["updates", "custom"]
-        )
-        async for mode, chunk in stream:
-            if mode == "custom":
-                # Deltas stay on the writer and on this socket: the iteration
-                # producing them is already their order, which a fan-out would
-                # have to rebuild with a sequence number.
-                delta = str(chunk["delta"])
-                await self.send_message(
-                    ReasoningDeltaMessage(
-                        payload=ReasoningDeltaPayload(
-                            thread_id=self.thread_id,
-                            step=str(chunk.get("step") or ""),
-                            delta=delta,
-                        )
-                    )
-                    if chunk.get("kind") == "reasoning"
-                    else ChatTokenMessage(
-                        payload=ChatTokenPayload(
-                            conversation_id=self.thread_id, delta=delta
-                        )
-                    )
-                )
-            elif isinstance(chunk, dict) and "__interrupt__" in chunk:
+        stream: Any = graph.astream(start, config=config, stream_mode="updates")
+        async for chunk in stream:
+            if isinstance(chunk, dict) and "__interrupt__" in chunk:
                 await self._parked(chunk["__interrupt__"])
 
     async def _parked(self, update: object) -> None:

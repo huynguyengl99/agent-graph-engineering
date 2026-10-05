@@ -2,13 +2,17 @@ from typing import Any, cast
 
 import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.config import get_stream_writer
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
 from assistant.agents.config import AgentConfig, ModelPurpose
 from assistant.agents.factory import AgentFactory
 from assistant.events import Emitter, silent
-from assistant.messages.support import ReasonedMessage, ReasonedPayload
+from assistant.messages.support import (
+    ReasonedMessage,
+    ReasonedPayload,
+    ReasoningDeltaMessage,
+    ReasoningDeltaPayload,
+)
 from assistant.tracing.nodes import Node, traced
 from assistant.tracing.runs import TracedRun
 
@@ -57,14 +61,25 @@ class BaseGraph:
         """Run a step, reporting its reasoning as the model writes it.
 
         Structured output arrives in pieces, so every step that explains itself
-        can be read while it decides rather than after. The deltas ride the
-        custom channel the answer's tokens do, tagged with which they are; the
-        finished text is emitted once, for the record.
+        can be read while it decides rather than after.
+
+        The deltas go out the way every other event does, as messages on the
+        run's topic. They used to ride LangGraph's custom stream channel, which
+        meant only the connection draining `astream` ever saw them: a second
+        tab watching the same ticket got the finished reasoning and none of the
+        writing. They are not replayable, because a reader who missed a
+        half-written sentence has the finished one.
         """
-        writer = get_stream_writer()
 
         async def aloud(delta: str) -> None:
-            writer({"kind": "reasoning", "step": step, "delta": delta})
+            await self.emit(
+                ReasoningDeltaMessage(
+                    payload=ReasoningDeltaPayload(
+                        thread_id=context.thread_id, step=step, delta=delta
+                    )
+                ),
+                replayable=False,
+            )
 
         output = await agent.reason_aloud(prompt, context, history, on_delta=aloud)
         said = str(

@@ -3,7 +3,7 @@ person who reported it."""
 
 from typing import Any
 
-from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.auth_api_test_case import AuthAPITestCase
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory

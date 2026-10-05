@@ -7,7 +7,7 @@ out on `ticket:<id>`; keying the cursor wrongly fails silently.
 from helpdesk.agent_client.agent_hub_support_topic.client import (
     AgentHubSupportTopicClient,
 )
-from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.services.publish import ticket_topic

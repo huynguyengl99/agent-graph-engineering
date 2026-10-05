@@ -9,7 +9,7 @@ nothing to say it had been received.
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.models import Visibility

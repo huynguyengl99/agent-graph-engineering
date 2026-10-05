@@ -10,7 +10,7 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ReplySentMessage,
     ReplySentPayload,
 )
-from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.auth_api_test_case import AuthAPITestCase
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory

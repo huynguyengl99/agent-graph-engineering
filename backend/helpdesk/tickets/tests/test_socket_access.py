@@ -3,7 +3,7 @@
 from django.conf import settings
 
 from helpdesk.accounts.factories import UserFactory
-from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 

@@ -5,7 +5,7 @@ from channels.db import database_sync_to_async
 from chanx.messages.incoming import PingMessage
 from chanx.messages.outgoing import PongMessage
 
-from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.messages import (

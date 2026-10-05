@@ -14,7 +14,7 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ToolApprovalMessage,
     ToolApprovalPayload,
 )
-from helpdesk.core.consumers.hub import HubConsumer
+from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
 from helpdesk.tickets.messages import ToolDecisionMessage, ToolDecisionPayload

@@ -123,7 +123,10 @@ async def test_escalation_skips_the_answer_agent() -> None:
     assert route.call_count == 2
     assert isinstance(state["decision"], Escalate)
     assert state["escalation_reason"] == "Needs a refund decision."
-    assert state["answer"].requires_approval is False
+    # It still reaches the customer, by the one route out. Holding "a colleague
+    # is picking this up" behind that colleague helps nobody.
+    assert state["delivery_receipt"]
+    assert "__interrupt__" not in state
 
 
 async def test_classification_is_typed_not_parsed() -> None:

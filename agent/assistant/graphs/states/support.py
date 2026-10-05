@@ -13,4 +13,3 @@ class SupportState(BaseState, Knowledge, Tools, Delivery):
     classification: Classification | None = None
     decision: Decision | None = None
     answer: TicketAnswer | None = None
-    escalation_reason: str = ""

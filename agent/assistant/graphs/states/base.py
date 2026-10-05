@@ -44,6 +44,9 @@ class Tools(BaseModel):
 class Delivery(BaseModel):
     """Shared with the delivery subgraph: everything between a draft and a send."""
 
+    # Set when the run is handing the ticket over. Shared because it changes
+    # who reads the message first: a person has already been sent for.
+    escalation_reason: str = ""
     guardrail_findings: Annotated[list[str], last_wins] = []
     reply_blocked: bool = False
     approval_granted: bool = False

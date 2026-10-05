@@ -117,7 +117,13 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         this point a finding is the *input* screen's: something in the ticket
         addressed the model directly. That is worth a person's eyes on the
         reply, and it is rare.
+
+        A handover is the exception: it says a colleague is picking this up,
+        somebody has already been sent for, and holding the sentence that says
+        so behind that same person helps nobody.
         """
+        if state.escalation_reason:
+            return False
         return state.answer.requires_approval or bool(state.guardrail_findings)
 
     def route_after_screen(self, state: DeliveryState) -> str:

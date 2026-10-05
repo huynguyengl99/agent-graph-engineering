@@ -308,7 +308,10 @@ class SupportGraph(AnswerFeed, BaseGraph):
             {"report_tool": "report_tool", "respond": "respond"},
         )
         graph.add_edge("report_tool", "respond")
-        graph.add_edge("escalate", END)
+        # The handover notice is a reply to the customer, so it leaves by the
+        # one route out: screened, recorded when it is sent, and not left as a
+        # draft nobody persists.
+        graph.add_edge("escalate", "delivery")
         graph.add_conditional_edges(
             "respond", self.route_answer, {"delivery": "delivery", END: END}
         )

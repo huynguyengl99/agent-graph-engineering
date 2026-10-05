@@ -55,7 +55,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
 
     @ws_handler(
         summary="Post a comment",
-        description="Appends a CommentEvent and hands the ticket to triage.",
+        description="Appends a CommentEvent and hands the ticket to the agent.",
         output_type=NewEventMessage,
     )
     async def handle_send_message(self, message: SendMessageMessage) -> None:

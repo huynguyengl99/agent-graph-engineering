@@ -149,7 +149,7 @@ class TestTriageService(WebsocketTestCase):
             RunFailedMessage(
                 payload=RunFailedPayload(
                     thread_id=str(self.ticket.id),
-                    message="The triage agent could not complete this ticket.",
+                    message="The agent could not complete this ticket.",
                 )
             )
         )

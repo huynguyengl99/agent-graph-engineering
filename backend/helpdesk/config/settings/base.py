@@ -86,7 +86,7 @@ ASGI_APPLICATION = "helpdesk.config.asgi.application"
 DATABASES = {
     "default": env.dj_db_url(
         "DATABASE_URL",
-        default="postgresql://postgres:postgres@localhost:5432/triage_dev",
+        default="postgresql://postgres:postgres@localhost:5432/agent_graph_dev",
     )
 }
 
@@ -297,7 +297,7 @@ AGENT_WS_URL = env.str("AGENT_WS_URL", "ws://localhost:8001")
 # sides means an unauthenticated agent, which only holds while nothing but this
 # service can reach it.
 AGENT_TOKEN = env.str("ASSISTANT_AGENT_TOKEN", "")
-# Tests drive the triage client explicitly; leaving the automatic
+# Tests drive the agent explicitly; leaving the automatic
 # trigger on would make results depend on whether the agent is running.
 AGENT_ON_COMMENT = env.bool("AGENT_ON_COMMENT", True)
 

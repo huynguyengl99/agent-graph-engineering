@@ -158,7 +158,7 @@ async def test_classification_is_typed_not_parsed() -> None:
 
 
 async def test_the_thread_reaches_the_prompt() -> None:
-    """A triage run is one pass with no message history, so what was already
+    """A customer run is one pass with no message history, so what was already
     said has to be in the prompt or the agent answers the ticket twice."""
     context = ticket_context(history=["I was charged twice.", "Any update?"])
 

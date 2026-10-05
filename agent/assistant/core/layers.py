@@ -7,7 +7,7 @@ from fast_channels.layers import (
 
 from assistant.core.config import settings
 
-LAYER_ALIAS = "triage"
+LAYER_ALIAS = "support"
 
 
 def setup_layers(force: bool = False) -> None:

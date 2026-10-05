@@ -45,7 +45,7 @@ class AgentProgressPayload(BaseModel):
 
 
 class AgentProgressMessage(BaseMessage):
-    """Intermediate triage progress, so the UI is not silent while it works."""
+    """Progress while a run works, so the UI is not silent."""
 
     action: Literal["agent_progress"] = "agent_progress"
     payload: AgentProgressPayload

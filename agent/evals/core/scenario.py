@@ -39,7 +39,7 @@ class Expect(BaseModel):
 
 
 class Scenario(BaseModel):
-    """A ticket for triage, or a rep's question for chat. One golden set, because
+    """A customer's ticket, or the team's question. One golden set, because
     a reader comparing runs wants one table."""
 
     name: str

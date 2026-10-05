@@ -39,7 +39,7 @@ async def run_trial(scenario: Scenario, config: AgentConfig) -> Observation:
 
     if scenario.audience == "team":
         return await _run_chat(scenario, config)
-    return await _run_triage(scenario, config)
+    return await _run_for_customer(scenario, config)
 
 
 async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
@@ -99,7 +99,7 @@ async def _gate(
     ) or None
 
 
-async def _run_triage(scenario: Scenario, config: AgentConfig) -> Observation:
+async def _run_for_customer(scenario: Scenario, config: AgentConfig) -> Observation:
     ticket_id = str(uuid.uuid4())
     context = Context(
         thread_id=ticket_id,

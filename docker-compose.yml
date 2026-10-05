@@ -1,9 +1,9 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: triage-postgres
+    container_name: agent-graph-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-triage_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-agent_graph_dev}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
@@ -18,7 +18,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: triage-redis
+    container_name: agent-graph-redis
     ports:
       - "6379:6379"
     volumes:

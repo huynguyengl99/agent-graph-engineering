@@ -499,13 +499,15 @@ console.log('== graph diagrams ==');
 await page.click('a[href="/graphs"]');
 await page.waitForSelector('main svg', { state: 'attached', timeout: 30000 });
 const expanded = await page.locator('main svg').innerHTML();
-['await_approval', 'refine', 'screen'].every((n) => expanded.includes(n))
+['delivery_approval', 'knowledge_refine', 'tool_gate'].every((n) =>
+  expanded.includes(n),
+)
   ? ok('xray expands both subgraphs inline')
   : bad('xray did not expand the subgraphs');
 await page.uncheck('input[type="checkbox"]');
 await page.waitForTimeout(1500);
 const collapsed = await page.locator('main svg').innerHTML();
-!collapsed.includes('await_approval') && collapsed.includes('delivery')
+!collapsed.includes('delivery_approval') && collapsed.includes('delivery')
   ? ok('collapsed shows subgraphs as single nodes')
   : bad('collapse did not work');
 

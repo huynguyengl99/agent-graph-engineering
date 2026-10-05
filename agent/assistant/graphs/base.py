@@ -45,8 +45,8 @@ class BaseGraph:
     def thread(cls, key: str) -> str:
         """A checkpoint thread belongs to one graph.
 
-        Keyed on the ticket alone, a consult about a ticket and its triage share
-        a thread, and the next run fails validating the other's state.
+        Keyed on the ticket alone, two graphs would share a thread and the
+        next run would fail validating the other's state.
         """
         return f"{cls.name}:{key}"
 

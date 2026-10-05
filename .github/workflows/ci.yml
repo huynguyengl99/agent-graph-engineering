@@ -23,7 +23,7 @@ jobs:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: triage_test
+          POSTGRES_DB: agent_graph_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports: ["5432:5432"]
@@ -33,7 +33,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/triage_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agent_graph_test
       DJANGO_SECRET_KEY: ci-secret-key-long-enough-for-hmac-sha256
     steps:
       - uses: actions/checkout@v4

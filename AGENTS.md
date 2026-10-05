@@ -72,8 +72,9 @@ backend here does not own one.
 
 ### Approval flow
 
-`respond` drafts, `await_approval` calls `interrupt()`, and only an approved run
-reaches `send_reply`. Notes that cost time to rediscover:
+`support_respond` drafts, `delivery_screen` decides whether a person is needed,
+`delivery_approval` calls `interrupt()` when one is, and only then does a run
+reach `delivery_send`. Notes that cost time to rediscover:
 
 - The thread id is the **ticket id**, so a decision arriving on a new socket
   still finds the paused run. The backend deliberately disconnects after

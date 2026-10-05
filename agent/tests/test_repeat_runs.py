@@ -1,4 +1,4 @@
-"""A ticket gets triaged more than once, on one checkpointer thread.
+"""A ticket is worked more than once, on one checkpointer thread.
 
 The thread id is the ticket, so a second comment resumes a thread that still
 holds the previous run's answer, receipt and approval. Every other test uses a
@@ -31,7 +31,7 @@ def context() -> Context:
     )
 
 
-async def triage_once(graph: Any, config: dict[str, Any]) -> dict[str, Any]:
+async def run_once(graph: Any, config: dict[str, Any]) -> dict[str, Any]:
     await graph.ainvoke(SupportState(context=context()), config=config)
     return dict(
         await graph.ainvoke(
@@ -40,11 +40,11 @@ async def triage_once(graph: Any, config: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-async def test_a_second_triage_starts_clean() -> None:
+async def test_a_second_run_starts_clean() -> None:
     graph = SupportGraph(scripted()).compile(memory_checkpointer())
     config = {"configurable": {"thread_id": TICKET}}
 
-    first = await triage_once(graph, config)
+    first = await run_once(graph, config)
     assert first["delivery_receipt"], "the first run should have sent"
 
     # A whole state defaults every field, which clears the last run's receipt.

@@ -33,7 +33,7 @@ TICKET = "t-broadcast"
 CONVERSATION = "c-broadcast"
 
 
-def detached_triage() -> SupportTopic:
+def detached_customer_run() -> SupportTopic:
     """A real topic, driving a run with no socket of its own."""
     return SupportTopic(NoSocket(), f"support:customer:{TICKET}")  # type: ignore[arg-type]
 
@@ -64,7 +64,7 @@ async def test_the_emitter_a_topic_hands_its_graph_reaches_a_subscriber(
     reply = await socket.subscribe(f"support:customer:{TICKET}")
     assert reply["action"] == "subscribed", reply
 
-    emit = emitter_for(detached_triage())
+    emit = emitter_for(detached_customer_run())
     await emit(
         AnswerMessage(
             payload=AnswerPayload(
@@ -95,7 +95,7 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),
     ):
-        await detached_triage().handle_run_request(
+        await detached_customer_run().handle_run_request(
             RunRequestMessage(
                 payload=RunRequestPayload(
                     ticket_id=TICKET, title="Charged twice", description="Two charges."

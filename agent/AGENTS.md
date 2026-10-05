@@ -265,7 +265,7 @@ is concerned. `render_tool_list()` is the block the planner prompt embeds.
 There are **two** independent gates on an irreversible tool, and that is
 deliberate:
 
-1. **The graph** parks at `tool.gate` with the proposed tool and arguments. A
+1. **The graph** parks at `tool_gate` with the proposed tool and arguments. A
    reviewer approves, **corrects the arguments**, or cancels. A correction
    replaces the arguments wholesale, so what they saw is what runs.
 2. **The tool itself** refuses to run without `approved=True`

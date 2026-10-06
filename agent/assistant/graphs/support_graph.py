@@ -102,8 +102,15 @@ class SupportGraph(AnswerFeed, BaseGraph):
         self, state: SupportState
     ) -> Command[Literal["support_decide"]]:
         context = state.context
-        # Recorded, not refused: see assistant/guardrails/input.py.
-        attempts = screen_input(context.untrusted_text())
+        # Recorded, not refused: see assistant/guardrails/input.py. The
+        # question goes in too when it is the customer's: it is the one piece
+        # of their writing the ticket does not already carry, and screening
+        # everything except the message that started this run reads every
+        # attempt one turn too late.
+        written_by_them = [context.untrusted_text()]
+        if context.for_customer and state.question:
+            written_by_them.append(state.question)
+        attempts = screen_input("\n".join(written_by_them))
         classification = await self.run_aloud(
             "classify", self.classifier, context.render(with_history=True), context
         )

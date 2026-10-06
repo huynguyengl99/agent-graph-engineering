@@ -204,7 +204,7 @@ await customerPage.click('main form button[type="submit"]');
 // over. What must not happen is the agent answering it alone.
 const reachedAPerson = await page
   .waitForSelector(
-    'button:has-text("Approve"), li:has-text("Passed to the support team")',
+    'button:has-text("Approve and send"), li:has-text("Passed to the support team")',
     { timeout: 90000 },
   )
   .then(() => true)
@@ -214,7 +214,7 @@ reachedAPerson
   : bad('a flagged ticket answered the customer with nobody reading it');
 
 const parkedForReview = await page
-  .locator('button:has-text("Approve")')
+  .locator('button:has-text("Approve and send")')
   .count()
   .then((n) => n > 0);
 if (reachedAPerson && !parkedForReview) {
@@ -226,13 +226,13 @@ if (parkedForReview) {
   // and in this tab's React state. A reload lost a customer-facing reply.
   const draftBefore = await page.locator('section textarea').inputValue();
   await page.reload();
-  await page.waitForSelector('button:has-text("Approve")', { timeout: 30000 });
+  await page.waitForSelector('button:has-text("Approve and send")', { timeout: 30000 });
   (await page.locator('section textarea').inputValue()) === draftBefore
     ? ok('the drafted reply survived a reload')
     : bad('the reloaded page lost the drafted reply');
 
   const before = await customerPage.locator('li:has-text("Agent (")').count();
-  await page.click('button:has-text("Approve")');
+  await page.click('button:has-text("Approve and send")');
   await customerPage
     .waitForFunction(
       ([selector, n]) => document.querySelectorAll(selector).length > n,

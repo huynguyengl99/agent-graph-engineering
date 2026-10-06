@@ -6,6 +6,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
+from helpdesk.accounts.models import ModelPreference
 from helpdesk.tickets.models import Ticket
 
 EMAIL = "demo@example.com"
@@ -25,6 +26,11 @@ class Command(BaseCommand):
     help = "Create the staff and customer accounts, and a couple of tickets."
 
     def handle(self, *args: Any, **options: Any) -> None:
+        # A pass that sets a model preference leaves it behind, and the next one
+        # then runs on whatever the last one chose rather than the deployment's
+        # own default. Seeding is where a run gets its known starting point.
+        ModelPreference.objects.all().delete()
+
         user_model = get_user_model()
         user, created = user_model.objects.get_or_create(
             email=EMAIL, defaults={"is_staff": True, "is_superuser": True}

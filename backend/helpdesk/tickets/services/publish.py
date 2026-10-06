@@ -12,7 +12,7 @@ from helpdesk.tickets.messages import (
     AnswerStreamingMessage,
     ApprovalRequiredMessage,
     NewEventMessage,
-    ReasoningDeltaMessage,
+    ReasoningStreamingMessage,
     ToolProposalMessage,
 )
 from helpdesk.tickets.messages.events import HandoffEvent, TicketEvent, ToolCallEvent
@@ -21,7 +21,6 @@ TEAM_ONLY: tuple[type[BaseMessage], ...] = (
     AgentProgressMessage,
     ApprovalRequiredMessage,
     ToolProposalMessage,
-    ReasoningDeltaMessage,
 )
 
 
@@ -63,7 +62,7 @@ async def publish(ticket_id: str, message: BaseMessage) -> None:
 
     # The reply as it is written goes where the finished reply will go, so the
     # customer never watches a draft that turns out to be the team's.
-    if isinstance(message, AnswerStreamingMessage):
+    if isinstance(message, AnswerStreamingMessage | ReasoningStreamingMessage):
         await TicketTeamTopic.broadcast(team_topic(ticket_id), message)
         if message.payload.public:
             await TicketTopic.broadcast(ticket_topic(ticket_id), message)

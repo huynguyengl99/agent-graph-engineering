@@ -37,8 +37,8 @@ from helpdesk.tickets.messages import (
     ApprovalRequiredPayload,
     NewEventMessage,
     NewEventPayload,
-    ReasoningDeltaMessage,
-    ReasoningDeltaPayload,
+    ReasoningStreamingMessage,
+    ReasoningStreamingPayload,
     ToolProposalMessage,
     ToolProposalPayload,
 )
@@ -90,6 +90,9 @@ class TicketSink(Sink):
         # is corrected by the next one instead of losing a word.
         self.answer = ""
         self.answer_reference = ""
+        # The same, for the reasoning of whichever step is being written.
+        self.reasoning = ""
+        self.reasoning_reference = ""
 
     async def _progress(
         self, stage: Literal["classified", "decided", "failed"], detail: str
@@ -137,6 +140,9 @@ class TicketSink(Sink):
         """The next reply on this run is a new one, not more of this one."""
         self.answer = ""
         self.answer_reference = ""
+        # The same, for the reasoning of whichever step is being written.
+        self.reasoning = ""
+        self.reasoning_reference = ""
 
     async def drafted(self, content: str, model: str) -> None:
         self.model = model or self.model
@@ -204,18 +210,29 @@ class TicketSink(Sink):
         await self._event(await self._persist_tool_call(payload))
 
     async def reasoning_delta(self, step: str, delta: str) -> None:
-        """Live only. The finished reasoning is the record; the pieces are how
-        it looked being written."""
+        """Live only. The finished reasoning is the record; this is how it
+        looked being written, and is not kept."""
+        if not self.reasoning_reference:
+            self.reasoning_reference = str(uuid4())
+        self.reasoning += delta
         await broadcast(
             self.ticket_id,
-            ReasoningDeltaMessage(
-                payload=ReasoningDeltaPayload(step=step, delta=delta)
+            ReasoningStreamingMessage(
+                payload=ReasoningStreamingPayload(
+                    reference=self.reasoning_reference,
+                    step=step,
+                    content=self.reasoning,
+                    public=self.visibility == Visibility.PUBLIC,
+                )
             ),
         )
 
     async def reasoned(
         self, step: str, content: str, decision: str, model: str
     ) -> None:
+        # The next step writes its own, rather than continuing this one.
+        self.reasoning = ""
+        self.reasoning_reference = ""
         if content:
             await self._event(
                 await self._persist_reasoning(step, content, decision, model)

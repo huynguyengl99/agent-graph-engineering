@@ -269,7 +269,8 @@ reasoned
 await page.waitForSelector('li:has-text("INTERNAL")', { timeout: 90000 });
 ok('the agent answered the team on the ticket');
 
-// The customer asked a question, not for the workings.
+// They watch their own reply being worked out, and none of this: the team's
+// lane is a different run, on a topic they cannot subscribe to.
 const leaked = await customerPage
   .locator('li:has-text("INTERNAL"), li span.italic')
   .count();

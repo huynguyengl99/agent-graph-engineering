@@ -13,7 +13,7 @@ import type {
   NewEventMessage,
   PingMessage,
   PongMessage,
-  ReasoningDeltaMessage,
+  ReasoningStreamingMessage,
   SendMessageMessage,
   SetAgentMessage,
   TicketUpdatedMessage,
@@ -36,6 +36,7 @@ export type HubTicketTopicToClient =
   | AgentWorkingMessage
   | AnswerStreamingMessage
   | NewEventMessage
+  | ReasoningStreamingMessage
   | TicketUpdatedMessage;
 export type HubTicketTeamTopicToServer = never;
 export type HubTicketTeamTopicToClient =
@@ -43,7 +44,7 @@ export type HubTicketTeamTopicToClient =
   | AnswerStreamingMessage
   | ApprovalRequiredMessage
   | NewEventMessage
-  | ReasoningDeltaMessage
+  | ReasoningStreamingMessage
   | ToolProposalMessage;
 
 /** One connection, many subscriptions: a ticket, and the team's half of it */

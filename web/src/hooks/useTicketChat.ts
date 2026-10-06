@@ -20,7 +20,8 @@ interface UseTicketChatOptions {
   onApprovalRequired?: (draft: string, findings: string[]) => void;
   onToolProposal?: (proposal: ToolProposalPayload) => void;
   onTicketUpdated?: (status: string, priority: string) => void;
-  onReasoning?: (step: string, delta: string) => void;
+  /** One step's reasoning as far as it is written, whole each time. */
+  onReasoning?: (step: string, content: string) => void;
   onAgentWorking?: (working: boolean) => void;
   /** The reply as far as it is written, whole each time rather than a piece. */
   onAnswer?: (reference: string, content: string) => void;
@@ -56,6 +57,8 @@ export function useTicketChat({
         new_event: (message) => onNewEvent?.(message.payload.event),
         answer_streaming: (message) =>
           onAnswer?.(message.payload.reference, message.payload.content),
+        reasoning_streaming: (message) =>
+          onReasoning?.(message.payload.step ?? '', message.payload.content),
         agent_working: (message) => onAgentWorking?.(message.payload.working),
         ticket_updated: (message) =>
           onTicketUpdated?.(message.payload.status, message.payload.priority),
@@ -77,8 +80,8 @@ export function useTicketChat({
           message.payload.findings ?? [],
         ),
       tool_proposal: (message) => onToolProposal?.(message.payload),
-      reasoning_delta: (message) =>
-        onReasoning?.(message.payload.step ?? '', message.payload.delta),
+      reasoning_streaming: (message) =>
+        onReasoning?.(message.payload.step ?? '', message.payload.content),
     },
   });
 

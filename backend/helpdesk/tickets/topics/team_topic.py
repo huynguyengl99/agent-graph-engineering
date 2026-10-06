@@ -14,7 +14,7 @@ from helpdesk.tickets.messages import (
     AnswerStreamingMessage,
     ApprovalRequiredMessage,
     NewEventMessage,
-    ReasoningDeltaMessage,
+    ReasoningStreamingMessage,
     ToolProposalMessage,
 )
 from helpdesk.tickets.models import Ticket
@@ -25,7 +25,7 @@ TeamFeedEvent = (
     | AgentProgressMessage
     | ApprovalRequiredMessage
     | ToolProposalMessage
-    | ReasoningDeltaMessage
+    | ReasoningStreamingMessage
 )
 
 
@@ -40,7 +40,7 @@ class TicketTeamTopic(Topic[TeamFeedEvent]):
         AgentProgressMessage,
         ApprovalRequiredMessage,
         ToolProposalMessage,
-        ReasoningDeltaMessage,
+        ReasoningStreamingMessage,
     ]
 
     async def authorize(self, **params: str) -> bool:

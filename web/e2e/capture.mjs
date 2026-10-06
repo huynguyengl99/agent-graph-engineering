@@ -380,9 +380,17 @@ const newTicket = async (page, title, body) => {
       /Filed the ticket|Chose what to do|reasoning/i.test(staffMid)
         ? ok('staff watch the agent reason')
         : bad('staff watch the agent reason');
-      /Chose what to do|INTERNAL/i.test(custMid)
-        ? bad('the customer is not shown the workings', 'internal content visible')
-        : ok('the customer is not shown the workings');
+      // They are shown their own run being worked out. What they must never
+      // see is the team's half, which is a different run on a topic they
+      // cannot subscribe to.
+      /INTERNAL/.test(custMid)
+        ? bad("the team's half never reaches the customer", 'internal content visible')
+        : ok("the team's half never reaches the customer");
+      // "Agent" without the model: that is the bubble being written. The model
+      // name only appears once the finished reply is an event.
+      /Filed the ticket|Chose what to do|Wrote the reply|Agent/.test(custMid)
+        ? ok('the customer watches their own reply being worked out')
+        : bad('the customer watches their own reply being worked out', 'nothing shown');
 
       await settled(S.pg, ticketId, 'the run with both watching');
       await Promise.all([C.pg.waitForTimeout(3000), S.pg.waitForTimeout(3000)]);

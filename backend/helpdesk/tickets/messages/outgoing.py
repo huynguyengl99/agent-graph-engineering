@@ -109,16 +109,23 @@ class TicketUpdatedMessage(BaseMessage):
     payload: TicketUpdatedPayload
 
 
-class ReasoningDeltaPayload(BaseModel):
-    """A piece of the agent's reasoning, as it is written. Staff only."""
+class ReasoningStreamingPayload(BaseModel):
+    """The agent's reasoning for one step, as far as it has been written.
 
+    Whole each time rather than the piece just added, for the same reason as
+    the reply: a late subscriber sees all of it, and a dropped frame is put
+    right by the next one instead of losing a word in the middle.
+    """
+
+    reference: str
     step: str = ""
-    delta: str
+    content: str
+    public: bool
 
 
-class ReasoningDeltaMessage(BaseMessage):
-    action: Literal["reasoning_delta"] = "reasoning_delta"
-    payload: ReasoningDeltaPayload
+class ReasoningStreamingMessage(BaseMessage):
+    action: Literal["reasoning_streaming"] = "reasoning_streaming"
+    payload: ReasoningStreamingPayload
 
 
 class AnswerStreamingPayload(BaseModel):

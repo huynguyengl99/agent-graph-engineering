@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { api } from '@/lib/api';
 import { useTicketChat } from '@/hooks/useTicketChat';
-import { Row, TicketEventItem } from '@/components/TicketEventItem';
+import { Row, Thinking, TicketEventItem } from '@/components/TicketEventItem';
 import { awaitingFirstReply } from '@/lib/newTickets';
 import { mergeEvents } from '@/lib/eventList';
 import type { Ticket, TicketEvent } from '@/lib/types';
@@ -22,16 +22,30 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
   const [working, setWorking] = useState(false);
   // The reply as it arrives, replaced by the event that carries the finished one.
   const [streaming, setStreaming] = useState('');
+  // What it is working on, while it works. Live only: the finished reasoning
+  // stays the team's, so this is gone on reload.
+  const [thinking, setThinking] = useState({ step: '', text: '' });
   const bottom = useRef<HTMLDivElement>(null);
 
   const { sendMessage, askAgent, isConnected } = useTicketChat({
     ticketId,
     onNewEvent: (event) => {
+      if (event.eventType === 'reasoning') setThinking({ step: '', text: '' });
       if (event.eventType === 'ai_response') setStreaming('');
       setEvents((current) => mergeEvents(current, [event]));
     },
-    onAgentWorking: setWorking,
-    onAnswer: (_reference, content) => setStreaming(content),
+    onAgentWorking: (busy) => {
+      setWorking(busy);
+      // The only end-of-run signal they get: the events that clear this for
+      // staff are internal, and a resumed run sends a reply it already wrote
+      // rather than writing it again.
+      if (!busy) setThinking({ step: '', text: '' });
+    },
+    onAnswer: (_reference, content) => {
+      setThinking({ step: '', text: '' });
+      setStreaming(content);
+    },
+    onReasoning: (step, content) => setThinking({ step, text: content }),
   });
 
   // The opening message is the ticket, so nothing posted it: hand it over as
@@ -61,7 +75,7 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [events, working, streaming]);
+  }, [events, working, streaming, thinking]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,12 +111,15 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
         {events.map((event) => (
           <TicketEventItem key={event.id} event={event} />
         ))}
+        {thinking.text && !streaming && (
+          <Thinking step={thinking.step} content={thinking.text} live />
+        )}
         {streaming && (
           <Row tone="agent" label="Agent" when="">
             {streaming}
           </Row>
         )}
-        {working && !streaming && (
+        {working && !streaming && !thinking.text && (
           // Nothing about what it is doing: which step it is on and what it
           // decided are the team's. That somebody has your ticket is yours.
           <li className="flex items-center gap-2 px-4 py-3 text-sm text-gray-500">

@@ -16,7 +16,7 @@ from helpdesk.tickets.messages import (
     AskAgentMessage,
     NewEventMessage,
     NewEventPayload,
-    ReasoningDeltaMessage,
+    ReasoningStreamingMessage,
     SendMessageMessage,
     SetAgentMessage,
     TicketUpdatedMessage,
@@ -41,7 +41,7 @@ TicketFeedEvent = (
     | ApprovalRequiredMessage
     | ToolProposalMessage
     | TicketUpdatedMessage
-    | ReasoningDeltaMessage
+    | ReasoningStreamingMessage
 )
 
 
@@ -253,6 +253,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
     passthrough_events = [
         NewEventMessage,
         AnswerStreamingMessage,
+        ReasoningStreamingMessage,
         AgentWorkingMessage,
         TicketUpdatedMessage,
     ]

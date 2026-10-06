@@ -145,17 +145,6 @@ export interface PongMessage {
   payload?: null;
 }
 
-export interface ReasoningDeltaMessage {
-  action: 'reasoning_delta';
-  payload: ReasoningDeltaPayload;
-}
-
-/** A piece of the agent's reasoning, as it is written. Staff only. */
-export interface ReasoningDeltaPayload {
-  step?: string;
-  delta: string;
-}
-
 export interface ReasoningEvent {
   id: number;
   createdBy?: EventUser | null;
@@ -166,6 +155,19 @@ export interface ReasoningEvent {
   content: string;
   decision?: string;
   modelName?: string;
+}
+
+export interface ReasoningStreamingMessage {
+  action: 'reasoning_streaming';
+  payload: ReasoningStreamingPayload;
+}
+
+/** The agent's reasoning for one step, as far as it has been written. Whole each time rather than the piece just added, for the same reason as the reply: a late subscriber sees all of it, and a dropped frame is put right by the next one instead of losing a word in the middle. */
+export interface ReasoningStreamingPayload {
+  reference: string;
+  step?: string;
+  content: string;
+  public: boolean;
 }
 
 /** A human posts a comment on the ticket. */

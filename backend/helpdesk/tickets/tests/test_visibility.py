@@ -176,3 +176,37 @@ class TestWhoWatchesTheReplyBeingWritten(WebsocketTestCase):
         assert (
             await self._tokens_on(f"ticket:{self.ticket.id}", Visibility.INTERNAL) == []
         )
+
+
+class TestWhoWatchesItThink(WebsocketTestCase):
+    """Reasoning for a customer's own reply reaches them while it is written,
+    and the finished one still stays off their record."""
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.ticket = TicketFactory.create(created_by=self.user)
+
+    async def _thinking_on(self, visibility: str) -> list[Any]:
+        from helpdesk.tickets.services.support import TicketSink
+
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+        sink = TicketSink(str(self.ticket.id), visibility)
+        await sink.reasoning_delta("classify", "Two charges ")
+        await sink.reasoning_delta("classify", "in one cycle.")
+        frames = await self.auth_communicator.receive_all_json(timeout=2)
+        return [f for f in frames if f.get("action") == "reasoning_streaming"]
+
+    async def test_they_watch_it_work_on_their_own_reply(self) -> None:
+        frames = await self._thinking_on(Visibility.PUBLIC)
+
+        assert [f["payload"]["content"] for f in frames] == [
+            "Two charges ",
+            "Two charges in one cycle.",
+        ]
+        assert {f["payload"]["step"] for f in frames} == {"classify"}
+
+    async def test_they_never_watch_it_work_on_the_team_s(self) -> None:
+        assert await self._thinking_on(Visibility.INTERNAL) == []

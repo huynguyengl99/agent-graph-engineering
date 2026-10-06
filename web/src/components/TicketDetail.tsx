@@ -91,13 +91,10 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   }, [ticketId]);
 
   // Cleared when the finished reasoning arrives as an event of its own.
-  const onReasoning = useCallback((step: string, delta: string) => {
-    // A new step starts its own line rather than appending to the last one's.
-    setThinking((current) =>
-      current.step === step
-        ? { step, text: current.text + delta }
-        : { step, text: delta },
-    );
+  // The whole of the step's reasoning arrives each time, so this holds what
+  // the server has rather than adding up pieces and hoping none went missing.
+  const onReasoning = useCallback((step: string, content: string) => {
+    setThinking({ step, text: content });
   }, []);
 
   const onTicketUpdated = useCallback(

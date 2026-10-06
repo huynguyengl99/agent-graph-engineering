@@ -112,6 +112,7 @@ const STEPS: Record<string, string> = {
   decide: 'Chose what to do',
   plan: 'Picked the tool',
   refine: 'Searched again',
+  respond: 'Wrote the reply',
 };
 
 export function Thinking({

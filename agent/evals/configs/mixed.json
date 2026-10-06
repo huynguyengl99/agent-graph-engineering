@@ -13,5 +13,5 @@
     "provider": "openai",
     "name": "gpt-5.2"
   },
-  "trials": 1
+  "trials": 3
 }

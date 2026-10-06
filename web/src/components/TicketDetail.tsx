@@ -82,7 +82,9 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
       setProgress([]);
       setPendingApproval(null);
     }
-  }, []);
+    // `ticketId` is read above, so it cannot be captured from the first render:
+    // moving between tickets would publish the change against the old one.
+  }, [ticketId]);
 
   // Cleared when the finished reasoning arrives as an event of its own.
   const onReasoning = useCallback((step: string, delta: string) => {

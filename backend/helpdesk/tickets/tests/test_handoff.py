@@ -301,6 +301,26 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         event = await AIResponseEvent.objects.aget(ticket_id=self.ticket.id)
         assert event.content == "Sorted."
 
+    async def test_a_reply_with_a_placeholder_becomes_somebody_s_job(self) -> None:
+        """It used to escape the relay's message loop, which the generated
+        client swallows: the run died and the ticket just looked idle."""
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+
+        await self.client_for(Visibility.PUBLIC).on_event(
+            ReplySentMessage(
+                payload=ReplySentPayload(
+                    ticket_id=str(self.ticket.id),
+                    receipt="ok",
+                    content="We will follow up within {{follow-up timeframe}}.",
+                )
+            )
+        )
+
+        assert not await AIResponseEvent.objects.filter(
+            ticket_id=self.ticket.id
+        ).aexists()
+        assert await handling_of(str(self.ticket.id)) == Handling.NEEDS_HUMAN
+
     async def test_a_receipt_carrying_nothing_records_nothing(self) -> None:
         """Delivery always sends what it sent, so an empty one is not a reply."""
         await self.subscribe_ready(f"ticket:{self.ticket.id}")

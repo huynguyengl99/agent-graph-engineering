@@ -135,7 +135,17 @@ class TicketSink(Sink):
         if not content.strip():
             logger.warning("support.empty_reply_ignored", ticket_id=self.ticket_id)
             return
-        await self._event(await self._persist(content))
+        try:
+            await self._event(await self._persist(content))
+        except UnfilledError as unfilled:
+            # The customer is waiting on a reply the agent could not finish, so
+            # it becomes somebody's job rather than nobody's. Letting this out
+            # killed the relay, and the run died with the ticket looking idle.
+            await self._to_a_person(
+                "Fill in "
+                + ", ".join(unfilled.names)
+                + " before this can go to the customer."
+            )
 
     async def reply_blocked(self, findings: list[str]) -> None:
         await self._progress("failed", "; ".join(findings) or "The reply was blocked.")

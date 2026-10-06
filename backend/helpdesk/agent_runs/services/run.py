@@ -52,7 +52,12 @@ _background: set[asyncio.Task[None]] = set()
 def _done(task: "asyncio.Task[None]") -> None:
     """Nobody awaits these, so a failure is only ever seen if it is logged."""
     _background.discard(task)
-    if not task.cancelled() and task.exception() is not None:
+    if task.cancelled():
+        # Nothing cancels these on purpose, so this is a run losing its last
+        # events rather than an orderly stop.
+        logger.error("agent_run.cancelled")
+        return
+    if task.exception() is not None:
         logger.error("agent_run.crashed", exc_info=task.exception())
 
 
@@ -101,6 +106,10 @@ class _Handle(AgentHubSupportTopicClient):
         relay: Any = self.connection
         await relay.on_event(message)
 
+    async def handle_invalid_message(self, invalid_message: Any) -> None:
+        """The generated default prints to stdout, which nothing reads."""
+        await logger.aerror("agent_run.invalid_frame", frame=invalid_message)
+
 
 Outgoing = RunRequestPayload | ApprovalDecisionPayload | ToolDecisionPayload
 
@@ -143,6 +152,16 @@ class SupportRun(AgentClient):
                 await topic.send_message(ApprovalDecisionMessage(payload=self.payload))
             case _:
                 await topic.send_message(ToolDecisionMessage(payload=self.payload))
+
+    async def handle_websocket_connection_error(self, e: Exception) -> None:
+        """The generated default swallows this, and the run dies in silence:
+        the events it had not applied yet are simply never applied."""
+        await logger.aerror(
+            "agent_run.connection_failed",
+            topic=self.agent_topic,
+            seq=self.incoming_seq,
+            exc_info=e,
+        )
 
     async def disconnect(self, code: int = 1000, reason: str = "") -> None:
         """Closing a run that never opened a socket is not an error.

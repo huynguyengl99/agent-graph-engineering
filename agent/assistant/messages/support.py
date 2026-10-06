@@ -129,6 +129,9 @@ class ApprovalDecisionMessage(BaseMessage):
 class ReplySentPayload(BaseModel):
     ticket_id: str
     receipt: str
+    # The relay may be reading this on a replay, where the draft it saw is gone
+    # with the connection that saw it.
+    content: str = ""
 
 
 class ReplySentMessage(BaseMessage):

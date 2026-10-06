@@ -49,15 +49,22 @@ logger = structlog.get_logger(__name__)
 _background: set[asyncio.Task[None]] = set()
 
 
+def _done(task: "asyncio.Task[None]") -> None:
+    """Nobody awaits these, so a failure is only ever seen if it is logged."""
+    _background.discard(task)
+    if not task.cancelled() and task.exception() is not None:
+        logger.error("agent_run.crashed", exc_info=task.exception())
+
+
 def spawn(coro: "Coroutine[Any, Any, None]") -> None:
     """Run detached, keeping a strong reference.
 
     asyncio holds only a weak reference to a running task, so a detached one can
-    be collected mid-flight. The discard callback stops the set growing.
+    be collected mid-flight.
     """
     task = asyncio.create_task(coro)
     _background.add(task)
-    task.add_done_callback(_background.discard)
+    task.add_done_callback(_done)
 
 
 class Sink:
@@ -67,7 +74,7 @@ class Sink:
     async def decided(self, decision: str, why: str) -> None: ...
     async def drafted(self, content: str, model: str) -> None: ...
     async def approval_required(self, draft: str, findings: list[str]) -> None: ...
-    async def reply_sent(self) -> None: ...
+    async def reply_sent(self, content: str) -> None: ...
     async def reply_blocked(self, findings: list[str]) -> None: ...
     async def token(self, delta: str) -> None: ...
     async def answered(self, content: str, model: str) -> None: ...
@@ -168,8 +175,8 @@ class SupportRun(AgentClient):
                 done = False
             case ApprovalRequiredMessage(payload=p):
                 await self.sink.approval_required(p.draft, list(p.findings or []))
-            case ReplySentMessage():
-                await self.sink.reply_sent()
+            case ReplySentMessage(payload=p):
+                await self.sink.reply_sent(p.content)
             case ReplyBlockedMessage(payload=p):
                 await self.sink.reply_blocked(list(p.findings or []))
             case ChatTokenMessage(payload=p):

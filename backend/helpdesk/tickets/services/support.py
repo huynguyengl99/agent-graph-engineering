@@ -78,7 +78,6 @@ class TicketSink(Sink):
         self.visibility = visibility
         self.seq = 0
         self.agent_topic = ""
-        self.draft: str | None = None
         # What the agent said wrote the reply. The ticket used to be stamped
         # with this service's own guess at the model, which was wrong the
         # moment the agent was pointed somewhere else.
@@ -111,7 +110,6 @@ class TicketSink(Sink):
             await self._to_a_person(why)
 
     async def drafted(self, content: str, model: str) -> None:
-        self.draft = content
         self.model = model or self.model
         # A customer's reply is recorded when delivery sends it. Recording it
         # here too put the same answer on the ticket twice.
@@ -128,19 +126,16 @@ class TicketSink(Sink):
             ),
         )
 
-    async def reply_sent(self) -> None:
-        """A receipt with no text behind it records nothing.
+    async def reply_sent(self, content: str) -> None:
+        """The receipt carries what was sent, because this may be a replay.
 
-        `reply_sent` carries a receipt, not the reply, so the text comes from
-        the draft this relay saw. A relay that never saw one is not reporting a
-        reply it sent - it is replaying somebody else's - and it used to write
-        that down as an empty message from the agent.
+        Reading it off the draft this relay saw meant a reconnect between the
+        answer and its receipt recorded nothing at all.
         """
-        text = await self._sent_text()
-        if not text.strip():
+        if not content.strip():
             logger.warning("support.empty_reply_ignored", ticket_id=self.ticket_id)
             return
-        await self._event(await self._persist(text))
+        await self._event(await self._persist(content))
 
     async def reply_blocked(self, findings: list[str]) -> None:
         await self._progress("failed", "; ".join(findings) or "The reply was blocked.")
@@ -196,14 +191,6 @@ class TicketSink(Sink):
         await self._event(
             await hand_off(self.ticket_id, Handling.NEEDS_HUMAN, reason=reason)
         )
-
-    async def _sent_text(self) -> str:
-        """The reviewer's edit if they made one, otherwise the stored draft.
-
-        `reply_sent` carries a receipt and not the text, so before the draft was
-        persisted a plain approve recorded an empty event on the ticket.
-        """
-        return self.draft or str(await stored_draft(self.ticket_id))
 
     @database_sync_to_async
     def _remember_draft(self, draft: str, findings: list[str]) -> None:
@@ -488,7 +475,6 @@ async def submit_approval(
             return
 
     sink = TicketSink(ticket_id, visibility)
-    sink.draft = content
     try:
         await _Run(
             CUSTOMER,

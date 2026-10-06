@@ -189,6 +189,7 @@ class ReplySentPayload(BaseModel):
 
     ticket_id: str
     receipt: str
+    content: str = ""
 
 
 class ReplySentMessage(BaseModel):

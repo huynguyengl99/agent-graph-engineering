@@ -118,7 +118,9 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         receipt = str(outcome.result)
         await self.emit(
             ReplySentMessage(
-                payload=ReplySentPayload(ticket_id=ticket_id, receipt=receipt)
+                payload=ReplySentPayload(
+                    ticket_id=ticket_id, receipt=receipt, content=answer.content
+                )
             )
         )
         return {"delivery_receipt": receipt}

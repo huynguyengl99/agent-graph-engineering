@@ -49,7 +49,10 @@ class TestPendingReply(WebsocketTestCase):
             await client.on_event(
                 ReplySentMessage(
                     payload=ReplySentPayload(
-                        ticket_id=str(self.ticket.id), receipt="sent"
+                        ticket_id=str(self.ticket.id),
+                        receipt="sent",
+                        # What delivery sends: the reviewer's edit, or the draft.
+                        content=content or DRAFT,
                     )
                 )
             )

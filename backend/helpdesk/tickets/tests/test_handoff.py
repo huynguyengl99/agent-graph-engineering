@@ -247,7 +247,9 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         )
         await client.on_event(
             ReplySentMessage(
-                payload=ReplySentPayload(ticket_id=str(self.ticket.id), receipt="ok")
+                payload=ReplySentPayload(
+                    ticket_id=str(self.ticket.id), receipt="ok", content="Sorted."
+                )
             )
         )
 
@@ -273,16 +275,34 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         )
         await client.on_event(
             ReplySentMessage(
-                payload=ReplySentPayload(ticket_id=str(self.ticket.id), receipt="ok")
+                payload=ReplySentPayload(
+                    ticket_id=str(self.ticket.id), receipt="ok", content="Sorted."
+                )
             )
         )
 
         event = await AIResponseEvent.objects.aget(ticket_id=self.ticket.id)
         assert event.model_name == "anthropic:claude-sonnet-5"
 
-    async def test_a_receipt_with_no_draft_behind_it_records_nothing(self) -> None:
-        """A fresh relay replaying somebody else's terminal event has no draft,
-        and used to write that down as an empty message from the agent."""
+    async def test_a_replayed_receipt_still_records_the_reply(self) -> None:
+        """A reconnect between the answer and its receipt lost the answer: the
+        text was only in the relay that saw it go past."""
+        fresh = self.client_for(Visibility.PUBLIC)
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+
+        await fresh.on_event(
+            ReplySentMessage(
+                payload=ReplySentPayload(
+                    ticket_id=str(self.ticket.id), receipt="ok", content="Sorted."
+                )
+            )
+        )
+
+        event = await AIResponseEvent.objects.aget(ticket_id=self.ticket.id)
+        assert event.content == "Sorted."
+
+    async def test_a_receipt_carrying_nothing_records_nothing(self) -> None:
+        """Delivery always sends what it sent, so an empty one is not a reply."""
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
 
         await self.client_for(Visibility.PUBLIC).on_event(
@@ -297,14 +317,13 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
 
     async def test_an_answer_the_agent_sends_reaches_the_customer(self) -> None:
         client = self.client_for(Visibility.PUBLIC)
-        # On the sink, which is what `reply_sent` reads. Setting it on the
-        # client wrote an empty reply and this asserted only that a row existed.
-        client.sink.draft = "Sorted."
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
 
         await client.on_event(
             ReplySentMessage(
-                payload=ReplySentPayload(ticket_id=str(self.ticket.id), receipt="ok")
+                payload=ReplySentPayload(
+                    ticket_id=str(self.ticket.id), receipt="ok", content="Sorted."
+                )
             )
         )
 

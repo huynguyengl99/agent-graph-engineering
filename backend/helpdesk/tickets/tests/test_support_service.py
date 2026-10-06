@@ -85,14 +85,13 @@ class TestTriageService(WebsocketTestCase):
     async def test_reply_is_persisted_only_once_it_is_sent(self) -> None:
         await self.subscribe_ready(self.topic)
         client = self.client_for_ticket()
-        # On the sink, which is what `reply_sent` reads. Setting it on the
-        # client sent an empty reply, and the assertions below counted it.
-        client.sink.draft = "Per [kb-002], the extra line is proration."
 
         await client.on_event(
             ReplySentMessage(
                 payload=ReplySentPayload(
-                    ticket_id=str(self.ticket.id), receipt="queued"
+                    ticket_id=str(self.ticket.id),
+                    receipt="queued",
+                    content="Per [kb-002], the extra line is proration.",
                 )
             )
         )

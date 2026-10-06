@@ -722,9 +722,10 @@ class TestWhatACustomerIsShownOfATool(WebsocketTestCase):
         assert row["result"] == "refund_1 issued"
 
 
-class TestReasoningIsTheTeams(WebsocketTestCase):
-    """Persisted, because why a run took a branch is worth keeping - and
-    internal, because the customer asked a question, not for the workings."""
+class TestReasoningIsKeptWhereTheRunIs(WebsocketTestCase):
+    """Persisted, because why a run took a branch is worth keeping, and kept
+    where the run is: a customer folds open the workings behind their own
+    answer, and the team's stay the team's."""
 
     consumer = HubConsumer
     ws_path = "/ws/"
@@ -745,12 +746,21 @@ class TestReasoningIsTheTeams(WebsocketTestCase):
         assert event.decision == "Escalate"
         assert event.model_name == "gpt-4o"
 
-    async def test_a_customer_started_run_still_keeps_it_internal(self) -> None:
+    async def test_a_customer_started_run_keeps_it_on_their_thread(self) -> None:
+        """Theirs to fold open after the fact, not only while it is written."""
         sink = relay(str(self.ticket.id), Visibility.PUBLIC).sink
 
         await sink.reasoned(
             "decide", "Documented in the help centre.", "SearchKnowledgeBase", "x"
         )
+
+        event = await ReasoningEvent.objects.aget(ticket_id=self.ticket.id)
+        assert event.visibility == Visibility.PUBLIC
+
+    async def test_a_team_run_keeps_it_to_the_team(self) -> None:
+        sink = relay(str(self.ticket.id), Visibility.INTERNAL).sink
+
+        await sink.reasoned("decide", "Ask billing first.", "Escalate", "x")
 
         event = await ReasoningEvent.objects.aget(ticket_id=self.ticket.id)
         assert event.visibility == Visibility.INTERNAL

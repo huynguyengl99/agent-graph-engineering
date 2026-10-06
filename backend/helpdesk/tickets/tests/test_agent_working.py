@@ -90,7 +90,9 @@ class TestWhatItCarries(WebsocketTestCase):
 
         [started] = await self.receive_topic_messages(TicketFeedEvent)
 
-        assert set(started.payload.model_dump()) == {"working"}
+        # `public` is which lane it belongs to, which is routing rather than
+        # anything about the work itself.
+        assert set(started.payload.model_dump()) == {"working", "public"}
 
 
 class TestStaffSeeItToo(WebsocketTestCase):

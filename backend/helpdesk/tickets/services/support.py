@@ -279,8 +279,8 @@ class TicketSink(Sink):
     def _persist_reasoning(
         self, step: str, content: str, decision: str, model: str
     ) -> Any:
-        """Internal whoever started the run: the customer asked a question, not
-        for the workings."""
+        """Kept where the run is: the workings behind a customer's own answer
+        stay on their thread to fold open, and the team's stay the team's."""
         return serialize_event(
             ReasoningEvent.objects.create(
                 ticket_id=self.ticket_id,
@@ -288,7 +288,7 @@ class TicketSink(Sink):
                 content=content,
                 decision=decision,
                 model_name=model,
-                visibility=Visibility.INTERNAL,
+                visibility=self.visibility,
             )
         )
 
@@ -415,14 +415,16 @@ def relay(
 async def working(ticket_id: str, visibility: str, *, is_working: bool) -> None:
     """Tell the ticket whether the assistant is busy on it.
 
-    Only for the lane the customer reads. A run in the team's lane is the
-    team's, and they have the reasoning and the progress to watch instead.
+    Both lanes: the console shows a run it did not start, and before this a
+    team run left the ticket looking idle while it worked.
     """
-    if visibility != Visibility.PUBLIC:
-        return
     await broadcast(
         ticket_id,
-        AgentWorkingMessage(payload=AgentWorkingPayload(working=is_working)),
+        AgentWorkingMessage(
+            payload=AgentWorkingPayload(
+                working=is_working, public=visibility == Visibility.PUBLIC
+            )
+        ),
     )
 
 

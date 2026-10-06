@@ -141,9 +141,16 @@ const newTicket = async (page, title, body) => {
     await toBottom(page);
     await shot('answered');
 
-    const body = (await page.locator('body').innerText()).toLowerCase();
-    const leaks = ['internal note', 'reasoning', 'guardrail', 'tool call', 'approve'].filter((w) => body.includes(w));
-    leaks.length ? bad('nothing internal reaches the customer', leaks.join(',')) : ok('nothing internal reaches the customer');
+    // The thread, not the whole page: the sidebar is every ticket they ever
+    // opened, and a title of their own choosing is not a leak. Reasoning is not
+    // on this list any more - the workings behind their own reply are theirs.
+    const thread = (await page.locator('main').innerText()).toLowerCase();
+    const leaks = ['internal note', 'guardrail', 'approve', 'escalat'].filter(
+      (w) => thread.includes(w),
+    );
+    leaks.length
+      ? bad('nothing internal reaches the customer', leaks.join(','))
+      : ok('nothing internal reaches the customer');
 
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForTimeout(2500);

@@ -41,6 +41,8 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const [thinking, setThinking] = useState({ step: '', text: '' });
   // The reply as it arrives, replaced by the event that carries the finished one.
   const [streaming, setStreaming] = useState('');
+  // One per run, whoever started it: the console shows runs it did not ask for.
+  const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<Status>(ticket.status ?? 'open');
   const [priority, setPriority] = useState<Priority>(
     ticket.priority ?? 'medium',
@@ -143,6 +145,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     onToolProposal,
     onTicketUpdated,
     onReasoning,
+    onAgentWorking: setRunning,
     onAnswer: (_reference, content) => setStreaming(content),
   });
 
@@ -274,6 +277,20 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
             <Row tone="agent" label="Agent" when="">
               {streaming}
             </Row>
+          )}
+          {running && (
+            <li className="ml-10 flex items-center gap-2 px-4 py-2 text-sm text-gray-500">
+              <span className="flex gap-1" aria-hidden>
+                {[0, 150, 300].map((delay) => (
+                  <span
+                    key={delay}
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+                    style={{ animationDelay: `${delay}ms` }}
+                  />
+                ))}
+              </span>
+              The assistant is working on this ticket
+            </li>
           )}
           {thinking.text && (
             <Thinking step={thinking.step} content={thinking.text} live />

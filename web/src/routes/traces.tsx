@@ -62,7 +62,11 @@ export function TracesRoute() {
 
   return (
     <div className="flex h-full">
-      <aside className="w-96 shrink-0 overflow-y-auto border-r bg-white">
+      <aside
+        className={`w-full shrink-0 overflow-y-auto border-r bg-white md:w-96 ${
+          selected ? 'hidden md:block' : ''
+        }`}
+      >
         <h2 className="border-b px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
           {runs.length} run{runs.length === 1 ? '' : 's'}
         </h2>
@@ -94,7 +98,7 @@ export function TracesRoute() {
       </aside>
 
       <section
-        className="min-w-0 flex-1 overflow-y-auto p-6"
+        className={`min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 ${selected ? '' : 'hidden md:block'}`}
         aria-label="trace"
       >
         {trace && <Totals trace={trace} />}

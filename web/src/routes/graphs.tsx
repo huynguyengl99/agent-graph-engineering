@@ -55,10 +55,10 @@ export function GraphsRoute() {
 
   return (
     <section className="flex h-full flex-col">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-white px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-semibold">Graphs</h2>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {graphs.map((graph) => (
               <button
                 key={graph.name}
@@ -77,7 +77,7 @@ export function GraphsRoute() {
             ))}
           </div>
 
-          <label className="ml-auto flex items-center gap-2 text-sm text-gray-600">
+          <label className="flex items-center gap-2 text-sm text-gray-600 sm:ml-auto">
             <input
               type="checkbox"
               checked={xray}
@@ -92,7 +92,7 @@ export function GraphsRoute() {
         </p>
       </header>
 
-      <div className="flex-1 overflow-auto bg-white px-6 py-6">
+      <div className="flex-1 overflow-auto bg-white px-4 py-6 sm:px-6">
         {error ? (
           <p className="text-sm text-red-600">
             {error}. Is the agent running on port 8001?

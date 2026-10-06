@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { api } from '@/lib/api';
 import { useTicketChat } from '@/hooks/useTicketChat';
 import { Row, TicketEventItem } from '@/components/TicketEventItem';
@@ -69,7 +70,14 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
 
   return (
     <section className="flex h-full flex-col">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-white px-4 py-4 sm:px-6">
+        {/* The list is the whole screen below md, so this is the way back. */}
+        <Link
+          to="/portal"
+          className="text-sm text-indigo-700 hover:underline md:hidden"
+        >
+          ← All tickets
+        </Link>
         <h2 className="text-xl font-semibold">{ticket.title}</h2>
       </header>
 

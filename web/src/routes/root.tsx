@@ -71,7 +71,7 @@ export function RootLayout() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
-      <header className="flex items-center gap-4 border-b bg-white px-6 py-3">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-white px-4 py-3 sm:px-6">
         <h1 className="font-semibold">Agent Graph Engineering</h1>
         <nav className="flex gap-1 text-sm">
           <Link
@@ -115,8 +115,8 @@ export function RootLayout() {
             Settings
           </Link>
         </nav>
-        <div className="ml-auto flex items-center gap-3 text-sm">
-          <span className="text-gray-600">{user?.fullName || user?.email}</span>
+        <div className="ml-auto flex min-w-0 items-center gap-3 text-sm">
+          <span className="truncate text-gray-600">{user?.fullName || user?.email}</span>
           <button onClick={logout} className="text-indigo-600 hover:underline">
             Sign out
           </button>
@@ -126,12 +126,22 @@ export function RootLayout() {
       <div className="flex min-h-0 flex-1">
         {/* Positive check: a new pane should not inherit a sidebar. */}
         {pane === 'tickets' && (
-          <aside className="w-80 shrink-0 overflow-y-auto border-r bg-white">
+          <aside
+            className={`w-full shrink-0 overflow-y-auto border-r bg-white md:w-80 ${
+              ticketId ? 'hidden md:block' : ''
+            }`}
+          >
             <TicketList tickets={tickets} selectedId={ticketId ?? null} />
           </aside>
         )}
 
-        <main className="min-w-0 flex-1">
+        {/* One pane at a time below md: 320px of list beside a thread does not
+            fit a phone, and shrinking both leaves neither readable. */}
+        <main
+          className={`min-w-0 flex-1 ${
+            pane === 'tickets' && !ticketId ? 'hidden md:block' : ''
+          }`}
+        >
           <Outlet />
         </main>
       </div>

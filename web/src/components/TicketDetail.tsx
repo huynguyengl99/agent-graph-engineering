@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { api } from '@/lib/api';
 import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import { mergeEvents } from '@/lib/eventList';
@@ -160,7 +161,9 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [events, progress, pendingApproval]);
+    // Everything the thread renders, or whatever is left out arrives below the
+    // fold: the tool gate did, and a reviewer saw nothing to approve.
+  }, [events, progress, pendingApproval, proposal, thinking]);
 
   const blanks = isPublic ? placeholdersIn(draft) : [];
 
@@ -188,8 +191,12 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
 
   return (
     <section className="flex h-full flex-col">
-      <header className="border-b bg-white px-6 py-4">
-        <div className="flex items-center gap-3">
+      <header className="border-b bg-white px-4 py-4 sm:px-6">
+        {/* The list is the whole screen below md, so this is the way back. */}
+        <Link to="/" className="text-sm text-indigo-700 hover:underline md:hidden">
+          ← All tickets
+        </Link>
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-semibold">{ticket.title}</h2>
           <Picker
             value={status}

@@ -47,14 +47,14 @@ export function PortalLayout() {
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-4 border-b bg-white px-6 py-3">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-white px-4 py-3 sm:px-6">
         <span className="font-semibold">Support</span>
         {user?.isStaff && (
           <Link to="/" className="text-sm text-indigo-700 hover:underline">
             Back to the console
           </Link>
         )}
-        <span className="ml-auto text-sm text-gray-600">{user?.email}</span>
+        <span className="ml-auto truncate text-sm text-gray-600">{user?.email}</span>
         <button
           onClick={() => void logout()}
           className="text-sm text-indigo-700 hover:underline"
@@ -64,7 +64,11 @@ export function PortalLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-80 overflow-y-auto border-r bg-white">
+        <aside
+          className={`w-full shrink-0 overflow-y-auto border-r bg-white md:w-80 ${
+            ticketId ? 'hidden md:block' : ''
+          }`}
+        >
           <div className="border-b px-4 py-3">
             <button
               onClick={() => setComposing(true)}
@@ -93,7 +97,11 @@ export function PortalLayout() {
           </ul>
         </aside>
 
-        <main className="min-w-0 flex-1 bg-gray-50">
+        {/* One pane at a time below md: the list and a thread side by side
+            leave neither readable on a phone. */}
+        <main
+          className={`min-w-0 flex-1 bg-gray-50 ${ticketId ? '' : 'hidden md:block'}`}
+        >
           <Outlet />
         </main>
       </div>

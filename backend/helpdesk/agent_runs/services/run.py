@@ -48,6 +48,10 @@ logger = structlog.get_logger(__name__)
 
 _background: set[asyncio.Task[None]] = set()
 
+# chanx binds an incoming frame's ref while the handler runs, so whatever the
+# replay handler sends carries this back. A live broadcast carries no ref.
+REPLAY_REF = "replay"
+
 
 def _done(task: "asyncio.Task[None]") -> None:
     """Nobody awaits these, so a failure is only ever seen if it is logged."""
@@ -100,6 +104,7 @@ class _Handle(AgentHubSupportTopicClient):
         relay: Any = self.connection
         relay.incoming_seq = int(py_object.get("seq") or 0)
         relay.agent_topic = self.topic
+        relay.replaying = py_object.get("ref") == REPLAY_REF
         await super().dispatch_frame(py_object)
 
     async def handle_message(self, message: IncomingMessage) -> None:
@@ -128,9 +133,10 @@ class SupportRun(AgentClient):
         self.thread_id = thread_id
         self.payload = request
         self.sink = sink
-        # Both set by the handle before it forwards an event.
+        # All set by the handle before it forwards an event.
         self.incoming_seq = 0
         self.agent_topic = ""
+        self.replaying = False
 
     async def send_init_message(self) -> None:
         topic = self.topic(_Handle, audience=self.audience, thread_id=self.thread_id)
@@ -139,10 +145,15 @@ class SupportRun(AgentClient):
         await topic.subscribe()
 
         # Whatever finished while nobody was subscribed, before the new request.
-        await topic.send_message(
+        # Sent with a ref, which is what tells the catch-up apart from this
+        # run's own events. Not `request`: nothing waits on it, and the events
+        # must reach the handler rather than resolve a future.
+        await self.send_topic(
+            topic.topic,
             ReplayRequestMessage(
                 payload=ReplayRequestPayload(since=await last_handled(topic.topic))
-            )
+            ).model_dump(),
+            ref=REPLAY_REF,
         )
 
         match self.payload:
@@ -224,5 +235,7 @@ class SupportRun(AgentClient):
                 done = False
 
         await advance(self.agent_topic, self.incoming_seq)
-        if done:
+        # A terminal event caught up from the cursor ended somebody else's run,
+        # not the one this connection just asked for.
+        if done and not self.replaying:
             await self.disconnect()

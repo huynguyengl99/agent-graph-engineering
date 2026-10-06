@@ -321,6 +321,27 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         ).aexists()
         assert await handling_of(str(self.ticket.id)) == Handling.NEEDS_HUMAN
 
+    async def test_a_caught_up_terminal_event_leaves_the_run_alone(self) -> None:
+        """The replay answers a cursor, not this request: closing on it ended
+        the run the connection had just asked for, which then started over."""
+        client = self.client_for(Visibility.PUBLIC)
+        client.replaying = True
+        closed = []
+        client.disconnect = lambda *a, **k: closed.append(True)
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+
+        await client.on_event(
+            ReplySentMessage(
+                payload=ReplySentPayload(
+                    ticket_id=str(self.ticket.id), receipt="ok", content="Sorted."
+                )
+            )
+        )
+
+        # The effect still lands; only the hang-up is somebody else's.
+        assert await AIResponseEvent.objects.filter(ticket_id=self.ticket.id).aexists()
+        assert closed == []
+
     async def test_a_receipt_carrying_nothing_records_nothing(self) -> None:
         """Delivery always sends what it sent, so an empty one is not a reply."""
         await self.subscribe_ready(f"ticket:{self.ticket.id}")

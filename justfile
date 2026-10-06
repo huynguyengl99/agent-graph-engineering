@@ -151,6 +151,12 @@ e2e: seed
     @bash scripts/dev.sh up
     cd web/e2e && npm install --silent && node smoke.mjs
 
+# Record a walk through every feature, as both people, into captures/ (gitignored)
+capture:
+    @echo "🎬 Recording the feature walk..."
+    @bash scripts/dev.sh up
+    cd web/e2e && npm install --silent && node capture.mjs
+
 # Run backend tests with coverage
 test-cov:
     @echo "🧪 Running backend tests with coverage..."

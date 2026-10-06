@@ -60,3 +60,6 @@ agent/evals/results/runs/
 # Trace files written by the agent
 .traces/
 agent/.traces/
+
+# Browser capture runs (screenshots and video), kept out of the repo.
+/captures/

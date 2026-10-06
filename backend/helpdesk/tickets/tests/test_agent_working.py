@@ -47,6 +47,26 @@ class TestTheCustomerIsToldSomebodyIsOnIt(WebsocketTestCase):
         assert [m.action for m in sent] == ["agent_working", "agent_working"]
         assert [m.payload.working for m in sent] == [True, False]
 
+    async def test_a_resumed_run_says_so_too(self) -> None:
+        """A reviewer approving is the agent working on their ticket again, and
+        the browser clears the live view of a step on the stop. Without this the
+        customer was left watching one that had already finished."""
+        from helpdesk.tickets.services.support import submit_approval
+
+        await self.subscribe_ready(self.topic)
+        with patch("helpdesk.tickets.services.support._Run") as relay:
+            relay.return_value.handle = AsyncMock()
+            await submit_approval(str(self.ticket.id), approved=True)
+
+        messages: list[Any] = []
+        for _ in range(2):
+            messages += await self.receive_topic_messages(TicketFeedEvent)
+
+        assert [m.payload.working for m in messages if m.action == "agent_working"] == [
+            True,
+            False,
+        ]
+
     async def test_a_run_in_the_teams_lane_says_nothing(self) -> None:
         """Their own question, their own progress rows. The customer has no
         reason to see a spinner for work that is not about answering them."""

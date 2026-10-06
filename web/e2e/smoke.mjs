@@ -24,8 +24,8 @@ const ok = (m) => {
   console.log('  PASS ', m);
   results.push(true);
 };
-const bad = (m) => {
-  console.log('  FAIL ', m);
+const bad = (m, detail = '') => {
+  console.log('  FAIL ', m, detail);
   results.push(false);
 };
 
@@ -269,14 +269,19 @@ reasoned
 await page.waitForSelector('li:has-text("INTERNAL")', { timeout: 90000 });
 ok('the agent answered the team on the ticket');
 
-// They watch their own reply being worked out, and none of this: the team's
-// lane is a different run, on a topic they cannot subscribe to.
-const leaked = await customerPage
-  .locator('li:has-text("INTERNAL"), li span.italic')
-  .count();
-leaked === 0
+// Not the reasoning row: they watch their own reply being worked out now, and
+// a live row looks the same whoever it belongs to, so this cannot tell them
+// apart. That the team's lane never reaches their topic is asserted where it
+// can be - `TestWhoWatchesItThink` in test_visibility.py, through `run`.
+const leakedRows = await customerPage
+  .locator('li:has-text("INTERNAL")')
+  .allInnerTexts();
+leakedRows.length === 0
   ? ok("none of the team's lane reached the customer")
-  : bad(`${leaked} internal rows reached the customer`);
+  : bad(
+      `${leakedRows.length} internal rows reached the customer`,
+      JSON.stringify(leakedRows.map((t) => t.replace(/\s+/g, ' ').slice(0, 80))),
+    );
 
 console.log('== tool gate: propose, correct, run ==');
 // The riskiest path in the product: a tool that moves money, proposed by a

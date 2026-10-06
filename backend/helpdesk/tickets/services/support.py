@@ -533,6 +533,10 @@ async def submit_approval(
             return
 
     sink = TicketSink(ticket_id, visibility)
+    # A resumed run is still the agent working on their ticket. Saying so is
+    # also what ends the live view of it: without this the customer was left
+    # watching a step that had already finished.
+    await working(ticket_id, visibility, is_working=True)
     try:
         await _Run(
             CUSTOMER,
@@ -558,6 +562,8 @@ async def submit_approval(
                 )
             ),
         )
+    finally:
+        await working(ticket_id, visibility, is_working=False)
 
     await _then_whatever_waited(ticket_id, visibility)
 
@@ -589,10 +595,13 @@ async def decide_tool(
     approved is the customer's news, a lookup they ran is the team's.
     """
     lane = await parked_tool_lane(ticket_id)
+    visibility = Visibility.PUBLIC if publish else Visibility.INTERNAL
+    # Same as a reply resumed from its gate: a run that says nothing about
+    # starting says nothing about finishing either.
+    await working(ticket_id, visibility, is_working=True)
     try:
         # Cleared first: the card is answered whatever the resumed run does.
         await forget_proposal(ticket_id)
-        visibility = Visibility.PUBLIC if publish else Visibility.INTERNAL
         await _Run(
             TEAM,
             ticket_id,
@@ -613,6 +622,8 @@ async def decide_tool(
                 )
             ),
         )
+    finally:
+        await working(ticket_id, visibility, is_working=False)
 
     await _then_whatever_waited(ticket_id, lane)
 

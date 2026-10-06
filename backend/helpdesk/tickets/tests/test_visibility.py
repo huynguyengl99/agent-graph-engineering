@@ -210,3 +210,24 @@ class TestWhoWatchesItThink(WebsocketTestCase):
 
     async def test_they_never_watch_it_work_on_the_team_s(self) -> None:
         assert await self._thinking_on(Visibility.INTERNAL) == []
+
+    async def test_a_real_team_run_reaches_them_with_nothing(self) -> None:
+        """Through `run`, not the sink alone: the lane decides the audience, and
+        a live reasoning row looks the same on their page whoever it belongs to,
+        so the guarantee has to hold here rather than in the browser."""
+        from unittest.mock import AsyncMock, patch
+
+        from helpdesk.tickets.services.support import run
+
+        await self.subscribe_ready(f"ticket:{self.ticket.id}")
+
+        with patch("helpdesk.tickets.services.support._Run") as relay:
+
+            async def reason(*_args: Any, **_kwargs: Any) -> None:
+                await relay.call_args.args[3].reasoning_delta("decide", "Thinking.")
+
+            relay.return_value.handle = AsyncMock(side_effect=reason)
+            await run(str(self.ticket.id), question="x", visibility=Visibility.INTERNAL)
+
+        frames = await self.auth_communicator.receive_all_json(timeout=2)
+        assert [f for f in frames if f.get("action") == "reasoning_streaming"] == []

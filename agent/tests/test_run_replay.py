@@ -99,6 +99,9 @@ class TestReplay:
 
         frames = await socket.receive_all_json()
         assert [f["action"] for f in frames] == ["classified", "answer"]
+        # Without these the subscriber's cursor cannot move past what it just
+        # caught up on, and it asks for the same events on every reconnect.
+        assert [f["seq"] for f in frames] == [1, 2]
 
     async def test_asking_from_a_sequence_skips_what_was_handled(
         self, socket: WebsocketCommunicator

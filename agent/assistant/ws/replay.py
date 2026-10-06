@@ -4,6 +4,7 @@ from typing import Any
 
 import structlog
 from chanx.core.decorators import ws_handler
+from chanx.core.envelope import current_seq
 
 from assistant.messages.runs import ReplayRequestMessage
 from assistant.runs import run_events
@@ -33,4 +34,10 @@ class Replays:
             count=len(missed),
         )
         for stored in missed:
-            await self.consumer.send_topic_json(self.topic, stored.event)
+            # With its sequence, or the subscriber's cursor cannot move past
+            # what it just caught up on and asks for the same events forever.
+            token = current_seq.set(stored.seq)
+            try:
+                await self.consumer.send_topic_json(self.topic, stored.event)
+            finally:
+                current_seq.reset(token)

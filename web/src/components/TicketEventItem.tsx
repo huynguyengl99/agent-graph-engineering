@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { TicketEvent } from '@/lib/types';
 
 /**
@@ -62,6 +62,7 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
           content={event.content}
           decision={event.decision}
           when={when}
+          finishedAt={event.createdAt}
         />
       );
 
@@ -115,12 +116,16 @@ const STEPS: Record<string, string> = {
   respond: 'Wrote the reply',
 };
 
+/** How long a step stays open after its last word lands. */
+const HOLD_OPEN = 3000;
+
 export function Thinking({
   step,
   content,
   decision,
   when,
   live,
+  finishedAt,
 }: {
   step?: string;
   content: string;
@@ -128,8 +133,19 @@ export function Thinking({
   when?: string;
   /** Still being written, so it opens itself and has nothing to fold yet. */
   live?: boolean;
+  /** When it finished, so one that just did is not folded away from whoever
+   *  was still reading it. Older than the hold, and it renders folded. */
+  finishedAt?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [fresh] = useState(
+    () => !!finishedAt && Date.now() - new Date(finishedAt).getTime() < HOLD_OPEN,
+  );
+  const [open, setOpen] = useState(fresh);
+  useEffect(() => {
+    if (!fresh) return;
+    const timer = setTimeout(() => setOpen(false), HOLD_OPEN);
+    return () => clearTimeout(timer);
+  }, [fresh]);
   const showing = live || open;
 
   return (

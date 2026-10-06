@@ -2,7 +2,6 @@
 
 from .event import (
     AIResponseEventFactory,
-    AssignmentEventFactory,
     CommentEventFactory,
     StatusChangeEventFactory,
 )
@@ -12,6 +11,5 @@ __all__ = [
     "TicketFactory",
     "CommentEventFactory",
     "StatusChangeEventFactory",
-    "AssignmentEventFactory",
     "AIResponseEventFactory",
 ]

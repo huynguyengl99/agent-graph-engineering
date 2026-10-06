@@ -24,7 +24,7 @@ class TicketEvent(PolymorphicModel):
     Polymorphic base model for ticket events.
 
     This demonstrates the polymorphic pattern where different event types
-    (comments, status changes, assignments, AI responses) share a common base
+    (comments, status changes, AI responses, reasoning) share a common base
     but have different fields.
 
     The polymorphic_ctype field (added automatically by django-polymorphic)

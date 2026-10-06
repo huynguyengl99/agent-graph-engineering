@@ -48,13 +48,6 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
         </Row>
       );
 
-    case 'assignment':
-      return (
-        <Row tone="meta" label="Assignment" when={when}>
-          {event.newAssignee?.fullName ?? 'Unassigned'}
-        </Row>
-      );
-
     case 'reasoning':
       return (
         <Thinking

@@ -40,12 +40,6 @@ class StatusChangeEvent(BaseEvent):
     new_status: str
 
 
-class AssignmentEvent(BaseEvent):
-    event_type: Literal["assignment"] = "assignment"
-    old_assignee: EventUser | None = None
-    new_assignee: EventUser | None = None
-
-
 class AIResponseEvent(BaseEvent):
     event_type: Literal["ai_response"] = "ai_response"
     content: str
@@ -79,7 +73,6 @@ class ToolCallEvent(BaseEvent):
 TicketEvent = Annotated[
     CommentEvent
     | StatusChangeEvent
-    | AssignmentEvent
     | AIResponseEvent
     | HandoffEvent
     | ToolCallEvent

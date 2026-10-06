@@ -2,7 +2,6 @@
 
 from .event import (
     AIResponseEventSerializer,
-    AssignmentEventSerializer,
     CommentEventCreateSerializer,
     CommentEventSerializer,
     StatusChangeEventSerializer,
@@ -17,7 +16,6 @@ __all__ = [
     "TicketEventPolymorphicSerializer",
     "CommentEventSerializer",
     "StatusChangeEventSerializer",
-    "AssignmentEventSerializer",
     "AIResponseEventSerializer",
     "CommentEventCreateSerializer",
 ]

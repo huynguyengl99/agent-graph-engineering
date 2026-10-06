@@ -9,7 +9,6 @@ from helpdesk.accounts.serializers import UserSerializer
 from helpdesk.tickets.messages.events import TicketEvent as WireTicketEvent
 from helpdesk.tickets.models import (
     AIResponseEvent,
-    AssignmentEvent,
     CommentEvent,
     HandoffEvent,
     ReasoningEvent,
@@ -51,18 +50,6 @@ class StatusChangeEventSerializer(TicketEventBaseSerializer):
     class Meta(TicketEventBaseSerializer.Meta):
         model = StatusChangeEvent
         fields = TicketEventBaseSerializer.Meta.fields + ["old_status", "new_status"]
-
-
-class AssignmentEventSerializer(TicketEventBaseSerializer):
-    old_assignee = UserSerializer(read_only=True, allow_null=True)
-    new_assignee = UserSerializer(read_only=True, allow_null=True)
-
-    class Meta(TicketEventBaseSerializer.Meta):
-        model = AssignmentEvent
-        fields = TicketEventBaseSerializer.Meta.fields + [
-            "old_assignee",
-            "new_assignee",
-        ]
 
 
 class AIResponseEventSerializer(TicketEventBaseSerializer):
@@ -133,7 +120,6 @@ class TicketEventPolymorphicSerializer(PolymorphicSerializer):  # type: ignore[m
     model_serializer_mapping = {
         CommentEvent: CommentEventSerializer,
         StatusChangeEvent: StatusChangeEventSerializer,
-        AssignmentEvent: AssignmentEventSerializer,
         AIResponseEvent: AIResponseEventSerializer,
         HandoffEvent: HandoffEventSerializer,
         ToolCallEvent: ToolCallEventSerializer,

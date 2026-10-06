@@ -6,7 +6,6 @@ from polymorphic.admin import PolymorphicChildModelAdmin, PolymorphicParentModel
 
 from helpdesk.tickets.models import (
     AIResponseEvent,
-    AssignmentEvent,
     CommentEvent,
     StatusChangeEvent,
     Ticket,
@@ -40,11 +39,6 @@ class StatusChangeEventAdmin(PolymorphicChildModelAdmin):
     show_in_index = True
 
 
-class AssignmentEventAdmin(PolymorphicChildModelAdmin):
-    base_model = AssignmentEvent
-    show_in_index = True
-
-
 class AIResponseEventAdmin(PolymorphicChildModelAdmin):
     base_model = AIResponseEvent
     show_in_index = True
@@ -55,7 +49,7 @@ class TicketEventParentAdmin(PolymorphicParentModelAdmin):
     """Polymorphic parent admin for all ticket events."""
 
     base_model = TicketEvent
-    child_models = [CommentEvent, StatusChangeEvent, AssignmentEvent, AIResponseEvent]
+    child_models = [CommentEvent, StatusChangeEvent, AIResponseEvent]
     list_display = ["__str__", "ticket", "created_by", "created_at"]
     list_filter = ["polymorphic_ctype", "created_at"]
     search_fields = ["ticket__title"]

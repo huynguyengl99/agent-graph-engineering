@@ -26,26 +26,6 @@ export interface AIResponseEventTyped {
   tokensUsed?: number;
 }
 
-export interface AssignmentEvent {
-  id: number;
-  eventType: string;
-  createdBy: User;
-  visibility?: VisibilityEnum;
-  createdAt: string;
-  oldAssignee: User;
-  newAssignee: User;
-}
-
-export interface AssignmentEventTyped {
-  id: number;
-  eventType: "assignment";
-  createdBy: User;
-  visibility?: VisibilityEnum;
-  createdAt: string;
-  oldAssignee: User;
-  newAssignee: User;
-}
-
 export interface CommentEvent {
   id: number;
   eventType: string;
@@ -327,7 +307,6 @@ export interface TicketCreateRequest {
 export type TicketEventPolymorphic =
   | CommentEventTyped
   | StatusChangeEventTyped
-  | AssignmentEventTyped
   | AIResponseEventTyped
   | HandoffEventTyped
   | ToolCallEventTyped

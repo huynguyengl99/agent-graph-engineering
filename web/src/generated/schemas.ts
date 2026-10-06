@@ -79,16 +79,6 @@ export interface AskAgentPayload {
   question?: string;
 }
 
-export interface AssignmentEvent {
-  id: number;
-  createdBy?: EventUser | null;
-  visibility?: 'internal' | 'public';
-  createdAt: string;
-  eventType: 'assignment';
-  oldAssignee?: EventUser | null;
-  newAssignee?: EventUser | null;
-}
-
 export interface CommentEvent {
   id: number;
   createdBy?: EventUser | null;
@@ -127,7 +117,6 @@ export interface NewEventPayload {
   event:
     | CommentEvent
     | StatusChangeEvent
-    | AssignmentEvent
     | AIResponseEvent
     | HandoffEvent
     | ToolCallEvent

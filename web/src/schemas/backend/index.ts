@@ -207,17 +207,6 @@ const StatusChangeEventTyped = z
     newStatus: TicketStatusEnum,
   })
   .passthrough();
-const AssignmentEventTyped = z
-  .object({
-    id: z.number().int(),
-    eventType: z.literal("assignment"),
-    createdBy: User.nullable(),
-    visibility: VisibilityEnum.optional(),
-    createdAt: z.string().datetime({ offset: true }),
-    oldAssignee: User.nullable(),
-    newAssignee: User.nullable(),
-  })
-  .passthrough();
 const AIResponseEventTyped = z
   .object({
     id: z.number().int(),
@@ -271,7 +260,6 @@ const ReasoningEventTyped = z
 const TicketEventPolymorphic = z.discriminatedUnion("eventType", [
   CommentEventTyped,
   StatusChangeEventTyped,
-  AssignmentEventTyped,
   AIResponseEventTyped,
   HandoffEventTyped,
   ToolCallEventTyped,
@@ -330,7 +318,6 @@ export const schemas = {
   VisibilityEnum,
   CommentEventTyped,
   StatusChangeEventTyped,
-  AssignmentEventTyped,
   AIResponseEventTyped,
   HandoffEventTyped,
   ToolCallEventTyped,

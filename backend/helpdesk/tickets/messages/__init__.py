@@ -1,6 +1,5 @@
 from .events import (
     AIResponseEvent,
-    AssignmentEvent,
     CommentEvent,
     EventUser,
     StatusChangeEvent,
@@ -55,7 +54,6 @@ __all__ = [
     "ApprovalRequiredPayload",
     "AskAgentMessage",
     "AskAgentPayload",
-    "AssignmentEvent",
     "CommentEvent",
     "EventUser",
     "CompleteStreamingMessage",

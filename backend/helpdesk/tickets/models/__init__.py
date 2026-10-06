@@ -2,7 +2,6 @@
 
 from .events import (
     AIResponseEvent,
-    AssignmentEvent,
     CommentEvent,
     HandoffEvent,
     ReasoningEvent,
@@ -25,7 +24,6 @@ __all__ = [
     "Visibility",
     "CommentEvent",
     "StatusChangeEvent",
-    "AssignmentEvent",
     "AIResponseEvent",
     "HandoffEvent",
     "ReasoningEvent",

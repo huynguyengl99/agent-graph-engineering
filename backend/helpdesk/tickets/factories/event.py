@@ -6,7 +6,6 @@ from helpdesk.accounts.factories import UserFactory
 from helpdesk.test_utils import BaseModelFactory
 from helpdesk.tickets.models import (
     AIResponseEvent,
-    AssignmentEvent,
     CommentEvent,
     StatusChangeEvent,
     TicketStatus,
@@ -28,15 +27,6 @@ class StatusChangeEventFactory(BaseModelFactory[StatusChangeEvent]):
     created_by = factory.SubFactory(UserFactory)
     old_status = TicketStatus.OPEN
     new_status = TicketStatus.IN_PROGRESS
-
-
-class AssignmentEventFactory(BaseModelFactory[AssignmentEvent]):
-    """Factory for creating AssignmentEvent instances."""
-
-    ticket = factory.SubFactory(TicketFactory)
-    created_by = factory.SubFactory(UserFactory)
-    old_assignee = None
-    new_assignee = factory.SubFactory(UserFactory)
 
 
 class AIResponseEventFactory(BaseModelFactory[AIResponseEvent]):

@@ -1,7 +1,6 @@
 """Ticket event models."""
 
 from .ai_response import AIResponseEvent
-from .assignment import AssignmentEvent
 from .base import TicketEvent, Visibility
 from .comment import CommentEvent
 from .handoff import HandoffEvent
@@ -14,7 +13,6 @@ __all__ = [
     "Visibility",
     "CommentEvent",
     "StatusChangeEvent",
-    "AssignmentEvent",
     "AIResponseEvent",
     "HandoffEvent",
     "ReasoningEvent",

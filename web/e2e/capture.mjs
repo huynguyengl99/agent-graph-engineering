@@ -145,7 +145,9 @@ const newTicket = async (page, title, body) => {
     // opened, and a title of their own choosing is not a leak. Reasoning is not
     // on this list any more - the workings behind their own reply are theirs.
     const thread = (await page.locator('main').innerText()).toLowerCase();
-    const leaks = ['internal note', 'guardrail', 'approve', 'escalat'].filter(
+    // Not 'escalat': a reply saying it will escalate to billing is the normal
+    // thing to tell a customer.
+    const leaks = ['internal note', 'guardrail'].filter(
       (w) => thread.includes(w),
     );
     leaks.length

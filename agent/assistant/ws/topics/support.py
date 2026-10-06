@@ -180,8 +180,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
                 continue
 
             if value.get("kind") == "reply_approval":
-                await self.broadcast(
-                    self.topic,
+                await emitter_for(self)(
                     ApprovalRequiredMessage(
                         payload=ApprovalRequiredPayload(
                             ticket_id=self.thread_id,
@@ -191,8 +190,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
                     ),
                 )
             elif value.get("kind") == "tool_approval":
-                await self.broadcast(
-                    self.topic,
+                await emitter_for(self)(
                     ToolApprovalMessage(
                         payload=ToolApprovalPayload(
                             conversation_id=self.thread_id,
@@ -211,8 +209,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         """One event for both audiences. What to do about a dead run - hand the
         ticket to a person, or tell the team their question died - is the
         reader's to decide, and the backend decides it by which lane it is in."""
-        await self.broadcast(
-            self.topic,
+        await emitter_for(self)(
             RunFailedMessage(
                 payload=RunFailedPayload(
                     thread_id=self.thread_id,

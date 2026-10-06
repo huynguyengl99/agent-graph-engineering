@@ -4,6 +4,7 @@ Emitted with nobody subscribed, then asked for and delivered in order.
 """
 
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
 
 import pytest
 from assistant.core.layers import LAYER_ALIAS
@@ -102,6 +103,34 @@ class TestReplay:
         # Without these the subscriber's cursor cannot move past what it just
         # caught up on, and it asks for the same events on every reconnect.
         assert [f["seq"] for f in frames] == [1, 2]
+
+    async def test_a_run_that_parked_can_be_asked_for_again(
+        self, socket: WebsocketCommunicator
+    ) -> None:
+        """The park is the one worth losing least: it is what puts the draft in
+        front of a reviewer, and a run holding a gate nobody was told about
+        leaves the ticket looking idle for good."""
+        topic = SupportTopic(NoSocket(), TOPIC)  # type: ignore[arg-type]
+        await topic._parked(
+            [
+                SimpleNamespace(
+                    value={
+                        "kind": "reply_approval",
+                        "draft": "Looking into it.",
+                        "findings": ["notice:override_instructions: x"],
+                    }
+                )
+            ]
+        )
+
+        await socket.subscribe(TOPIC)
+        await socket.send_message(
+            ReplayRequestMessage(payload=ReplayRequestPayload(since=0)), topic=TOPIC
+        )
+
+        frames = await socket.receive_all_json()
+        assert [f["action"] for f in frames] == ["approval_required"]
+        assert frames[0]["payload"]["draft"] == "Looking into it."
 
     async def test_asking_from_a_sequence_skips_what_was_handled(
         self, socket: WebsocketCommunicator

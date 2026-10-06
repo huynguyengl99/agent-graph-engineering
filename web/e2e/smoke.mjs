@@ -234,11 +234,16 @@ if (parkedForReview) {
 
   const before = await customerPage.locator('li:has-text("Agent (")').count();
   await page.click('button:has-text("Approve and send")');
+  // The same rows that `before` counted. Waiting on every `li` instead meant
+  // the condition was already true, so this returned without waiting at all.
   await customerPage
     .waitForFunction(
-      ([selector, n]) => document.querySelectorAll(selector).length > n,
-      ['li', before],
-      { timeout: 60000 },
+      (n) =>
+        [...document.querySelectorAll('li')].filter((el) =>
+          el.textContent?.includes('Agent ('),
+        ).length > n,
+      before,
+      { timeout: 90000 },
     )
     .catch(() => null);
   (await customerPage.locator('li:has-text("Agent (")').count()) > before

@@ -5,6 +5,7 @@ goes to the team's topic, and one the customer may read goes to the ticket's.
 A new message type has to say which, because there is no default.
 """
 
+import structlog
 from chanx.messages.base import BaseMessage
 
 from helpdesk.tickets.messages import (
@@ -16,13 +17,33 @@ from helpdesk.tickets.messages import (
     ReasoningStreamingMessage,
     ToolProposalMessage,
 )
-from helpdesk.tickets.messages.events import HandoffEvent, TicketEvent, ToolCallEvent
+from helpdesk.tickets.messages.events import (
+    AIResponseEvent,
+    HandoffEvent,
+    ReasoningEvent,
+    TicketEvent,
+    ToolCallEvent,
+)
+from helpdesk.tickets.services.screening import withheld
 
 TEAM_ONLY: tuple[type[BaseMessage], ...] = (
     AgentProgressMessage,
     ApprovalRequiredMessage,
     ToolProposalMessage,
 )
+
+
+logger = structlog.get_logger(__name__)
+
+
+def _agent_prose(event: TicketEvent) -> str:
+    """What the model wrote, which is the only thing screened here. A person's
+    own words are theirs to read back, whatever they look like."""
+    match event:
+        case AIResponseEvent() | ReasoningEvent():
+            return str(event.content)
+        case _:
+            return ""
 
 
 def ticket_topic(ticket_id: str) -> str:
@@ -68,8 +89,18 @@ async def publish(ticket_id: str, message: BaseMessage) -> None:
         AnswerStreamingMessage | ReasoningStreamingMessage | AgentWorkingMessage,
     ):
         await TicketTeamTopic.broadcast(team_topic(ticket_id), message)
-        if message.payload.public:
-            await TicketTopic.broadcast(ticket_topic(ticket_id), message)
+        if not message.payload.public:
+            return
+        text = getattr(message.payload, "content", "")
+        if reasons := withheld(text, ticket_id=ticket_id):
+            logger.warning(
+                "tickets.withheld_from_customer",
+                ticket_id=ticket_id,
+                action=message.action,
+                reasons=reasons,
+            )
+            return
+        await TicketTopic.broadcast(ticket_topic(ticket_id), message)
         return
 
     if not isinstance(message, NewEventMessage):
@@ -79,7 +110,18 @@ async def publish(ticket_id: str, message: BaseMessage) -> None:
     # The team sees the whole event; the customer sees their view of it, and
     # only when it is theirs at all.
     await TicketTeamTopic.broadcast(team_topic(ticket_id), message)
-    if (theirs := for_customer(message.payload.event)) is not None:
+    theirs = for_customer(message.payload.event)
+    if theirs is not None and (
+        reasons := withheld(_agent_prose(theirs), ticket_id=ticket_id)
+    ):
+        logger.warning(
+            "tickets.withheld_from_customer",
+            ticket_id=ticket_id,
+            event=theirs.event_type,
+            reasons=reasons,
+        )
+        theirs = None
+    if theirs is not None:
         await TicketTopic.broadcast(
             ticket_topic(ticket_id),
             message.model_copy(

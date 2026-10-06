@@ -39,6 +39,8 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
   const [publish, setPublish] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [thinking, setThinking] = useState({ step: '', text: '' });
+  // The reply as it arrives, replaced by the event that carries the finished one.
+  const [streaming, setStreaming] = useState('');
   const [status, setStatus] = useState<Status>(ticket.status ?? 'open');
   const [priority, setPriority] = useState<Priority>(
     ticket.priority ?? 'medium',
@@ -77,6 +79,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     if (event.eventType === 'ai_response') {
       setAsking(false);
       setProposal(null);
+      setStreaming('');
     }
     if (event.eventType === 'ai_response') {
       // The reply went out: the trail and the gate have served their purpose.
@@ -143,6 +146,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     onToolProposal,
     onTicketUpdated,
     onReasoning,
+    onAnswer: (_reference, content) => setStreaming(content),
   });
 
   const decide = useCallback(
@@ -163,7 +167,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
     // Everything the thread renders, or whatever is left out arrives below the
     // fold: the tool gate did, and a reviewer saw nothing to approve.
-  }, [events, progress, pendingApproval, proposal, thinking]);
+  }, [events, progress, pendingApproval, proposal, thinking, streaming]);
 
   const blanks = isPublic ? placeholdersIn(draft) : [];
 
@@ -269,6 +273,11 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
               event={event}
             />
           ))}
+          {streaming && (
+            <Row tone="agent" label="Agent" when="">
+              {streaming}
+            </Row>
+          )}
           {thinking.text && (
             <Thinking step={thinking.step} content={thinking.text} live />
           )}

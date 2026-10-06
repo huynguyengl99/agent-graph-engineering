@@ -326,8 +326,12 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
         the run the connection had just asked for, which then started over."""
         client = self.client_for(Visibility.PUBLIC)
         client.replaying = True
-        closed = []
-        client.disconnect = lambda *a, **k: closed.append(True)
+        closed: list[bool] = []
+
+        async def hung_up(*_args: Any, **_kwargs: Any) -> None:
+            closed.append(True)
+
+        client.disconnect = hung_up
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
 
         await client.on_event(

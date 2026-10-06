@@ -22,6 +22,8 @@ interface UseTicketChatOptions {
   onTicketUpdated?: (status: string, priority: string) => void;
   onReasoning?: (step: string, delta: string) => void;
   onAgentWorking?: (working: boolean) => void;
+  /** The reply as far as it is written, whole each time rather than a piece. */
+  onAnswer?: (reference: string, content: string) => void;
   /** Subscribe to the team's half as well. Staff only; the server refuses it
    *  to anyone else. */
   team?: boolean;
@@ -41,6 +43,7 @@ export function useTicketChat({
   onTicketUpdated,
   onReasoning,
   onAgentWorking,
+  onAnswer,
   team = false,
 }: UseTicketChatOptions) {
   const { send, subscribed } = useTopic(
@@ -51,6 +54,8 @@ export function useTicketChat({
       // renders, and changing a handler does not rejoin the topic.
       on: {
         new_event: (message) => onNewEvent?.(message.payload.event),
+        answer_streaming: (message) =>
+          onAnswer?.(message.payload.reference, message.payload.content),
         agent_working: (message) => onAgentWorking?.(message.payload.working),
         ticket_updated: (message) =>
           onTicketUpdated?.(message.payload.status, message.payload.priority),
@@ -62,6 +67,8 @@ export function useTicketChat({
     enabled: team,
     on: {
       new_event: (message) => onNewEvent?.(message.payload.event),
+      answer_streaming: (message) =>
+        onAnswer?.(message.payload.reference, message.payload.content),
       agent_progress: (message) =>
         onAgentProgress?.(message.payload.stage, message.payload.detail),
       approval_required: (message) =>

@@ -9,6 +9,7 @@ from chanx.messages.base import BaseMessage
 
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
+    AnswerStreamingMessage,
     ApprovalRequiredMessage,
     NewEventMessage,
     ReasoningDeltaMessage,
@@ -58,6 +59,14 @@ async def publish(ticket_id: str, message: BaseMessage) -> None:
 
     if isinstance(message, TEAM_ONLY):
         await TicketTeamTopic.broadcast(team_topic(ticket_id), message)
+        return
+
+    # The reply as it is written goes where the finished reply will go, so the
+    # customer never watches a draft that turns out to be the team's.
+    if isinstance(message, AnswerStreamingMessage):
+        await TicketTeamTopic.broadcast(team_topic(ticket_id), message)
+        if message.payload.public:
+            await TicketTopic.broadcast(ticket_topic(ticket_id), message)
         return
 
     if not isinstance(message, NewEventMessage):

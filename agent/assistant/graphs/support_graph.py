@@ -211,7 +211,11 @@ class SupportGraph(AnswerFeed, BaseGraph):
         that informs it - so the answer does not claim to know.
         """
         context = state.context
-        answer = await self.answerer.run(self._prompt(state), context)
+        # Aloud, like the team's: the customer watches the reply being written
+        # rather than a spinner that ends in a wall of text.
+        answer = await self.run_aloud(
+            "respond", self.answerer, self._prompt(state), context
+        )
         await self.answered(context.ticket_id, answer)
         return {"answer": answer}
 

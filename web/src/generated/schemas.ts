@@ -33,6 +33,18 @@ export interface AgentWorkingPayload {
   working: boolean;
 }
 
+export interface AnswerStreamingMessage {
+  action: 'answer_streaming';
+  payload: AnswerStreamingPayload;
+}
+
+/** The reply as far as it has been written. The whole of it each time, not the piece just added: a subscriber that joins late, or misses a frame, still renders what the agent has said. The reference is stable for one answer, so a client replaces rather than appends, and drops it when the event carrying the finished reply arrives. */
+export interface AnswerStreamingPayload {
+  reference: string;
+  content: string;
+  public: boolean;
+}
+
 /** A reviewer accepts, edits, or rejects the drafted reply. */
 export interface ApprovalDecisionMessage {
   action: 'approval_decision';

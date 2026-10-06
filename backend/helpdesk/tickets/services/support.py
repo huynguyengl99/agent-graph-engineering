@@ -6,6 +6,7 @@ the answer is filed under is the difference.
 """
 
 from typing import Any, Literal
+from uuid import uuid4
 
 from channels.db import database_sync_to_async
 from django.conf import settings
@@ -30,6 +31,8 @@ from helpdesk.tickets.messages import (
     AgentProgressPayload,
     AgentWorkingMessage,
     AgentWorkingPayload,
+    AnswerStreamingMessage,
+    AnswerStreamingPayload,
     ApprovalRequiredMessage,
     ApprovalRequiredPayload,
     NewEventMessage,
@@ -82,6 +85,11 @@ class TicketSink(Sink):
         # with this service's own guess at the model, which was wrong the
         # moment the agent was pointed somewhere else.
         self.model = ""
+        # The reply as it is written, kept here rather than in the browser: a
+        # subscriber that joins late gets the whole of it, and a dropped frame
+        # is corrected by the next one instead of losing a word.
+        self.answer = ""
+        self.answer_reference = ""
 
     async def _progress(
         self, stage: Literal["classified", "decided", "failed"], detail: str
@@ -109,8 +117,30 @@ class TicketSink(Sink):
         if decision == "Escalate":
             await self._to_a_person(why)
 
+    async def token(self, delta: str) -> None:
+        """One more piece of the reply, published as the whole of it so far."""
+        if not self.answer_reference:
+            self.answer_reference = str(uuid4())
+        self.answer += delta
+        await broadcast(
+            self.ticket_id,
+            AnswerStreamingMessage(
+                payload=AnswerStreamingPayload(
+                    reference=self.answer_reference,
+                    content=self.answer,
+                    public=self.visibility == Visibility.PUBLIC,
+                )
+            ),
+        )
+
+    def _answer_written(self) -> None:
+        """The next reply on this run is a new one, not more of this one."""
+        self.answer = ""
+        self.answer_reference = ""
+
     async def drafted(self, content: str, model: str) -> None:
         self.model = model or self.model
+        self._answer_written()
         # A customer's reply is recorded when delivery sends it. Recording it
         # here too put the same answer on the ticket twice.
         if self.visibility == Visibility.PUBLIC:
@@ -152,6 +182,7 @@ class TicketSink(Sink):
 
     async def answered(self, content: str, model: str) -> None:
         self.model = model or self.model
+        self._answer_written()
         await self._event(await self._persist(content))
 
     async def tool_proposed(self, payload: Any) -> None:

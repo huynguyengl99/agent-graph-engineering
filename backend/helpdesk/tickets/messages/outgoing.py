@@ -119,3 +119,22 @@ class ReasoningDeltaPayload(BaseModel):
 class ReasoningDeltaMessage(BaseMessage):
     action: Literal["reasoning_delta"] = "reasoning_delta"
     payload: ReasoningDeltaPayload
+
+
+class AnswerStreamingPayload(BaseModel):
+    """The reply as far as it has been written.
+
+    The whole of it each time, not the piece just added: a subscriber that
+    joins late, or misses a frame, still renders what the agent has said. The
+    reference is stable for one answer, so a client replaces rather than
+    appends, and drops it when the event carrying the finished reply arrives.
+    """
+
+    reference: str
+    content: str
+    public: bool
+
+
+class AnswerStreamingMessage(BaseMessage):
+    action: Literal["answer_streaming"] = "answer_streaming"
+    payload: AnswerStreamingPayload

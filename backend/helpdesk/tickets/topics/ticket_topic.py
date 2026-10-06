@@ -10,6 +10,7 @@ from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,
     AgentWorkingMessage,
+    AnswerStreamingMessage,
     ApprovalDecisionMessage,
     ApprovalRequiredMessage,
     AskAgentMessage,
@@ -34,6 +35,7 @@ from helpdesk.tickets.services.status import set_priority, set_status, ticket_st
 
 TicketFeedEvent = (
     NewEventMessage
+    | AnswerStreamingMessage
     | AgentProgressMessage
     | AgentWorkingMessage
     | ApprovalRequiredMessage
@@ -250,6 +252,7 @@ class TicketTopic(Topic[TicketFeedEvent]):
     # `ticket:<id>:team`, which only staff may join. See `services/publish.py`.
     passthrough_events = [
         NewEventMessage,
+        AnswerStreamingMessage,
         AgentWorkingMessage,
         TicketUpdatedMessage,
     ]

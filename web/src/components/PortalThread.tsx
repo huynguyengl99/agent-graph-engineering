@@ -20,13 +20,18 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
   const [events, setEvents] = useState<TicketEvent[]>([]);
   const [draft, setDraft] = useState('');
   const [working, setWorking] = useState(false);
+  // The reply as it arrives, replaced by the event that carries the finished one.
+  const [streaming, setStreaming] = useState('');
   const bottom = useRef<HTMLDivElement>(null);
 
   const { sendMessage, askAgent, isConnected } = useTicketChat({
     ticketId,
-    onNewEvent: (event) =>
-      setEvents((current) => mergeEvents(current, [event])),
+    onNewEvent: (event) => {
+      if (event.eventType === 'ai_response') setStreaming('');
+      setEvents((current) => mergeEvents(current, [event]));
+    },
     onAgentWorking: setWorking,
+    onAnswer: (_reference, content) => setStreaming(content),
   });
 
   // The opening message is the ticket, so nothing posted it: hand it over as
@@ -56,7 +61,7 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [events, working]);
+  }, [events, working, streaming]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +97,12 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
         {events.map((event) => (
           <TicketEventItem key={event.id} event={event} />
         ))}
-        {working && (
+        {streaming && (
+          <Row tone="agent" label="Agent" when="">
+            {streaming}
+          </Row>
+        )}
+        {working && !streaming && (
           // Nothing about what it is doing: which step it is on and what it
           // decided are the team's. That somebody has your ticket is yours.
           <li className="flex items-center gap-2 px-4 py-3 text-sm text-gray-500">

@@ -142,3 +142,37 @@ class TestWhatTheAgentIsTold(WebsocketTestCase):
         assert request.history[1].content.startswith(
             "[internal note, not for the customer]"
         )
+
+
+class TestWhoWatchesTheReplyBeingWritten(WebsocketTestCase):
+    """The stream goes where the finished reply will go, and nowhere else."""
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.ticket = TicketFactory.create(created_by=self.user)
+
+    async def _tokens_on(self, topic: str, visibility: str) -> list[Any]:
+        from helpdesk.tickets.services.support import TicketSink
+
+        await self.subscribe_ready(topic)
+        sink = TicketSink(str(self.ticket.id), visibility)
+        await sink.token("Half a ")
+        await sink.token("sentence.")
+        frames = await self.auth_communicator.receive_all_json(timeout=2)
+        return [f for f in frames if f.get("action") == "answer_streaming"]
+
+    async def test_the_customer_watches_their_own_reply(self) -> None:
+        frames = await self._tokens_on(f"ticket:{self.ticket.id}", Visibility.PUBLIC)
+
+        assert [f["payload"]["content"] for f in frames] == [
+            "Half a ",
+            "Half a sentence.",
+        ]
+
+    async def test_the_customer_never_watches_the_team_s(self) -> None:
+        assert (
+            await self._tokens_on(f"ticket:{self.ticket.id}", Visibility.INTERNAL) == []
+        )

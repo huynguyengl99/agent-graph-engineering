@@ -6,6 +6,7 @@ import { defineChannel, defineTopic } from '@chanx-js/client';
 import type {
   AgentProgressMessage,
   AgentWorkingMessage,
+  AnswerStreamingMessage,
   ApprovalDecisionMessage,
   ApprovalRequiredMessage,
   AskAgentMessage,
@@ -33,11 +34,13 @@ export type HubTicketTopicToServer =
 export type HubTicketTopicToClient =
   | AgentProgressMessage
   | AgentWorkingMessage
+  | AnswerStreamingMessage
   | NewEventMessage
   | TicketUpdatedMessage;
 export type HubTicketTeamTopicToServer = never;
 export type HubTicketTeamTopicToClient =
   | AgentProgressMessage
+  | AnswerStreamingMessage
   | ApprovalRequiredMessage
   | NewEventMessage
   | ReasoningDeltaMessage

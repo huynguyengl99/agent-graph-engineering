@@ -118,7 +118,25 @@ const newTicket = async (page, title, body) => {
     await shot('working');
 
     const ticketId = page.url().split('/').pop();
+
+    // Sampled while the agent writes: one jump from nothing to the whole reply
+    // means the stream is being dropped somewhere between the model and here.
+    const lengths = [];
+    const grow = setInterval(async () => {
+      const t = await page.locator('li', { hasText: /^Agent/ }).last()
+        .innerText().catch(() => '');
+      if (t) lengths.push(t.length);
+    }, 700);
     const outcome = await settled(page, ticketId, 'the customer ticket');
+    clearInterval(grow);
+    if (outcome === 'answered') {
+      const steps = new Set(lengths).size;
+      steps > 1
+        ? ok('the reply is written in front of them', `${steps} step(s)`)
+        : bad('the reply is written in front of them', 'arrived whole');
+    } else {
+      ok('the reply is written in front of them', 'skipped: handed to a person');
+    }
     await page.waitForTimeout(2500);
     await toBottom(page);
     await shot('answered');

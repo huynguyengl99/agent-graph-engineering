@@ -11,6 +11,7 @@ from chanx.core.topic import Topic
 
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
+    AnswerStreamingMessage,
     ApprovalRequiredMessage,
     NewEventMessage,
     ReasoningDeltaMessage,
@@ -20,6 +21,7 @@ from helpdesk.tickets.models import Ticket
 
 TeamFeedEvent = (
     NewEventMessage
+    | AnswerStreamingMessage
     | AgentProgressMessage
     | ApprovalRequiredMessage
     | ToolProposalMessage
@@ -34,6 +36,7 @@ class TicketTeamTopic(Topic[TeamFeedEvent]):
     pattern = "ticket:{ticket_id}:team"
     passthrough_events = [
         NewEventMessage,
+        AnswerStreamingMessage,
         AgentProgressMessage,
         ApprovalRequiredMessage,
         ToolProposalMessage,

@@ -8,8 +8,8 @@ The series argues that your agent flow should be a **declared graph**, not a cha
 
 A support desk where one ticket has two lanes and one agent serves both:
 
-- **The public lane is the customer's.** A ticket arrives, the graph decides what to do with it - answer directly, search the knowledge base, run a tool, escalate - and anything the customer will read stops at a human first.
-- **The internal lane is the team's.** Notes to colleagues, questions to the assistant, its answers, its reasoning and the lookups it ran. Staff-only, so nothing there is gated on the way in.
+- **The public lane is the customer's.** A ticket arrives, the graph decides what to do with it - answer directly, search the knowledge base, run a tool, escalate - and they watch it being worked out and written, step by step.
+- **The internal lane is the team's.** Notes to colleagues, questions to the assistant, its answers, and the lookups it ran with what they were handed. Staff-only, so nothing there is gated on the way in.
 
 One rule falls out of that split: **the assistant answers; a person authorises anything it cannot take back.** A refund, a message staff wrote, and a reply about a ticket the guards flagged all wait for someone. An ordinary question does not, because a desk whose assistant can never finish a sentence has no assistant.
 
@@ -86,8 +86,9 @@ seeds two accounts - both with the password `demo-pass-123`:
 
 They are deliberately two people. Sign in as one in a normal window and the
 other in a private one, and you can watch a run from both sides at once: the
-customer asks, the agent drafts, the draft waits for staff, and the approved
-reply appears in the portal. Set `OPENAI_API_KEY` in `agent/.env` when you want
+customer asks, the agent reasons and writes in front of them, and the console
+watches the same run from the other side. Flag it - ask for a refund - and the
+reply waits for staff instead. Set `OPENAI_API_KEY` in `agent/.env` when you want
 real answers.
 
 ### Run

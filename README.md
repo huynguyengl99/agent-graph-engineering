@@ -2,7 +2,7 @@
 
 A production-grade reference implementation of an AI agent system whose flow is a **declared graph** rather than a chain of `if/else` on an intent classifier. Type-safe across every boundary, self-documenting, self-visualizing, observable, and controllable. Three services in one repository, running on a single LLM key, or none at all.
 
-Every decision in it is explained by a twelve-post series, **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/why-i-gave-up-on-if-else-ai-flows/)**. The code is the artifact; the series is its documentation.
+Every decision in it is explained by a twelve-post series, **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/before-it-had-a-name/)**. The code is the artifact; the series is its documentation.
 
 Use it as a reference for a system you already run, as the starting point for one you are about to build, or as a base to adapt for a client. It is shaped for production rather than for a notebook, and [what you still owe](#what-you-still-owe-before-production) before real users touch it is written down rather than glossed over.
 
@@ -96,7 +96,7 @@ Twelve posts, each pinned to a tag so you can check out the exact state being de
 
 | #   | Post                                              | Tag             |
 | --- | ------------------------------------------------- | --------------- |
-| 0   | Why I gave up on if/else AI flows                 | -               |
+| 0   | I needed this before it had a name                 | -               |
 | 1   | The stack, and why each piece is there            | `stack`         |
 | 2   | Two services, one product                         | `split`         |
 | 3   | Types and contracts                               | `contracts`     |

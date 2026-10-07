@@ -1,12 +1,27 @@
 # Agent Graph Engineering
 
-Companion repository for the **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/why-i-gave-up-on-if-else-ai-flows/)** blog series: building an observable, scalable, maintainable AI agent system with LangGraph, Pydantic AI, and chanx.
+A production-grade reference implementation of an AI agent system whose flow is a **declared graph** rather than a chain of `if/else` on an intent classifier. Type-safe across every boundary, self-documenting, self-visualising, observable, and controllable. Three services in one repository, running on a single LLM key, or none at all.
 
-The series argues that your agent flow should be a **declared graph**, not a chain of `if/else` on an intent classifier. This repo is the working proof.
+Every decision in it is explained by a twelve-post series, **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/why-i-gave-up-on-if-else-ai-flows/)**. The code is the artifact; the series is its documentation.
+
+Use it as a reference for a system you already run, as the starting point for one you are about to build, or as a base to adapt for a client. It is shaped for production rather than for a notebook, and [what you still owe](#what-you-still-owe-before-production) before real users touch it is written down rather than glossed over.
 
 > **Not graph RAG.** This is about the *execution* graph of an agent: state, nodes, edges, routing, interrupts, resumption. Knowledge graphs and graph RAG are retrieval techniques, where a graph is the data you query. Graph RAG could sit behind one node here as one tool among several. Same word, unrelated concept.
 
-## What it is
+## What you get
+
+| | How it actually works |
+| --- | --- |
+| **Type-safe across every boundary** | Pydantic AI gives typed tools, typed outputs and typed dependencies. DRF serializers generate OpenAPI, which generates Zodios clients. chanx consumers generate AsyncAPI, which generates both a TypeScript client and a Python one. Change a shape, run `just gen`, and the compiler names what broke. |
+| **Flow as a declared graph** | LangGraph state, nodes and conditional edges. Adding a capability is a node and an edge, not another condition threaded through an existing chain. |
+| **Self-visualising** | The graph exports Mermaid and renders in the app, so the architecture picture is generated from the thing that actually runs and cannot go stale. |
+| **Self-documenting** | OpenAPI and AsyncAPI are generated, never hand-maintained. Your WebSocket layer gets the contract your REST API has had for a decade. |
+| **Observable** | An OpenTelemetry span per graph node, with Pydantic AI's own spans nested underneath, plus per-run cost. A local trace store works with no account at all; OTLP export when you want a vendor. |
+| **Controllable** | Irreversible tool calls park for human approval, survive a reload, and resume on a different socket than the one that started the run. Guardrails screen the input edge and the output edge. Postgres checkpointing makes a crashed or parked run resumable instead of lost. |
+| **Testable without spending** | The LLM is mocked at the HTTP layer, so the real pipeline runs: SSE parsing, tool-call assembly, streaming, validation. A scripted model runs the entire system with no API key, streaming included. Evals hit real providers when you ask for them. `just e2e` drives a real browser against real services. |
+| **Deployable** | Multi-stage images on a frozen lockfile, granian serving ASGI because the channels are WebSockets, and production-safe settings as the default with `dev.py` the one that loosens them. |
+
+## The application
 
 A support desk where one ticket has two lanes and one agent serves both:
 
@@ -183,11 +198,10 @@ just gen-agent-client  # agent AsyncAPI to Python client
 Each generator reads a live schema, so it starts the service it reads from if
 that service is not already up.
 
-## Status
+## What works today
 
-Work in progress, tracking the series as it publishes.
-
-Working end to end, with nothing mocked in `just e2e`:
+All of the following runs end to end with nothing mocked, and `just e2e` drives
+it in a real browser against real services and real models:
 
 - **One ticket, two audiences.** A customer's message is persisted, fanned out
   over the ticket channel, handed to the agent over a typed WebSocket, and the
@@ -219,16 +233,54 @@ Working end to end, with nothing mocked in `just e2e`:
   their half of the ticket - the name and whether it ran, with the arguments and
   the result kept for the team.
 
-Not built yet: context budgeting for long threads, and spend caps - cost is
-measured, not enforced.
+## What you still owe before production
 
-One wart worth knowing about, since it is visible in the code: the run that
-answers a ticket's opening description is started by the portal when the thread
-mounts, because nothing posted that description as a message. So a customer who
-files a ticket and never opens it waits for a person, and that run's progress
-is broadcast before anyone is subscribed to hear it. Starting it where the
-ticket is created is the fix, and the create path is a synchronous view with no
-event loop to detach a run onto.
+Calling something production-ready without this list would be dishonest. The
+architecture is production-grade and the deployment is production-shaped, and
+these are the things you have to add for your own environment. None of them is
+deep work; all of them are real.
+
+**Before you deploy at all**
+
+- **Set `DJANGO_SECRET_KEY`.** The default is the placeholder
+  `django-insecure-change-me`, deliberately, so a fresh clone runs. Also set
+  `DJANGO_ALLOWED_HOSTS`, which defaults to empty, and `ASSISTANT_AGENT_TOKEN`,
+  which is unset so a clone needs no configuration. Unset means the agent
+  accepts every caller.
+- **Add the TLS and HSTS settings.** There is no `SECURE_SSL_REDIRECT`,
+  `SECURE_HSTS_SECONDS` or secure-cookie configuration, because they depend on
+  whether something terminates TLS in front of you.
+- **Add a non-root `USER` to the images,** and a healthcheck or readiness probe
+  on the app services. The infrastructure containers have one; the three app
+  containers do not.
+- **Keep the agent off the public network.** Only the backend should reach it.
+  The approval gate lives inside the graph, so anything that can open a socket
+  on the agent can both propose a tool call and approve it. Network isolation is
+  the primary control and the token is the second.
+
+**Before you put real traffic through it**
+
+- **Context budgeting.** The whole conversation is sent, so cost grows with
+  thread length. There is no summarisation or windowing.
+- **Spend caps.** Cost is measured per run and reported, but nothing enforces a
+  ceiling.
+- **Provider rate limits and retries.** There is no backoff policy for a
+  provider returning 429 or a transient 5xx.
+- **A migration story.** Migrations exist and run, but nothing here addresses
+  running them against a live database with traffic on it.
+
+**Known gaps, left visible on purpose**
+
+- **No trace viewer in the product.** `GET /traces/{run_id}` returns the tree
+  and nothing renders it.
+- **`just e2e` is kept out of CI,** because it needs provider keys and spends
+  money. CI runs the three mocked suites.
+- **The opening-description run is started by the portal** when the thread
+  mounts, because nothing posted that description as a message. A customer who
+  files a ticket and never opens it waits for a person, and that run's progress
+  is broadcast before anyone is subscribed to hear it. Starting it where the
+  ticket is created is the fix, and the create path is a synchronous view with
+  no event loop to detach a run onto.
 
 ## Documentation
 

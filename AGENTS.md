@@ -4,12 +4,16 @@
 
 ## What this repo is
 
-Companion repo for the **Agent Graph Engineering** blog series. The posts live in `~/Code/huynguyengl99/my-blog` under `src/content/posts/agent-graph-engineering/`. The demo app is a support helpdesk where one agent works a ticket for two audiences - the customer who reported it and the team answering it - built on LangGraph + Pydantic AI + chanx.
+A **production-grade reference implementation** of an AI agent system built as a declared graph on LangGraph + Pydantic AI + chanx: type-safe across every boundary, self-documenting, self-visualising, observable and controllable. The application is a support helpdesk where one agent works a ticket for two audiences, the customer who reported it and the team answering it.
+
+The code is the artifact. The twelve-post **Agent Graph Engineering** series is its documentation, and lives in `~/Code/huynguyengl99/my-blog` under `src/content/posts/agent-graph-engineering/`.
+
+That positioning matters when deciding what to build: people are meant to **adopt** this, not skim it. The README's "What you still owe before production" section is the honest boundary of the claim, and anything newly discovered that a real deployment would need belongs there rather than being quietly left out.
 
 Because the repo is read alongside the posts, two rules override normal defaults:
 
 1. **Every post gets a git tag**, named descriptively rather than by number, so inserting or splitting a post never renumbers the rest: `stack`, `split`, `interrupts`, `testing`. The README's table is the list. Never rewrite history behind a published tag.
-2. **Code is didactic.** Prefer the clear version over the clever one. If a production system would do something more complex, that tradeoff belongs in the post, not in a code comment.
+2. **Production-grade guarantees, readable implementation.** The guarantees have to be real: typed boundaries, generated contracts, checkpointed runs, approval gates on irreversible actions, guardrails on both edges, tracing. Within that, prefer the clear version over the clever one, because a reference nobody can read is not a reference. Where a larger system would need something more complex, say so in the post rather than in a code comment. Never weaken a guarantee to make an example shorter.
 
 ### Writing style for README and public docs
 
@@ -29,14 +33,14 @@ real models.
 Inherited from an earlier schema-first reference project whose WebSocket layer
 had never run; both sides were rewritten against current chanx.
 
-What is deliberately not done, so it is not mistaken for an oversight:
-
-- No trace viewer in the product. `GET /traces/{run_id}` returns the tree and
-  nothing renders it.
-- No context budgeting. The whole conversation is sent, so cost grows with its
-  length.
-- Cost is measured, not capped.
-- `just e2e` is kept out of CI: it needs provider keys and spends money.
+What is deliberately not done is listed in the README under **"What you still
+owe before production"**, which is the single place for it. Keep that list
+current: it is what makes the production claim credible, so a gap found while
+working here gets added there rather than mentioned in a commit message and
+forgotten. The short version is no trace viewer UI, no context budgeting, cost
+measured but not capped, no TLS/HSTS settings, no non-root user or app
+healthchecks in the images, no provider retry policy, and `just e2e` out of CI
+because it spends money.
 
 ### Tools
 

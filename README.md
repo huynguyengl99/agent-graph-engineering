@@ -98,7 +98,7 @@ Twelve posts, each pinned to a tag so you can check out the exact state being de
 | --- | ------------------------------------------------- | --------------- |
 | 0   | I needed this before it had a name                 | -               |
 | 1   | The stack, and why each piece is there            | `stack`         |
-| 2   | Two services, one product                         | `split`         |
+| 2   | Split the services: where the line goes           | `split`         |
 | 3   | Types and contracts                               | `contracts`     |
 | 4   | The agent: typed tools, outputs, dependencies     | `agent`         |
 | 5   | Tools and guardrails                              | `tools`         |

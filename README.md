@@ -1,8 +1,10 @@
 # Agent Graph Engineering
 
-Companion repository for the **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/the-stack-and-why-each-piece-is-there/)** blog series: building a typed, observable, controllable AI agent system with LangGraph, Pydantic AI, and chanx.
+Companion repository for the **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/why-i-gave-up-on-if-else-ai-flows/)** blog series: building an observable, scalable, maintainable AI agent system with LangGraph, Pydantic AI, and chanx.
 
 The series argues that your agent flow should be a **declared graph**, not a chain of `if/else` on an intent classifier. This repo is the working proof.
+
+> **Not graph RAG.** This is about the *execution* graph of an agent: state, nodes, edges, routing, interrupts, resumption. Knowledge graphs and graph RAG are retrieval techniques, where a graph is the data you query. Graph RAG could sit behind one node here as one tool among several. Same word, unrelated concept.
 
 ## What it is
 
@@ -37,21 +39,25 @@ What each service owns, how they stay in sync, and the generated contracts betwe
 
 ## Following along with the series
 
-The series runs in tracks, and each post is pinned to a tag so you can check out the exact state being described:
+Twelve posts, each pinned to a tag so you can check out the exact state being described:
 
-| Track                | Tags                                                                              |
-| -------------------- | --------------------------------------------------------------------------------- |
-| Foundations          | `foundations-stack`, `foundations-types`                                           |
-| Agent engineering    | `agent-typed`, `agent-prompts`, `agent-history`, `agent-tools`, `agent-routing`     |
-| Graph flow           | `graph-basics`, `graph-state`, `graph-persistence`, `graph-interrupts`, `graph-subgraphs` |
-| Realtime             | `realtime-websocket`, `realtime-streaming`, `realtime-scaling`                     |
-| Contract             | `contract-schemas`, `contract-codegen`                                             |
-| Auto UI from schema  | `ui-from-schema`                                                                   |
-| Observability        | `observability-tracing`                                                            |
-| Testing & evaluation | `testing-mocked-llm`, `evals-real-models`                                          |
+| #   | Post                                              | Tag             |
+| --- | ------------------------------------------------- | --------------- |
+| 0   | Why I gave up on if/else AI flows                 | -               |
+| 1   | The stack, and why each piece is there            | `stack`         |
+| 2   | Two services, one product                         | `split`         |
+| 3   | Types and contracts                               | `contracts`     |
+| 4   | The agent: typed tools, outputs, dependencies     | `agent`         |
+| 5   | Tools and guardrails                              | `tools`         |
+| 6   | The graph: state, nodes, edges, routing           | `graph`         |
+| 7   | Subgraphs, persistence, and interrupts            | `interrupts`    |
+| 8   | Streaming                                         | `streaming`     |
+| 9   | Observability: tracing, and what a run cost       | `observability` |
+| 10  | Testing and evals                                 | `testing`       |
+| 11  | Shipping it                                       | `deploy`        |
 
 ```bash
-git checkout graph-interrupts
+git checkout interrupts
 ```
 
 `main` is always the latest state, and will be ahead of whatever post you are reading.

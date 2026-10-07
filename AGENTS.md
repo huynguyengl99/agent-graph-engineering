@@ -8,7 +8,7 @@ Companion repo for the **Agent Graph Engineering** blog series. The posts live i
 
 Because the repo is read alongside the posts, two rules override normal defaults:
 
-1. **Every post gets a git tag** (`part-1-stack`, `part-2-agent`, ...). Never rewrite history behind a published tag.
+1. **Every post gets a git tag**, named descriptively rather than by number, so inserting or splitting a post never renumbers the rest: `stack`, `split`, `interrupts`, `testing`. The README's table is the list. Never rewrite history behind a published tag.
 2. **Code is didactic.** Prefer the clear version over the clever one. If a production system would do something more complex, that tradeoff belongs in the post, not in a code comment.
 
 ### Writing style for README and public docs

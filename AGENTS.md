@@ -4,7 +4,7 @@
 
 ## What this repo is
 
-A **production-grade reference implementation** of an AI agent system built as a declared graph on LangGraph + Pydantic AI + chanx: type-safe across every boundary, self-documenting, self-visualising, observable and controllable. The application is a support helpdesk where one agent works a ticket for two audiences, the customer who reported it and the team answering it.
+A **production-grade reference implementation** of an AI agent system built as a declared graph on LangGraph + Pydantic AI + chanx: type-safe across every boundary, self-documenting, self-visualizing, observable and controllable. The application is a support helpdesk where one agent works a ticket for two audiences, the customer who reported it and the team answering it.
 
 The code is the artifact. The twelve-post **Agent Graph Engineering** series is its documentation, and lives in `~/Code/huynguyengl99/my-blog` under `src/content/posts/agent-graph-engineering/`.
 
@@ -20,6 +20,7 @@ Because the repo is read alongside the posts, two rules override normal defaults
 Public prose here follows the author's blog style:
 
 - No em-dashes. Rephrase, or use a short hyphen if a dash is really needed.
+- US spelling: "visualize", "authorize", "organization", "behavior".
 - No manufactured engagement hooks ("What's your take?").
 - Never add `Co-Authored-By` trailers or any AI attribution to commit messages.
 
@@ -37,10 +38,15 @@ What is deliberately not done is listed in the README under **"What you still
 owe before production"**, which is the single place for it. Keep that list
 current: it is what makes the production claim credible, so a gap found while
 working here gets added there rather than mentioned in a commit message and
-forgotten. The short version is no trace viewer UI, no context budgeting, cost
-measured but not capped, no TLS/HSTS settings, no non-root user or app
-healthchecks in the images, no provider retry policy, and `just e2e` out of CI
-because it spends money.
+forgotten. The short version is no context budgeting, cost measured but not capped, no
+TLS/HSTS settings, no non-root user or app healthchecks in the images, no
+provider retry policy, no automatic resume after a worker dies, and `just e2e`
+out of CI because it spends money.
+
+**There is a trace viewer and a graph viewer**: `/traces` renders a run as its
+chain of steps and `/graphs` renders the graph. An older copy of this file said
+there was none, which was true once and then got repeated into the README. When
+a capability lands, fix the claim here as part of landing it.
 
 ### Tools
 

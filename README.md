@@ -1,6 +1,6 @@
 # Agent Graph Engineering
 
-A production-grade reference implementation of an AI agent system whose flow is a **declared graph** rather than a chain of `if/else` on an intent classifier. Type-safe across every boundary, self-documenting, self-visualising, observable, and controllable. Three services in one repository, running on a single LLM key, or none at all.
+A production-grade reference implementation of an AI agent system whose flow is a **declared graph** rather than a chain of `if/else` on an intent classifier. Type-safe across every boundary, self-documenting, self-visualizing, observable, and controllable. Three services in one repository, running on a single LLM key, or none at all.
 
 Every decision in it is explained by a twelve-post series, **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/why-i-gave-up-on-if-else-ai-flows/)**. The code is the artifact; the series is its documentation.
 
@@ -8,15 +8,53 @@ Use it as a reference for a system you already run, as the starting point for on
 
 > **Not graph RAG.** This is about the *execution* graph of an agent: state, nodes, edges, routing, interrupts, resumption. Knowledge graphs and graph RAG are retrieval techniques, where a graph is the data you query. Graph RAG could sit behind one node here as one tool among several. Same word, unrelated concept.
 
+## Run it
+
+```bash
+just setup       # env files, deps, Docker, migrations, generated clients, seeded accounts
+just up          # all three services in the background, waiting until each answers
+```
+
+Then open <http://localhost:5173>. Two accounts are seeded, both with the
+password `demo-pass-123`: `demo@example.com` is staff and gets the console, the
+gates, the graph viewer and the trace viewer; `customer@example.com` sees only
+the public half of their own tickets. Sign in as one in a normal window and the
+other in a private one to watch a run from both sides at once.
+
+**No API key is needed.** With `OPENAI_API_KEY` unset, a built-in scripted model
+drives the whole system and the graph, routing, approvals, streaming and UI all
+behave the same. Set a real key in `agent/.env` for real answers. Full detail,
+including the containerised path, is in [Quick start](#quick-start) below.
+
+## Where this comes from
+
+Not a greenfield sketch. This is distilled from a production system of five
+services, out of roughly five years of building realtime infrastructure and AI
+agent systems: about three years on one agent product and two on another, both
+with real users and real incidents.
+
+That provenance is the point, because what you inherit is the failure modes. The
+parts of this repo that look over-careful are mostly the parts that broke first
+somewhere else. A run claims its lane because two runs on one thread silently
+overwrote each other and an approved reply vanished. Events are appended before
+they are published, with a cursor, because a restart mid-run lost a reply that
+no one was subscribed to hear. An approval resumes on a different socket than
+the one that started it because that is what actually happens when a person
+takes a while to click.
+
+What it is not is a copy. The commercial system's domain, its scale concerns and
+its branding are all absent on purpose. What is here is the architecture, re-cut
+to a support desk small enough to read in an afternoon.
+
 ## What you get
 
 | | How it actually works |
 | --- | --- |
 | **Type-safe across every boundary** | Pydantic AI gives typed tools, typed outputs and typed dependencies. DRF serializers generate OpenAPI, which generates Zodios clients. chanx consumers generate AsyncAPI, which generates both a TypeScript client and a Python one. Change a shape, run `just gen`, and the compiler names what broke. |
 | **Flow as a declared graph** | LangGraph state, nodes and conditional edges. Adding a capability is a node and an edge, not another condition threaded through an existing chain. |
-| **Self-visualising** | The graph exports Mermaid and renders in the app, so the architecture picture is generated from the thing that actually runs and cannot go stale. |
+| **Self-visualizing** | The graph exports Mermaid and renders in the app, so the architecture picture is generated from the thing that actually runs and cannot go stale. |
 | **Self-documenting** | OpenAPI and AsyncAPI are generated, never hand-maintained. Your WebSocket layer gets the contract your REST API has had for a decade. |
-| **Observable** | An OpenTelemetry span per graph node, with Pydantic AI's own spans nested underneath, plus per-run cost. A local trace store works with no account at all; OTLP export when you want a vendor. |
+| **Observable, with the viewers included** | An OpenTelemetry span per graph node, with Pydantic AI's own spans nested underneath, plus per-run cost. A local trace store works with no account at all, and `/traces` renders a run as the chain of steps it was: node states, model calls, and which span attributes are worth showing. `/graphs` renders the graph itself. Point `ASSISTANT_TRACE_EXPORT` at any OTLP backend, Langfuse or Jaeger or Grafana, when you want one. |
 | **Controllable** | Irreversible tool calls park for human approval, survive a reload, and resume on a different socket than the one that started the run. Guardrails screen the input edge and the output edge. Postgres checkpointing makes a crashed or parked run resumable instead of lost. |
 | **Testable without spending** | The LLM is mocked at the HTTP layer, so the real pipeline runs: SSE parsing, tool-call assembly, streaming, validation. A scripted model runs the entire system with no API key, streaming included. Evals hit real providers when you ask for them. `just e2e` drives a real browser against real services. |
 | **Deployable** | Multi-stage images on a frozen lockfile, granian serving ASGI because the channels are WebSockets, and production-safe settings as the default with `dev.py` the one that loosens them. |
@@ -28,7 +66,7 @@ A support desk where one ticket has two lanes and one agent serves both:
 - **The public lane is the customer's.** A ticket arrives, the graph decides what to do with it - answer directly, search the knowledge base, run a tool, escalate - and they watch it being worked out and written, step by step.
 - **The internal lane is the team's.** Notes to colleagues, questions to the assistant, its answers, and the lookups it ran with what they were handed. Staff-only, so nothing there is gated on the way in.
 
-One rule falls out of that split: **the assistant answers; a person authorises anything it cannot take back.** A refund, a message staff wrote, and a reply about a ticket the guards flagged all wait for someone. An ordinary question does not, because a desk whose assistant can never finish a sentence has no assistant.
+One rule falls out of that split: **the assistant answers; a person authorizes anything it cannot take back.** A refund, a message staff wrote, and a reply about a ticket the guards flagged all wait for someone. An ordinary question does not, because a desk whose assistant can never finish a sentence has no assistant.
 
 The domain was chosen so that the graph earns its place (real routing, not a two-node demo), the approval machinery solves a real problem (an irreversible action), and you can run the whole thing with only an LLM key. No OAuth, no third-party signups. With no key at all it still runs end to end on a scripted model, streaming included.
 
@@ -261,7 +299,7 @@ deep work; all of them are real.
 **Before you put real traffic through it**
 
 - **Context budgeting.** The whole conversation is sent, so cost grows with
-  thread length. There is no summarisation or windowing.
+  thread length. There is no summarization or windowing.
 - **Spend caps.** Cost is measured per run and reported, but nothing enforces a
   ceiling.
 - **Provider rate limits and retries.** There is no backoff policy for a
@@ -271,8 +309,12 @@ deep work; all of them are real.
 
 **Known gaps, left visible on purpose**
 
-- **No trace viewer in the product.** `GET /traces/{run_id}` returns the tree
-  and nothing renders it.
+- **No automatic resume after a worker dies.** A run is driven by an in-process
+  task. Graph state, the lane claim and the event cursor are all durable, so
+  nothing is corrupted and nothing is lost, but a run whose process died waits
+  for its claim to go stale and be taken over by the next message rather than
+  being picked up on its own. A sweeper that finds stale claims with an
+  unfinished checkpoint and resumes them is the missing piece.
 - **`just e2e` is kept out of CI,** because it needs provider keys and spends
   money. CI runs the three mocked suites.
 - **The opening-description run is started by the portal** when the thread

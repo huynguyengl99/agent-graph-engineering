@@ -47,10 +47,10 @@ class Settings(BaseSettings):
     # The deployment's default for each purpose, as "provider:name". A user's
     # own choice overrides these one slot at a time.
     decision_model: str = Field(
-        default="openai:gpt-4o-mini", validation_alias="ASSISTANT_DECISION_MODEL"
+        default="openai:gpt-5.2", validation_alias="ASSISTANT_DECISION_MODEL"
     )
     answer_model: str = Field(
-        default="openai:gpt-4o", validation_alias="ASSISTANT_ANSWER_MODEL"
+        default="openai:gpt-5.2", validation_alias="ASSISTANT_ANSWER_MODEL"
     )
 
     # The provider SDKs default to 600s, far too long for an interactive turn.

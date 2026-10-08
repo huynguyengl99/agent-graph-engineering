@@ -19,7 +19,7 @@ class ModelPreferenceSerializer(serializers.ModelSerializer[ModelPreference]):
         provider, separator, name = value.partition(":")
         if not separator or not provider or not name:
             raise serializers.ValidationError(
-                "Use provider:name, for example openai:gpt-4o."
+                "Use provider:name, for example anthropic:claude-sonnet-5."
             )
         return value
 

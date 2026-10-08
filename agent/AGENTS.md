@@ -104,7 +104,7 @@ The golden set lives in `evals/scenarios/*.yaml`, one file per concern.
 just evals                        # everything, on evals/configs/openai.json
 just evals guardrail              # names matching "guardrail"
 just evals --config claude        # the same set on a different model set
-just evals-compare scripted openai_gpt-4o
+just evals-compare scripted openai_gpt-5.2
 ```
 
 Model sets live in `evals/configs/*.json`. The judge stays on one model across

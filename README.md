@@ -6,7 +6,7 @@ Every decision in it is explained by the **[Agent Graph Engineering](https://huy
 
 Use it as a reference for a system you already run, as the starting point for one you are about to build, or as a base to adapt for a client. It is shaped for production rather than for a notebook, and [what you still owe](#what-you-still-owe-before-production) before real users touch it is written down rather than glossed over.
 
-![The staff console: a ticket worked by the agent, with its reasoning steps, an internal note, and the reply it wrote](docs/images/console.png)
+![An agent reply on the team's lane: markdown rendered, with a drafted customer message and a caution](docs/images/console.png)
 
 > **Not graph RAG.** This is about the *execution* graph of an agent: state, nodes, edges, routing, interrupts, resumption. Knowledge graphs and graph RAG are retrieval techniques, where a graph is the data you query. Graph RAG could sit behind one node here as one tool among several. Same word, unrelated concept.
 
@@ -61,11 +61,7 @@ to a support desk small enough to read in an afternoon.
 | **Testable without spending** | The LLM is mocked at the HTTP layer, so the real pipeline runs: SSE parsing, tool-call assembly, streaming, validation. A scripted model runs the entire system with no API key, streaming included. Evals hit real providers when you ask for them. `just e2e` drives a real browser against real services. |
 | **Deployable** | Multi-stage images on a frozen lockfile, granian serving ASGI because the channels are WebSockets, and production-safe settings as the default with `dev.py` the one that loosens them. |
 
-Two of those rows are easier to believe than to describe. The graph draws itself from the compiled object, so the picture cannot drift from the code:
-
-![The Graphs page rendering the support graph, with a toggle to expand subgraphs inline](docs/images/graph-view.png)
-
-And a run reads as the chain of steps it was, with model calls nested inside the nodes that made them, no account required:
+One of those rows is easier to believe than to describe. A run reads as the chain of steps it was, with model calls nested inside the nodes that made them, and no account to sign up for:
 
 ![The Traces page: a run's nodes with their decisions, model calls nested inside, and its cost](docs/images/trace-view.png)
 
@@ -74,8 +70,6 @@ And a run reads as the chain of steps it was, with model calls nested inside the
 A support desk where one ticket has two lanes and one agent serves both:
 
 - **The public lane is the customer's.** A ticket arrives, the graph decides what to do with it - answer directly, search the knowledge base, run a tool, escalate - and they watch it being worked out and written, step by step.
-
-  ![The customer portal: their billing question, the agent's filing and search decisions, and a working indicator](docs/images/portal.png)
 - **The internal lane is the team's.** Notes to colleagues, questions to the assistant, its answers, and the lookups it ran with what they were handed. Staff-only, so nothing there is gated on the way in.
 
 One rule falls out of that split: **the assistant answers; a person authorizes anything it cannot take back.** A refund, a message staff wrote, and a reply about a ticket the guards flagged all wait for someone. An ordinary question does not, because a desk whose assistant can never finish a sentence has no assistant.

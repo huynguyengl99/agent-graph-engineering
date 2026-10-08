@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { api } from '@/lib/api';
 import { useTicketChat } from '@/hooks/useTicketChat';
+import { Markdown } from '@/components/Markdown';
 import { Row, Thinking, TicketEventItem } from '@/components/TicketEventItem';
 import { awaitingFirstReply } from '@/lib/newTickets';
 import { mergeEvents } from '@/lib/eventList';
@@ -116,7 +117,7 @@ export function PortalThread({ ticketId }: { ticketId: string }) {
         )}
         {streaming && (
           <Row tone="agent" label="Agent" when="">
-            {streaming}
+            <Markdown streaming>{streaming}</Markdown>
           </Row>
         )}
         {working && !streaming && !thinking.text && (

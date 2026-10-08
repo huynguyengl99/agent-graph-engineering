@@ -27,51 +27,79 @@ the picture cannot disagree with the code. `xray=true` (the default) expands
 the subgraphs inline; `xray=false` shows them as single boxes. The UI renders
 these at `/graphs`.
 
-Expanded, with each subgraph's own start and end markers left out for
-legibility:
+Expanded, exactly as the compiled object emits it. Each subgraph carries its
+own start and finish, which is what makes the early exits visible:
 
 ```mermaid
 graph TD;
-    start([start]) --> support_start
-    support_start -.-> support_classify
-    support_start -.-> support_decide
-    support_classify -.-> support_decide
-    support_decide -.-> knowledge_search
-    support_decide -.-> tool_plan
-    support_decide -.-> support_escalate
-    support_decide -.-> support_respond
-    knowledge_search --> support_respond
-    tool_gate -.-> support_report_tool
-    tool_execute -.-> support_respond
-    support_report_tool -.-> support_respond
-    support_escalate -.-> delivery_screen
-    support_respond -.-> delivery_screen
-    support_respond -.-> finish([end])
-    delivery_send --> finish
-
+    start([start])
+    support_start(support_start)
+    support_classify(support_classify)
+    support_decide(support_decide)
+    support_escalate(support_escalate)
+    support_report_tool(support_report_tool)
+    support_respond(support_respond)
+    finish([finish])
+    start --> support_start;
+    knowledge_done --> support_respond;
+    support_classify -.-> support_decide;
+    support_decide -.-> knowledge_start;
+    support_decide -.-> support_escalate;
+    support_decide -.-> support_respond;
+    support_decide -.-> tool_plan;
+    support_escalate -.-> delivery_screen;
+    support_report_tool -.-> support_respond;
+    support_respond -.-> finish;
+    support_respond -.-> delivery_screen;
+    support_start -.-> support_classify;
+    support_start -.-> support_decide;
+    tool_done -.-> support_report_tool;
+    tool_done -.-> support_respond;
+    delivery_done --> finish;
     subgraph knowledge
-        knowledge_search -.-> knowledge_refine
-        knowledge_refine -.-> knowledge_search
+    knowledge_start(start)
+    knowledge_search(knowledge_search)
+    knowledge_refine(knowledge_refine)
+    knowledge_done(finish)
+    knowledge_start --> knowledge_search;
+    knowledge_refine -.-> knowledge_search;
+    knowledge_search -.-> knowledge_done;
+    knowledge_search -.-> knowledge_refine;
     end
-
     subgraph tool
-        tool_plan -.-> tool_gate
-        tool_plan -.-> tool_execute
-        tool_gate -.-> tool_execute
+    tool_plan(tool_plan)
+    tool_gate(tool_gate)
+    tool_execute(tool_execute)
+    tool_done(finish)
+    tool_gate -.-> tool_done;
+    tool_gate -.-> tool_execute;
+    tool_plan -.-> tool_done;
+    tool_plan -.-> tool_execute;
+    tool_plan -.-> tool_gate;
+    tool_execute --> tool_done;
     end
-
     subgraph delivery
-        delivery_screen -.-> delivery_approval
-        delivery_screen -.-> delivery_send
-        delivery_approval -.-> delivery_send
+    delivery_screen(delivery_screen)
+    delivery_approval(delivery_approval)
+    delivery_send(delivery_send)
+    delivery_done(finish)
+    delivery_approval -.-> delivery_done;
+    delivery_approval -.-> delivery_send;
+    delivery_screen -.-> delivery_done;
+    delivery_screen -.-> delivery_approval;
+    delivery_screen -.-> delivery_send;
+    delivery_send --> delivery_done;
     end
 ```
 
-Three things to read off it. `knowledge` loops, search to refine and back,
+Four things to read off it. `knowledge` loops, search to refine and back,
 bounded by `KB_MAX_ATTEMPTS`. `tool` has its gate in the middle, so a proposal
-reaches a person before anything runs. And `delivery` is entered from two
-different places in the parent, which is why the approval logic lives there once
-rather than at each call site.
+reaches a person before anything runs. `delivery` is entered from two different
+places in the parent, which is why the approval logic lives there once rather
+than at each call site. And every subgraph can reach its own finish early:
+`tool_plan` and `tool_gate` can both stop without executing, and
+`delivery_screen` and `delivery_approval` can both end without sending. Those
+edges are the rejections.
 
 ## Human in the loop
 

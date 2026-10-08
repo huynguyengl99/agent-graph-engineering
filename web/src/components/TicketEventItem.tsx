@@ -131,7 +131,8 @@ export function Thinking({
   finishedAt?: string;
 }) {
   const [fresh] = useState(
-    () => !!finishedAt && Date.now() - new Date(finishedAt).getTime() < HOLD_OPEN,
+    () =>
+      !!finishedAt && Date.now() - new Date(finishedAt).getTime() < HOLD_OPEN,
   );
   const [open, setOpen] = useState(fresh);
   useEffect(() => {

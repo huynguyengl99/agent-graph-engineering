@@ -54,7 +54,9 @@ export function PortalLayout() {
             Back to the console
           </Link>
         )}
-        <span className="ml-auto truncate text-sm text-gray-600">{user?.email}</span>
+        <span className="ml-auto truncate text-sm text-gray-600">
+          {user?.email}
+        </span>
         <button
           onClick={() => void logout()}
           className="text-sm text-indigo-700 hover:underline"

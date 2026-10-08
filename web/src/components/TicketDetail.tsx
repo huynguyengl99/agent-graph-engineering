@@ -71,26 +71,29 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     };
   }, [ticketId]);
 
-  const onNewEvent = useCallback((event: TicketEvent) => {
-    setEvents((current) => mergeEvents(current, [event]));
-    if (event.eventType === 'handoff') {
-      setHandling(event.handling);
-      publishTicketChange({ id: ticketId, handling: event.handling });
-    }
-    if (event.eventType === 'reasoning') setThinking({ step: '', text: '' });
-    if (event.eventType === 'ai_response') {
-      setAsking(false);
-      setProposal(null);
-      setStreaming('');
-    }
-    if (event.eventType === 'ai_response') {
-      // The reply went out: the trail and the gate have served their purpose.
-      setProgress([]);
-      setPendingApproval(null);
-    }
-    // `ticketId` is read above, so it cannot be captured from the first render:
-    // moving between tickets would publish the change against the old one.
-  }, [ticketId]);
+  const onNewEvent = useCallback(
+    (event: TicketEvent) => {
+      setEvents((current) => mergeEvents(current, [event]));
+      if (event.eventType === 'handoff') {
+        setHandling(event.handling);
+        publishTicketChange({ id: ticketId, handling: event.handling });
+      }
+      if (event.eventType === 'reasoning') setThinking({ step: '', text: '' });
+      if (event.eventType === 'ai_response') {
+        setAsking(false);
+        setProposal(null);
+        setStreaming('');
+      }
+      if (event.eventType === 'ai_response') {
+        // The reply went out: the trail and the gate have served their purpose.
+        setProgress([]);
+        setPendingApproval(null);
+      }
+      // `ticketId` is read above, so it cannot be captured from the first render:
+      // moving between tickets would publish the change against the old one.
+    },
+    [ticketId],
+  );
 
   // Cleared when the finished reasoning arrives as an event of its own.
   // The whole of the step's reasoning arrives each time, so this holds what
@@ -197,7 +200,10 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
     <section className="flex h-full flex-col">
       <header className="border-b bg-white px-4 py-4 sm:px-6">
         {/* The list is the whole screen below md, so this is the way back. */}
-        <Link to="/" className="text-sm text-indigo-700 hover:underline md:hidden">
+        <Link
+          to="/"
+          className="text-sm text-indigo-700 hover:underline md:hidden"
+        >
           ← All tickets
         </Link>
         <div className="flex flex-wrap items-center gap-3">

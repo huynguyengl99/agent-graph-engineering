@@ -116,7 +116,9 @@ export function RootLayout() {
           </Link>
         </nav>
         <div className="ml-auto flex min-w-0 items-center gap-3 text-sm">
-          <span className="truncate text-gray-600">{user?.fullName || user?.email}</span>
+          <span className="truncate text-gray-600">
+            {user?.fullName || user?.email}
+          </span>
           <button onClick={logout} className="text-indigo-600 hover:underline">
             Sign out
           </button>

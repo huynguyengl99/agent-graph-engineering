@@ -32,7 +32,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # The socket tests run on the real Redis channel layer, not an in-memory one.
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
+      REDIS_URL: redis://localhost:6379/0
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agent_graph_test
       DJANGO_SECRET_KEY: ci-secret-key-long-enough-for-hmac-sha256
     steps:

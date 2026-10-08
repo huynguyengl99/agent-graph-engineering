@@ -5,6 +5,7 @@ import { useTicketChat, type AgentStage } from '@/hooks/useTicketChat';
 import { mergeEvents } from '@/lib/eventList';
 import type { Ticket, TicketEvent } from '@/lib/types';
 import { HANDLING, Row, Thinking, TicketEventItem } from './TicketEventItem';
+import { Markdown } from './Markdown';
 import { placeholdersIn } from '@/lib/placeholders';
 import { publishTicketChange } from '@/lib/ticketState';
 import { ApprovalPanel } from './ApprovalPanel';
@@ -281,7 +282,7 @@ export function TicketDetail({ ticket }: { ticket: Ticket }) {
           ))}
           {streaming && (
             <Row tone="agent" label="Agent" when="">
-              {streaming}
+              <Markdown streaming>{streaming}</Markdown>
             </Row>
           )}
           {running && (

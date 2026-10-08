@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { TicketEvent } from '@/lib/types';
+import { Markdown } from '@/components/Markdown';
 
 /**
  * The payoff of the polymorphic contract: `eventType` is a literal, so
@@ -36,7 +37,7 @@ export function TicketEventItem({ event }: { event: TicketEvent }) {
           badge={internal ? 'Internal' : undefined}
           indented={internal}
         >
-          {event.content}
+          <Markdown>{event.content}</Markdown>
         </Row>
       );
     }
@@ -280,7 +281,7 @@ export function Row({
         </span>
         <span className="text-xs text-gray-500">{when}</span>
       </div>
-      <p className="mt-1 whitespace-pre-wrap">{children}</p>
+      <div className="mt-1 whitespace-pre-wrap">{children}</div>
     </li>
   );
 }

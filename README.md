@@ -2,9 +2,11 @@
 
 A production-grade reference implementation of an AI agent system whose flow is a **declared graph** rather than a chain of `if/else` on an intent classifier. Type-safe across every boundary, self-documenting, self-visualizing, observable, and controllable. Three services in one repository, running on a single LLM key, or none at all.
 
-Every decision in it is explained by a twelve-post series, **[Agent Graph Engineering](https://huynguyengl99.github.io/posts/agent-graph-engineering/before-it-had-a-name/)**. The code is the artifact; the series is its documentation.
+Every decision in it is explained by the **[Agent Graph Engineering](https://huynguyengl99.github.io/series/agent-graph-engineering/)** series. The code is the artifact; the series is its documentation.
 
 Use it as a reference for a system you already run, as the starting point for one you are about to build, or as a base to adapt for a client. It is shaped for production rather than for a notebook, and [what you still owe](#what-you-still-owe-before-production) before real users touch it is written down rather than glossed over.
+
+![The staff console: a ticket worked by the agent, with its reasoning steps, an internal note, and the reply it wrote](docs/images/console.png)
 
 > **Not graph RAG.** This is about the *execution* graph of an agent: state, nodes, edges, routing, interrupts, resumption. Knowledge graphs and graph RAG are retrieval techniques, where a graph is the data you query. Graph RAG could sit behind one node here as one tool among several. Same word, unrelated concept.
 
@@ -54,19 +56,33 @@ to a support desk small enough to read in an afternoon.
 | **Flow as a declared graph** | LangGraph state, nodes and conditional edges. Adding a capability is a node and an edge, not another condition threaded through an existing chain. |
 | **Self-visualizing** | The graph exports Mermaid and renders in the app, so the architecture picture is generated from the thing that actually runs and cannot go stale. |
 | **Self-documenting** | OpenAPI and AsyncAPI are generated, never hand-maintained. Your WebSocket layer gets the contract your REST API has had for a decade. |
-| **Observable, with the viewers included** | An OpenTelemetry span per graph node, with Pydantic AI's own spans nested underneath, plus per-run cost. A local trace store works with no account at all, and `/traces` renders a run as the chain of steps it was: node states, model calls, and which span attributes are worth showing. `/graphs` renders the graph itself. Point `ASSISTANT_TRACE_EXPORT` at any OTLP backend, Langfuse or Jaeger or Grafana, when you want one. |
+| **Observable with no account** | An OpenTelemetry span per graph node, with Pydantic AI's own spans nested underneath, plus per-run cost. Spans land in a trace store inside the agent service, so `/traces` renders a run as the chain of steps it was (node states, model calls, decisions) with nothing to sign up for, and `/graphs` renders the graph. `ASSISTANT_TRACE_EXPORT` forwards the same spans to any OTLP collector when you want one; that path is covered by a test against a fake collector, which proves the export rather than a specific vendor's ingestion. |
 | **Controllable** | Irreversible tool calls park for human approval, survive a reload, and resume on a different socket than the one that started the run. Guardrails screen the input edge and the output edge. Postgres checkpointing makes a crashed or parked run resumable instead of lost. |
 | **Testable without spending** | The LLM is mocked at the HTTP layer, so the real pipeline runs: SSE parsing, tool-call assembly, streaming, validation. A scripted model runs the entire system with no API key, streaming included. Evals hit real providers when you ask for them. `just e2e` drives a real browser against real services. |
 | **Deployable** | Multi-stage images on a frozen lockfile, granian serving ASGI because the channels are WebSockets, and production-safe settings as the default with `dev.py` the one that loosens them. |
+
+Two of those rows are easier to believe than to describe. The graph draws itself from the compiled object, so the picture cannot drift from the code:
+
+![The Graphs page rendering the support graph, with a toggle to expand subgraphs inline](docs/images/graph-view.png)
+
+And a run reads as the chain of steps it was, with model calls nested inside the nodes that made them, no account required:
+
+![The Traces page: a run's nodes with their decisions, model calls nested inside, and its cost](docs/images/trace-view.png)
 
 ## The application
 
 A support desk where one ticket has two lanes and one agent serves both:
 
 - **The public lane is the customer's.** A ticket arrives, the graph decides what to do with it - answer directly, search the knowledge base, run a tool, escalate - and they watch it being worked out and written, step by step.
+
+  ![The customer portal: their billing question, the agent's filing and search decisions, and a working indicator](docs/images/portal.png)
 - **The internal lane is the team's.** Notes to colleagues, questions to the assistant, its answers, and the lookups it ran with what they were handed. Staff-only, so nothing there is gated on the way in.
 
 One rule falls out of that split: **the assistant answers; a person authorizes anything it cannot take back.** A refund, a message staff wrote, and a reply about a ticket the guards flagged all wait for someone. An ordinary question does not, because a desk whose assistant can never finish a sentence has no assistant.
+
+![A refund proposal parked for approval, its Email, Amount and Reason fields awaiting a reviewer](docs/images/tool-gate.png)
+
+Nobody wrote that form. The labels and help text are the tool's argument schema, rendered straight through, which is what stops a reviewer approving a call whose fields they were never shown.
 
 The domain was chosen so that the graph earns its place (real routing, not a two-node demo), the approval machinery solves a real problem (an irreversible action), and you can run the whole thing with only an LLM key. No OAuth, no third-party signups. With no key at all it still runs end to end on a scripted model, streaming included.
 
@@ -90,26 +106,45 @@ The domain was chosen so that the graph earns its place (real routing, not a two
 
 What each service owns, how they stay in sync, and the generated contracts between them: **[docs/architecture.md](docs/architecture.md)**.
 
-## Following along with the series
+### The graph
 
-Twelve posts, each pinned to a tag so you can check out the exact state being described:
+What the agent does with a message. This is not a drawing: it is what
+`GET /graphs/support.mermaid` renders from the compiled graph object, so it
+cannot disagree with the code.
 
-| #   | Post                                              | Tag             |
-| --- | ------------------------------------------------- | --------------- |
-| 0   | I needed this before it had a name                 | -               |
-| 1   | The stack, and why each piece is there            | `stack`         |
-| 2   | Split the services: where the line goes           | `split`         |
-| 3   | Types and contracts                               | `contracts`     |
-| 4   | The agent: typed tools, outputs, dependencies     | `agent`         |
-| 5   | Tools and guardrails                              | `tools`         |
-| 6   | The graph: state, nodes, edges, routing           | `graph`         |
-| 7   | Subgraphs, persistence, and interrupts            | `interrupts`    |
-| 8   | Streaming                                         | `streaming`     |
-| 9   | Observability: tracing, and what a run cost       | `observability` |
-| 10  | Testing and evals                                 | `testing`       |
-| 11  | Shipping it                                       | `deploy`        |
+```mermaid
+graph TD;
+    start([start]) --> support_start
+    support_start -.-> support_classify
+    support_start -.-> support_decide
+    support_classify -.-> support_decide
+    support_decide -.-> knowledge
+    support_decide -.-> tool
+    support_decide -.-> support_escalate
+    support_decide -.-> support_respond
+    knowledge --> support_respond
+    tool -.-> support_report_tool
+    tool -.-> support_respond
+    support_report_tool -.-> support_respond
+    support_escalate -.-> delivery
+    support_respond -.-> delivery
+    support_respond -.-> finish([end])
+    delivery --> finish
+```
+
+Dotted edges are conditional. `knowledge`, `tool` and `delivery` are subgraphs,
+drawn here as single boxes; `/graphs` in the app expands them inline, and so
+does **[docs/graphs.md](docs/graphs.md)**, which covers what each one is for and
+which drafts stop for a person.
+
+## The series
+
+The posts walk through every decision in here, from the story behind it to a deployment: **[Agent Graph Engineering](https://huynguyengl99.github.io/series/agent-graph-engineering/)**.
+
+Each one is pinned to a tag, so you can check out the exact state it describes:
 
 ```bash
+git tag -l
 git checkout interrupts
 ```
 
@@ -337,4 +372,4 @@ deep work; all of them are real.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).

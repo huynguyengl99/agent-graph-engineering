@@ -6,7 +6,7 @@
 
 A **production-grade reference implementation** of an AI agent system built as a declared graph on LangGraph + Pydantic AI + chanx: type-safe across every boundary, self-documenting, self-visualizing, observable and controllable. The application is a support helpdesk where one agent works a ticket for two audiences, the customer who reported it and the team answering it.
 
-The code is the artifact. The twelve-post **Agent Graph Engineering** series is its documentation, and lives in `~/Code/huynguyengl99/my-blog` under `src/content/posts/agent-graph-engineering/`.
+The code is the artifact. The **Agent Graph Engineering** series is its documentation, and lives in `~/Code/huynguyengl99/my-blog` under `src/content/posts/agent-graph-engineering/`.
 
 That positioning matters when deciding what to build: people are meant to **adopt** this, not skim it. The README's "What you still owe before production" section is the honest boundary of the claim, and anything newly discovered that a real deployment would need belongs there rather than being quietly left out.
 

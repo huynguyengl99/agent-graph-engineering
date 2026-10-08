@@ -6,7 +6,7 @@ Every decision in it is explained by the **[Agent Graph Engineering](https://huy
 
 Use it as a reference for a system you already run, as the starting point for one you are about to build, or as a base to adapt for a client. It is shaped for production rather than for a notebook, and [what you still owe](#what-you-still-owe-before-production) before real users touch it is written down rather than glossed over.
 
-![An agent reply on the team's lane: markdown rendered, with a drafted customer message and a caution](docs/images/console.png)
+![The staff console: a refund request, the agent's tool steps, and its reply with a drafted customer message](docs/images/console.png)
 
 > **Not graph RAG.** This is about the *execution* graph of an agent: state, nodes, edges, routing, interrupts, resumption. Knowledge graphs and graph RAG are retrieval techniques, where a graph is the data you query. Graph RAG could sit behind one node here as one tool among several. Same word, unrelated concept.
 

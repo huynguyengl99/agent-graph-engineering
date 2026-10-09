@@ -1,10 +1,11 @@
 # Documentation
 
-The repository README is the orientation and the quick start. These are the
-parts worth reading on their own, roughly in the order they become interesting.
+The repository README is the orientation. These are the parts worth reading on
+their own, roughly in the order they become interesting.
 
 | Page | What it covers |
 |---|---|
+| [Running it](running.md) | Prerequisites, the commands, swapping models, and a walkthrough of both lanes with the two seeded accounts |
 | [Architecture](architecture.md) | What each service owns, the agent's boundary, how the two stay in sync, and the generated contracts that keep them honest |
 | [Graphs and subgraphs](graphs.md) | The one graph and its three subgraphs, which drafts stop for a person, and the forms generated from a schema |
 | [Evals](evals.md) | The golden set, the cascade judge, choosing the models, and the guardrails either side of them |

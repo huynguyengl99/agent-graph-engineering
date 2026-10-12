@@ -1,5 +1,4 @@
-"""That a request queues instead of running, and that what the caller said
-survives the trip."""
+"""That a request queues instead of running, and survives the trip."""
 
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -64,8 +63,7 @@ class TestTasksCallTheService(TestCase):
 
 
 class TestCrashSafety(TestCase):
-    """None of these is a Celery default, and losing one breaks nothing until
-    a worker is killed mid-run."""
+    """None is a Celery default, and losing one breaks nothing until a kill."""
 
     def test_the_task_is_acked_after_it_finishes(self) -> None:
         from django.conf import settings
@@ -74,9 +72,15 @@ class TestCrashSafety(TestCase):
         assert settings.CELERY_TASK_REJECT_ON_WORKER_LOST is True
 
     def test_redelivery_outlasts_the_longest_run(self) -> None:
-        """Redis has no server-side ack, so a task still running when the
-        visibility timeout expires is handed to a second worker as well."""
+        """Expire mid-run and a second worker gets it too."""
         from django.conf import settings
 
         visibility: Any = settings.CELERY_BROKER_TRANSPORT_OPTIONS["visibility_timeout"]
         assert visibility > settings.CELERY_TASK_TIME_LIMIT
+
+    def test_redelivery_waits_for_the_lane_to_go_stale(self) -> None:
+        """Redeliver too early and the retry no-ops on the stale lane, then acks."""
+        from django.conf import settings
+
+        visibility: Any = settings.CELERY_BROKER_TRANSPORT_OPTIONS["visibility_timeout"]
+        assert visibility > settings.AGENT_RUN_CLAIM_TIMEOUT

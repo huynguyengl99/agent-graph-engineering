@@ -66,11 +66,11 @@ Everything below runs end to end with nothing mocked, and `just e2e` drives it i
 | worker     | the backend image, running Celery                 | none |
 
 A run is not driven by whichever web process took the request. The request
-queues a task and returns, and a worker drives it, so a deploy or a crash costs
-the run its driver rather than its existence: the task is redelivered and the
-agent resumes the thread from its checkpoint. The three Celery settings that
-make a kill survivable, and why the defaults are wrong for work this long, are
-in [docs/running.md](docs/running.md).
+queues a task and returns, and a worker drives it, so a deploy no longer takes
+the work in flight with it. A killed worker is survivable rather than fast: the
+task is held and redelivered, and what actually gets a waiting person their
+answer sooner is the lane claim going stale. The settings that make that true,
+with measurements, are in [docs/running.md](docs/running.md).
 
 What each service owns, how they stay in sync, and the generated contracts between them: **[docs/architecture.md](docs/architecture.md)**.
 

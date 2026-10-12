@@ -145,20 +145,10 @@ worker is killed mid-run.
 | --- | --- | --- |
 | `task_acks_late` | `True` | Acknowledge when the run finishes, not when it is picked up. On the default, a `kill -9` drops the task silently: it was acked on delivery and nothing is left to redeliver. |
 | `task_reject_on_worker_lost` | `True` | Makes that true for a hard kill too, not only a clean shutdown. |
-| `visibility_timeout` | 3600s | Redis has no server-side ack, so redelivery runs on this timer. A task still going when it expires is handed to a *second* worker as well, so it has to outlast your longest run. |
+| `visibility_timeout` | 3600s | Redis has no server-side ack, so redelivery after a lost worker runs on this timer. It has to outlast both the longest run and `AGENT_RUN_CLAIM_TIMEOUT`: expire early and a running task is handed to a second worker too; expire before the lane goes stale and the redelivered run no-ops and acks, losing the work. |
 
 Retrying is safe because of two things that have nothing to do with Celery: the
 agent resumes a thread from its checkpoint rather than starting over, and
 anything irreversible goes through the at-most-once ledger. A queue without
 those two would make a redelivered refund a second refund.
 
-**Scaling** is more workers, or more threads per worker. `docker compose up
---scale worker=3` in containers.
-
-**Not Celery?** Nothing above depends on it. What the design needs is that the
-work is written down before anyone starts it, that something hands it back when
-its holder dies, and that retrying is safe. [procrastinate][p] gives you the
-first two over Postgres with no broker at all and suits async code better;
-Celery is here because it is what most Django projects already run.
-
-[p]: https://procrastinate.readthedocs.io/

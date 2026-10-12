@@ -25,7 +25,12 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ToolDecisionPayload,
 )
 from helpdesk.agent_runs.services.cursors import advance_sync
-from helpdesk.agent_runs.services.run import Sink, SupportRun, spawn
+from helpdesk.agent_runs.services.run import Sink, SupportRun
+from helpdesk.agent_runs.tasks import (
+    resume_approval,
+    resume_tool_decision,
+    run_ticket,
+)
 from helpdesk.tickets.messages import (
     AgentProgressMessage,
     AgentProgressPayload,
@@ -498,9 +503,15 @@ async def _then_whatever_waited(ticket_id: str, visibility: str) -> None:
 async def start_run(
     ticket_id: str, *, question: str = "", visibility: str, user_id: Any = None
 ) -> None:
-    """Detached: the agent may take tens of seconds, and the results reach the
-    browser through the ticket topic rather than this return path."""
-    spawn(run(ticket_id, question=question, visibility=visibility, user_id=user_id))
+    """Queued, not awaited: the agent may take tens of seconds, and the results
+    reach the browser through the ticket topic rather than this return path.
+
+    A worker does it, not this process. A detached task lived in whichever web
+    process took the request, so a deploy or a crash took the run with it and
+    left nothing behind saying it was owed."""
+    run_ticket.delay(
+        ticket_id, question=question, visibility=visibility, user_id=user_id
+    )
 
 
 async def submit_approval(
@@ -577,14 +588,9 @@ async def start_approval(
     content: str | None = None,
     user_id: Any = None,
 ) -> None:
-    """Resume a parked run. Detached for the same reason."""
-    spawn(
-        submit_approval(
-            ticket_id=ticket_id,
-            approved=approved,
-            content=content,
-            models=await model_overrides(user_id),
-        )
+    """Resume a parked run. Queued for the same reason."""
+    resume_approval.delay(
+        ticket_id, approved=approved, content=content, user_id=user_id
     )
 
 
@@ -633,6 +639,6 @@ async def decide_tool(
 async def start_tool_decision(
     ticket_id: str, *, approved: bool, arguments: dict[str, Any], publish: bool
 ) -> None:
-    spawn(
-        decide_tool(ticket_id, approved=approved, arguments=arguments, publish=publish)
+    resume_tool_decision.delay(
+        ticket_id, approved=approved, arguments=arguments, publish=publish
     )

@@ -8,7 +8,7 @@
 #   scripts/dev.sh logs b    # tail one service's log
 #
 # Services:
-#   b = backend  :8000   a = agent  :8001   w = web  :5173
+#   b = backend  :8000   a = agent  :8001   w = web  :5173   k = worker
 #
 # `just backend` and friends each hold a terminal, which is fine when working on
 # one service and tedious when a task needs all three - regenerating clients
@@ -23,7 +23,7 @@ cd "$ROOT"
 RUN_DIR="${TMPDIR:-/tmp}/agent-graph-dev"
 mkdir -p "$RUN_DIR"
 
-ALL="b a w"
+ALL="b a k w"
 
 # Case lookups rather than associative arrays: those need bash 4, and macOS
 # still ships 3.2, so a reader cloning this repo would get "unbound variable"
@@ -32,6 +32,7 @@ name_of() {
   case $1 in
     b) echo backend ;;
     a) echo agent ;;
+    k) echo worker ;;
     w) echo web ;;
   esac
 }
@@ -41,6 +42,8 @@ port_of() {
     b) echo 8000 ;;
     a) echo 8001 ;;
     w) echo 5173 ;;
+    # The worker listens on nothing. It asks the database for work.
+    k) echo "" ;;
   esac
 }
 
@@ -49,6 +52,7 @@ health_of() {
     b) echo "http://localhost:8000/api/schema/" ;;
     a) echo "http://localhost:8001/health" ;;
     w) echo "http://localhost:5173/" ;;
+    k) echo "" ;;
   esac
 }
 
@@ -63,17 +67,44 @@ start_cmd() {
   case $1 in
     b) echo "cd backend && uv run granian --interface asgi --port 8000 --reload helpdesk.config.asgi:application" ;;
     a) echo "cd agent && uv run uvicorn assistant.main:app --port 8001 --reload" ;;
+    k) echo "cd backend && uv run celery -A helpdesk.config worker --pool=threads --concurrency=8 -Q agent_runs -l info" ;;
     w) echo "cd web && pnpm dev" ;;
   esac
 }
 
-is_up() { curl -fsS -o /dev/null --max-time 3 "$(health_of "$1")" 2>/dev/null; }
+# A service with no health URL answers nothing, so "up" is "its process is
+# alive". That is weaker than a health check and it is what a worker allows.
+is_up() {
+  local url pid
+  url=$(health_of "$1")
+  if [ -n "$url" ]; then
+    curl -fsS -o /dev/null --max-time 3 "$url" 2>/dev/null
+    return
+  fi
+  pid=$(cat "$(pid_file "$1")" 2>/dev/null || true)
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# "backend :8000", or just "worker" for something that listens on nothing.
+label_of() {
+  local port
+  port=$(port_of "$1")
+  if [ -n "$port" ]; then echo "$(name_of "$1") :$port"; else name_of "$1"; fi
+}
 
 log_file() { echo "$RUN_DIR/$(name_of "$1").log"; }
 pid_file() { echo "$RUN_DIR/$(name_of "$1").pid"; }
 
 wait_for() {
   local key=$1
+  # Nothing to poll, so give it a moment and see whether it is still alive.
+  # Weaker than a health check: it catches a worker that dies on startup, not
+  # one that starts and cannot reach the database.
+  if [ -z "$(health_of "$key")" ]; then
+    sleep 2
+    is_up "$key"
+    return
+  fi
   for _ in $(seq 1 90); do
     is_up "$key" && return 0
     # A service that died on startup will never answer; say so straight away
@@ -93,7 +124,7 @@ parse_targets() {
   TARGETS=""
   for arg in "$@"; do
     if [ -z "$(name_of "$arg")" ]; then
-      echo "unknown service: $arg (valid: b a w)" >&2
+      echo "unknown service: $arg (valid: b a k w)" >&2
       exit 2
     fi
     TARGETS="$TARGETS $arg"
@@ -107,10 +138,10 @@ cmd_up() {
 
   for key in $TARGETS; do
     if is_up "$key"; then
-      echo -e "  ${GREEN}·${NC} $(name_of "$key") already up on :$(port_of "$key")"
+      echo -e "  ${GREEN}·${NC} $(label_of "$key") already up"
       continue
     fi
-    echo -e "  ${CYAN}→${NC} starting $(name_of "$key") on :$(port_of "$key")"
+    echo -e "  ${CYAN}→${NC} starting $(label_of "$key")"
     nohup bash -c "$(start_cmd "$key")" >"$(log_file "$key")" 2>&1 &
     echo $! >"$(pid_file "$key")"
   done
@@ -154,6 +185,14 @@ cmd_down() {
     # no server at all: it answers health checks and fails on the change you
     # just made.
     port=$(port_of "$key")
+    if [ -z "$port" ]; then
+      if [ -n "$pid" ]; then
+        echo -e "  ${CYAN}→${NC} stopped $(name_of "$key")"
+      else
+        echo -e "  ${YELLOW}·${NC} $(name_of "$key") was not running"
+      fi
+      continue
+    fi
     holders=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null)
     if [ -n "$holders" ]; then
       # shellcheck disable=SC2086 - one pid per line, intentionally split
@@ -172,9 +211,9 @@ cmd_down() {
 cmd_status() {
   for key in $ALL; do
     if is_up "$key"; then
-      echo -e "  ${GREEN}✓${NC} $(name_of "$key") :$(port_of "$key")"
+      echo -e "  ${GREEN}✓${NC} $(label_of "$key")"
     else
-      echo -e "  ${RED}✗${NC} $(name_of "$key") :$(port_of "$key")"
+      echo -e "  ${RED}✗${NC} $(label_of "$key")"
     fi
   done
 }

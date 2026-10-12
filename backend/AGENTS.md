@@ -148,10 +148,10 @@ topic carries both lanes: what the customer reads, and what the team says to
 each other and to the assistant about it.
 
 Two reasons this is not just tidier. `Topic.broadcast` is a **classmethod**, so
-a detached task with no consumer instance can publish directly - the old
-`broadcast()` helper hand-rolled that envelope and existed in two copies. And
-one socket serves however many resources a tab is watching, instead of one
-connection and one auth round-trip each.
+a worker with no consumer instance, in a different process from every socket,
+can publish directly - the old `broadcast()` helper hand-rolled that envelope
+and existed in two copies. And one socket serves however many resources a tab
+is watching, instead of one connection and one auth round-trip each.
 
 `authorize()` on the topic is where access control lives: an unknown ticket, or
 somebody else's, is refused at subscribe, not at connect.
@@ -167,6 +167,15 @@ topic's output union, because the communicator parses against the *consumer's*.
 One relay, `core/services/support_run.py`. It opens the connection, subscribes
 to `support:<audience>:<thread_id>`, replays what it missed, moves the cursor
 and disconnects - and hands every event to a `Sink`.
+
+Who opens it is a Celery worker, not the web process that took the request.
+`start_run`, `start_approval` and `start_tool_decision` call `.delay()` on the
+tasks in `agent_runs/tasks.py` and return. Keep those tasks thin: they exist to
+move the call off the request, and the work stays in the services.
+
+`task_acks_late` and `task_reject_on_worker_lost` are both on, and the Redis
+`visibility_timeout` is an hour. Those three are what make a killed worker
+survivable rather than silent, and none of them is a Celery default.
 
 `tickets/services/lanes.py` is what stops two of these sharing a thread: a run
 claims `(ticket, visibility)` for as long as it is working *or* parked, and a

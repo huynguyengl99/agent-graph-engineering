@@ -306,6 +306,32 @@ AGENT_ON_COMMENT = env.bool("AGENT_ON_COMMENT", True)
 # run parked on a person holds it for as long as they take, so this only has to
 # outlast the agent working, not a reviewer deciding.
 AGENT_RUN_CLAIM_TIMEOUT = env.int("AGENT_RUN_CLAIM_TIMEOUT", 300)
+
+# Celery, and the three settings that decide whether a killed worker loses a
+# run. The defaults are built for short idempotent tasks; an agent run is tens
+# of seconds long and has already told somebody something by the time it ends.
+CELERY_BROKER_URL = env.str(
+    "CELERY_BROKER_URL", env.str("REDIS_URL", "redis://localhost:6379/0")
+)
+# Acknowledge when the run finishes, not when the worker picks it up. Without
+# this a `kill -9` mid-run drops the task silently: it was acked on delivery
+# and there is nothing left to redeliver.
+CELERY_TASK_ACKS_LATE = True
+# And make that true for a hard kill too, not only a clean shutdown.
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+# Redis has no server-side ack, so redelivery is driven by this timeout: a task
+# still running when it expires is handed to a second worker as well. It has to
+# outlast the longest run comfortably.
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "visibility_timeout": env.int("CELERY_VISIBILITY_TIMEOUT", 3600),
+}
+CELERY_TASK_DEFAULT_QUEUE = "agent_runs"
+# One run at a time per thread, so a slow run does not sit on a queue of others
+# this worker already took.
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TIME_LIMIT = env.int("CELERY_TASK_TIME_LIMIT", 900)
+CELERY_TASK_SOFT_TIME_LIMIT = env.int("CELERY_TASK_SOFT_TIME_LIMIT", 840)
+
 # Only a fallback now: the agent reports which model wrote a reply, and this
 # service records what it was told. A reply that arrives without one is a
 # replay from before that, not something to label with today's setting.

@@ -5,8 +5,6 @@ a conversation. They differed in what they wrote down, not in how they talked,
 so the talking lives here and what-to-write-down is a `Sink`.
 """
 
-import asyncio
-from collections.abc import Coroutine
 from typing import Any
 
 from django.conf import settings
@@ -46,34 +44,9 @@ from helpdesk.agent_runs.services.cursors import advance, last_handled
 
 logger = structlog.get_logger(__name__)
 
-_background: set[asyncio.Task[None]] = set()
-
 # chanx binds an incoming frame's ref while the handler runs, so whatever the
 # replay handler sends carries this back. A live broadcast carries no ref.
 REPLAY_REF = "replay"
-
-
-def _done(task: "asyncio.Task[None]") -> None:
-    """Nobody awaits these, so a failure is only ever seen if it is logged."""
-    _background.discard(task)
-    if task.cancelled():
-        # Nothing cancels these on purpose, so this is a run losing its last
-        # events rather than an orderly stop.
-        logger.error("agent_run.cancelled")
-        return
-    if task.exception() is not None:
-        logger.error("agent_run.crashed", exc_info=task.exception())
-
-
-def spawn(coro: "Coroutine[Any, Any, None]") -> None:
-    """Run detached, keeping a strong reference.
-
-    asyncio holds only a weak reference to a running task, so a detached one can
-    be collected mid-flight.
-    """
-    task = asyncio.create_task(coro)
-    _background.add(task)
-    task.add_done_callback(_done)
 
 
 class Sink:

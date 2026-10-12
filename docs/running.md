@@ -33,11 +33,16 @@ Set a real key in `agent/.env` for real answers. No step in the graph names a mo
 ## Day to day
 
 ```bash
-just up          # all three, in the background, waiting until each answers
+just up          # everything, in the background, waiting until each answers
 just status      # which are up
-just logs a      # follow one of them (b backend, a agent, w web)
+just logs a      # follow one of them (b backend, a agent, k worker, w web)
 just down        # stop them and free the ports
 ```
+
+`just up k` starts the Celery worker alone, which is what you want when you
+are changing a task: `just down k && just up k` picks up your edit and the web
+services keep running. The worker listens on nothing, so `just status` judges
+it by whether its process is alive rather than by a health check.
 
 Three ways to tidy up, in increasing order of violence:
 
@@ -55,6 +60,13 @@ Or one per terminal, when you are working on that service and want its output in
 just backend     # http://localhost:8000
 just agent       # http://localhost:8001
 just frontend    # http://localhost:5173
+```
+
+The worker has no `just` recipe of its own because there is nothing to watch
+but its log:
+
+```bash
+cd backend && uv run celery -A helpdesk.config worker --pool=threads -c 8 -Q agent_runs -l info
 ```
 
 Backend endpoints:
@@ -102,3 +114,51 @@ git checkout interrupts
 ```
 
 `main` is always the latest state, and will be ahead of whatever post you are reading.
+
+## The worker
+
+Asking for a run does not run it. `start_run`, `start_approval` and
+`start_tool_decision` put a Celery task on the queue and return; a worker picks
+it up and drives the agent. Three tasks, matching the three ways a run starts,
+and each one is a shell around the service function that already did the work.
+
+```bash
+celery -A helpdesk.config worker --pool=threads --concurrency=8 -Q agent_runs -l info
+```
+
+**Why a thread pool rather than the default.** A run is tens of seconds of
+waiting on a model. Celery's prefork pool would hold a whole process for each
+one, so eight concurrent runs would mean eight Django processes. Eight threads
+hold eight runs in one process, because the waiting is what they are doing.
+
+**Why `asyncio.run` inside each task.** The run is one WebSocket conversation
+with the agent from start to finish and the relay opens its own connection
+anyway, so there is nothing to keep warm between tasks.
+
+### The three settings that decide whether a kill loses a run
+
+These are the reason this page exists. Celery's defaults are built for short
+idempotent tasks and are wrong here in a way that shows up the first time a
+worker is killed mid-run.
+
+| Setting | Here | Why |
+| --- | --- | --- |
+| `task_acks_late` | `True` | Acknowledge when the run finishes, not when it is picked up. On the default, a `kill -9` drops the task silently: it was acked on delivery and nothing is left to redeliver. |
+| `task_reject_on_worker_lost` | `True` | Makes that true for a hard kill too, not only a clean shutdown. |
+| `visibility_timeout` | 3600s | Redis has no server-side ack, so redelivery runs on this timer. A task still going when it expires is handed to a *second* worker as well, so it has to outlast your longest run. |
+
+Retrying is safe because of two things that have nothing to do with Celery: the
+agent resumes a thread from its checkpoint rather than starting over, and
+anything irreversible goes through the at-most-once ledger. A queue without
+those two would make a redelivered refund a second refund.
+
+**Scaling** is more workers, or more threads per worker. `docker compose up
+--scale worker=3` in containers.
+
+**Not Celery?** Nothing above depends on it. What the design needs is that the
+work is written down before anyone starts it, that something hands it back when
+its holder dies, and that retrying is safe. [procrastinate][p] gives you the
+first two over Postgres with no broker at all and suits async code better;
+Celery is here because it is what most Django projects already run.
+
+[p]: https://procrastinate.readthedocs.io/

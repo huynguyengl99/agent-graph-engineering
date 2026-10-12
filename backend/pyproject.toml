@@ -28,6 +28,7 @@ dependencies = [
     "django-cors-headers>=4.7.0,<5",
     "granian>=2.3.2",
     "drf-nested-routers>=0.94.1",
+    "celery[redis]>=5.6,<6",
 ]
 
 [dependency-groups]
@@ -44,4 +45,5 @@ dev = [
     "faker>=37.4.0,<38",
     "daphne>=4.2.1,<5",
     "pytest-xdist>=3.6,<4",
+    "celery-types>=0.26.0",
 ]

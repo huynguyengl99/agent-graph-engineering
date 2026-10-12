@@ -1,9 +1,9 @@
-# The three services as images, on top of the infrastructure in
-# docker-compose.yml. Not how you develop (no reload, no source mount); this is
-# what proves the Dockerfiles work and what a deployment is shaped like.
+# The services as images, on top of the infrastructure in docker-compose.yml.
+# Not how you develop (no reload, no source mount); this is what proves the
+# Dockerfiles work and what a deployment is shaped like.
 #
-#   just images          # build all three
-#   just app-up          # infra + the three services
+#   just images          # build them
+#   just app-up          # infra + the services
 #   just app-down
 #
 # No project name: the infrastructure compose pins container names, so a second
@@ -48,6 +48,32 @@ services:
       # Traces are data: a restart should not lose them.
       - traces:/traces
     # No ports: the agent is internal, and the backend is the only caller.
+
+  worker:
+    # The same image as the backend, a different command. The worker needs the
+    # Django models and the agent client, which it already has, and a second
+    # Dockerfile would be a second thing to keep in step for no gain.
+    image: agent-graph-backend
+    # A thread pool, not the default prefork one. A run is tens of seconds of
+    # waiting on a model, so prefork would hold a whole process per run; eight
+    # threads hold eight runs in one.
+    command:
+      ["celery", "-A", "helpdesk.config", "worker",
+       "--pool=threads", "--concurrency=8", "-Q", "agent_runs", "-l", "info"]
+    env_file: [backend/.env]
+    environment:
+      DJANGO_SETTINGS_MODULE: helpdesk.config.settings.base
+      DJANGO_DEBUG: "False"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agent_graph_dev
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      AGENT_WS_URL: ws://agent:8001
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+      backend: {condition: service_started}
+    # More of them with `docker compose up --scale worker=3`.
+    # No ports. Nothing calls a worker; it asks.
 
   web:
     image: agent-graph-web

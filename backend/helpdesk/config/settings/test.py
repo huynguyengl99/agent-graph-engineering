@@ -25,3 +25,8 @@ CHANNEL_LAYERS = {
 
 # Faster password hashing for tests
 AUTH_PASSWORD_VALIDATORS = []
+
+# Run tasks in-process. The queue is not what any of these tests are about, and
+# a broker would make them depend on Redis being up.
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True

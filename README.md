@@ -41,6 +41,7 @@ Everything below runs end to end with nothing mocked, and `just e2e` drives it i
 - Who is answering is a state the ticket carries: the agent by default, a person once it escalates or a colleague replies, and back again through a button that explains the change in a person's own words.
 - A tool call parks before it runs, always. A reply parks only when the guards flagged the ticket it answers. Both survive a reload and resume on a different socket than the one that started the run.
 - A message arriving while a run is parked waits its turn instead of overwriting the run behind it.
+- A run outlives the process that asked for it. Killing a worker mid-flight hands the work to the next one rather than dropping it.
 - The agent reasons out loud at every step that explains itself, and that reasoning stays on the ticket for the team, including on runs a customer started.
 - A value the model could not fill is written `{{like this}}`, and the prompt, the backend and the browser all refuse to publish text that still has one.
 - A customer can reach a tool too. Their request proposes one, a reviewer clears it like any other, and their half of the ticket shows what ran without the arguments.
@@ -62,6 +63,14 @@ Everything below runs end to end with nothing mocked, and `just e2e` drives it i
 | `backend/` | Django 5.2, DRF, Channels, chanx, PostgreSQL      | 8000 |
 | `agent/`   | FastAPI, LangGraph, Pydantic AI, chanx            | 8001 |
 | `web/`     | React 19, Vite, Zodios, chanx-js, Tailwind        | 5173 |
+| worker     | the backend image, running Celery                 | none |
+
+A run is not driven by whichever web process took the request. The request
+queues a task and returns, and a worker drives it, so a deploy or a crash costs
+the run its driver rather than its existence: the task is redelivered and the
+agent resumes the thread from its checkpoint. The three Celery settings that
+make a kill survivable, and why the defaults are wrong for work this long, are
+in [docs/running.md](docs/running.md).
 
 What each service owns, how they stay in sync, and the generated contracts between them: **[docs/architecture.md](docs/architecture.md)**.
 
@@ -103,7 +112,7 @@ Dotted edges are conditional. `knowledge`, `tool` and `delivery` are subgraphs, 
 | **Controllable** | Irreversible calls park for a human, survive a reload, and resume on a different socket than the one that started the run. Guardrails screen both edges. Postgres checkpointing makes a crashed or parked run resumable. |
 | **Model-independent** | No step in the graph names a model. Steps name a purpose, and which model serves it is configuration, so routing cannot drift onto the expensive one. |
 | **Testable without spending** | The LLM is mocked at the HTTP layer, so the real pipeline runs: SSE parsing, tool-call assembly, streaming, validation. Evals hit real providers when you ask. `just e2e` drives a real browser. |
-| **Deployable** | Multi-stage images on a frozen lockfile, granian serving ASGI, production-safe settings as the default. |
+| **Deployable** | Multi-stage images on a frozen lockfile, granian serving ASGI, production-safe settings as the default. Runs are driven by a worker, so a deploy does not take the work in flight with it. |
 
 A run reads as the chain of steps it was, with model calls nested under the node that made them, and nothing to sign up for:
 
@@ -139,7 +148,6 @@ Calling something production-ready without this list would be dishonest. The arc
 
 **Known gaps, left visible on purpose**
 
-- **No automatic resume after a worker dies.** Graph state, the lane claim and the event cursor are all durable, so nothing is corrupted or lost, but a run whose process died waits for its claim to go stale rather than being picked up on its own. A sweeper is the missing piece.
 - **`just e2e` is kept out of CI,** because it needs provider keys and spends money. CI runs the three mocked suites.
 - **The opening-description run is started by the portal** when the thread mounts, because nothing posted that description as a message. Starting it where the ticket is created is the fix.
 

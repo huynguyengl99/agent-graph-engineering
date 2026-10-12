@@ -16,6 +16,19 @@ CLASSIFY = tool_call(
     },
 )
 
+SEARCH_KB = tool_call(
+    "final_result_SearchKnowledgeBase",
+    {"query": "invoice proration billing", "reasoning": "Documented policy."},
+)
+
+ANSWER_FROM_KB = tool_call(
+    "final_result",
+    {
+        "content": "Per [kb-002], the extra line is proration.",
+        "requires_approval": False,
+    },
+)
+
 
 def config(thread_id: str) -> dict:
     """The graph is checkpointed, so every run needs a thread to live on."""
@@ -33,20 +46,7 @@ def ticket(**overrides: str) -> Context:
 
 async def test_knowledge_base_branch_grounds_the_answer() -> None:
     thread = "kb-branch"
-    with mock_openai(
-        CLASSIFY,
-        tool_call(
-            "final_result_SearchKnowledgeBase",
-            {"query": "invoice proration billing", "reasoning": "Documented policy."},
-        ),
-        tool_call(
-            "final_result",
-            {
-                "content": "Per [kb-002], the extra line is proration.",
-                "requires_approval": False,
-            },
-        ),
-    ) as route:
+    with mock_openai(CLASSIFY, SEARCH_KB, ANSWER_FROM_KB) as route:
         state = (
             await SupportGraph()
             .compile(checkpointer())

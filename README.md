@@ -109,7 +109,7 @@ Dotted edges are conditional. `knowledge`, `tool` and `delivery` are subgraphs, 
 | **Self-visualizing** | The graph exports Mermaid and renders in the app, so the architecture picture comes from the thing that runs and cannot go stale. |
 | **Self-documenting** | OpenAPI and AsyncAPI are generated, never hand-maintained. Your WebSocket layer gets the contract your REST API has had for a decade. |
 | **Observable with no account** | A span per graph node with model calls nested inside, plus per-run cost, in a trace store that ships with the agent. `/traces` renders a run as the chain of steps it was. Forward the same spans to any OTLP collector when you want one. |
-| **Controllable** | Irreversible calls park for a human, survive a reload, and resume on a different socket than the one that started the run. Guardrails screen both edges. Postgres checkpointing makes a crashed or parked run resumable. |
+| **Controllable** | Irreversible calls park for a human, survive a reload, and resume on a different socket than the one that started the run. Guardrails screen both edges. Postgres checkpointing means a crashed or parked run can be resumed rather than restarted. |
 | **Model-independent** | No step in the graph names a model. Steps name a purpose, and which model serves it is configuration, so routing cannot drift onto the expensive one. |
 | **Testable without spending** | The LLM is mocked at the HTTP layer, so the real pipeline runs: SSE parsing, tool-call assembly, streaming, validation. Evals hit real providers when you ask. `just e2e` drives a real browser. |
 | **Deployable** | Multi-stage images on a frozen lockfile, granian serving ASGI, production-safe settings as the default. Runs are driven by a worker, so a deploy does not take the work in flight with it. |
@@ -148,6 +148,7 @@ Calling something production-ready without this list would be dishonest. The arc
 
 **Known gaps, left visible on purpose**
 
+- **An agent crash mid-run is not retried.** A killed *worker* is covered: the task is redelivered and the re-run continues the thread from its checkpoint. But if the agent service itself fails mid-run, the backend catches it, tells the browser the agent is unavailable, and releases the lane, so nothing retries it. The state survives, and the next message on that ticket carries on with it. A sweeper that finds unfinished checkpoints and resumes them is the missing piece.
 - **`just e2e` is kept out of CI,** because it needs provider keys and spends money. CI runs the three mocked suites.
 - **The opening-description run is started by the portal** when the thread mounts, because nothing posted that description as a message. Starting it where the ticket is created is the fix.
 

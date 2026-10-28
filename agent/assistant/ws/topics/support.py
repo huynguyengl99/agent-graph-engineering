@@ -6,12 +6,13 @@ from chanx.core.topic import Topic
 from chanx.messages.base import BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
+from psycopg import OperationalError
 
 from assistant.agents import Audience, Context, Ticket, Turn
 from assistant.agents.config import AgentConfig
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
-from assistant.graphs.checkpointer import checkpointer
+from assistant.graphs.checkpointer import checkpointer, discard_thread
 from assistant.graphs.states import SupportState
 from assistant.graphs.support_graph import SupportGraph
 from assistant.messages.support import (
@@ -136,11 +137,38 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         )
 
     async def _resume(self, command: Command[Any], models: Any) -> None:
+        if not await self._readable():
+            # The checkpoint cannot be loaded, so no retry of this will ever
+            # work. Drop the thread rather than leave the approval permanently
+            # unreachable; the backend still holds what was pending and can
+            # propose it again.
+            await discard_thread(self.thread_id)
+            await self._fail()
+            return
         try:
             await self._consume(self._graph(models), command)
         except Exception:
             await logger.aexception("support.resume_failed", thread=self.topic)
             await self._fail()
+
+    async def _readable(self) -> bool:
+        """Whether this thread's checkpoint still deserializes.
+
+        Narrow on purpose. A database that is down raises too, and discarding a
+        perfectly good checkpoint because the network blinked would be a worse
+        bug than the one this prevents, so an infrastructure failure is let
+        through to the normal error path.
+        """
+        try:
+            await checkpointer().aget_tuple(
+                {"configurable": {"thread_id": self.thread_id}}
+            )
+        except OperationalError:
+            return True  # the database, not the data. Fail the ordinary way.
+        except Exception:
+            await logger.aexception("support.checkpoint_unreadable", thread=self.topic)
+            return False
+        return True
 
     def _graph(self, models: Any) -> Any:
         """Built per run: the topology is fixed, but which model fills each

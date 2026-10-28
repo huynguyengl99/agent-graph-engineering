@@ -117,3 +117,22 @@ def memory_checkpointer() -> BaseCheckpointSaver[str]:
 def install_checkpointer(saver: BaseCheckpointSaver[str]) -> None:
     """Set the process-wide saver directly, for tests and one-off scripts."""
     _live.saver = saver
+
+
+async def discard_thread(thread_id: str) -> None:
+    """Throw a thread's checkpoint away.
+
+    The recovery the checkpoint does not give you for free. A checkpoint that
+    will not load leaves the run unresumable, and because every retry fails the
+    same way, the ticket's approval can never go through: the work is not lost,
+    it is unreachable, which is worse because nothing says so.
+
+    Dropping the thread turns that into a run the backend can propose again.
+    The record of what was pending lives there, not here, so nothing is lost by
+    forgetting the execution state that cannot be read anyway.
+    """
+    saver = _live.saver
+    if saver is None:
+        return
+    await saver.adelete_thread(thread_id)
+    await logger.awarning("checkpointer.thread_discarded", thread=thread_id)

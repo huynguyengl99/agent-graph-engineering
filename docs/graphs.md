@@ -31,66 +31,79 @@ Expanded, exactly as the compiled object emits it. Each subgraph carries its
 own start and finish, which is what makes the early exits visible:
 
 ```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
 graph TD;
-    start([start])
-    support_start(support_start)
-    support_classify(support_classify)
-    support_decide(support_decide)
-    support_escalate(support_escalate)
-    support_report_tool(support_report_tool)
-    support_respond(support_respond)
-    finish([finish])
-    start --> support_start;
-    knowledge_done --> support_respond;
-    support_classify -.-> support_decide;
-    support_decide -.-> knowledge_start;
-    support_decide -.-> support_escalate;
-    support_decide -.-> support_respond;
-    support_decide -.-> tool_plan;
-    support_escalate -.-> delivery_screen;
-    support_report_tool -.-> support_respond;
-    support_respond -.-> finish;
-    support_respond -.-> delivery_screen;
-    support_start -.-> support_classify;
-    support_start -.-> support_decide;
-    tool_done -.-> support_report_tool;
-    tool_done -.-> support_respond;
-    delivery_done --> finish;
-    subgraph knowledge
-    knowledge_start(start)
-    knowledge_search(knowledge_search)
-    knowledge_refine(knowledge_refine)
-    knowledge_done(finish)
-    knowledge_start --> knowledge_search;
-    knowledge_refine -.-> knowledge_search;
-    knowledge_search -.-> knowledge_done;
-    knowledge_search -.-> knowledge_refine;
-    end
-    subgraph tool
-    tool_plan(tool_plan)
-    tool_gate(tool_gate)
-    tool_execute(tool_execute)
-    tool_done(finish)
-    tool_gate -.-> tool_done;
-    tool_gate -.-> tool_execute;
-    tool_plan -.-> tool_done;
-    tool_plan -.-> tool_execute;
-    tool_plan -.-> tool_gate;
-    tool_execute --> tool_done;
-    end
-    subgraph delivery
-    delivery_screen(delivery_screen)
-    delivery_approval(delivery_approval)
-    delivery_send(delivery_send)
-    delivery_done(finish)
-    delivery_approval -.-> delivery_done;
-    delivery_approval -.-> delivery_send;
-    delivery_screen -.-> delivery_done;
-    delivery_screen -.-> delivery_approval;
-    delivery_screen -.-> delivery_send;
-    delivery_send --> delivery_done;
-    end
+	__start__([<p>__start__</p>]):::first
+	support_start(support_start)
+	support_classify(support_classify)
+	support_decide(support_decide)
+	support_escalate(support_escalate)
+	support_report_tool(support_report_tool)
+	support_respond(support_respond)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> support_start;
+	knowledge\3a__end__ --> support_respond;
+	support_classify -.-> support_decide;
+	support_decide -.-> knowledge\3a__start__;
+	support_decide -.-> support_escalate;
+	support_decide -.-> support_respond;
+	support_decide -.-> tool\3atool_plan;
+	support_escalate -.-> delivery\3adelivery_screen;
+	support_report_tool -.-> support_respond;
+	support_respond -.-> __end__;
+	support_respond -.-> delivery\3adelivery_screen;
+	support_start -.-> support_classify;
+	support_start -.-> support_decide;
+	tool\3a__end__ -.-> support_report_tool;
+	tool\3a__end__ -.-> support_respond;
+	delivery\3a__end__ --> __end__;
+	subgraph knowledge
+	knowledge\3a__start__(<p>__start__</p>)
+	knowledge\3aknowledge_search(knowledge_search)
+	knowledge\3aknowledge_refine(knowledge_refine)
+	knowledge\3a__end__(<p>__end__</p>)
+	knowledge\3a__start__ --> knowledge\3aknowledge_search;
+	knowledge\3aknowledge_refine -.-> knowledge\3aknowledge_search;
+	knowledge\3aknowledge_search -.-> knowledge\3a__end__;
+	knowledge\3aknowledge_search -.-> knowledge\3aknowledge_refine;
+	end
+	subgraph tool
+	tool\3atool_plan(tool_plan)
+	tool\3atool_gate(tool_gate)
+	tool\3atool_execute(tool_execute)
+	tool\3a__end__(<p>__end__</p>)
+	tool\3atool_gate -.-> tool\3a__end__;
+	tool\3atool_gate -.-> tool\3atool_execute;
+	tool\3atool_plan -.-> tool\3a__end__;
+	tool\3atool_plan -.-> tool\3atool_execute;
+	tool\3atool_plan -.-> tool\3atool_gate;
+	tool\3atool_execute --> tool\3a__end__;
+	end
+	subgraph delivery
+	delivery\3adelivery_screen(delivery_screen)
+	delivery\3adelivery_approval(delivery_approval)
+	delivery\3adelivery_send(delivery_send)
+	delivery\3a__end__(<p>__end__</p>)
+	delivery\3adelivery_approval -.-> delivery\3a__end__;
+	delivery\3adelivery_approval -.-> delivery\3adelivery_send;
+	delivery\3adelivery_screen -.-> delivery\3a__end__;
+	delivery\3adelivery_screen -.-> delivery\3adelivery_approval;
+	delivery\3adelivery_screen -.-> delivery\3adelivery_send;
+	delivery\3adelivery_send --> delivery\3a__end__;
+	end
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+    classDef blocking stroke-width:3px,stroke-dasharray:4 3;
+    class delivery_approval blocking;
+    class tool_gate blocking;
 ```
+
+A dashed, thicker outline marks a node that parks the run and waits for a person. Those are the only two places a run stops on its own.
 
 Four things to read off it. `knowledge` loops, search to refine and back,
 bounded by `KB_MAX_ATTEMPTS`. `tool` has its gate in the middle, so a proposal

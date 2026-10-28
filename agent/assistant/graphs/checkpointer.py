@@ -28,8 +28,10 @@ from assistant.outputs.tools import ToolDecision
 
 logger = structlog.get_logger(__name__)
 
-# Every model a graph state can hold. A missing one comes back as nothing rather
-# than an error, so a router reads no route and takes its fallback branch.
+# Every model a graph state can hold. Unregistered types still deserialize
+# today, with a warning that a future version will block them; under
+# LANGGRAPH_STRICT_MSGPACK they already come back as plain dicts, so a router
+# reads no decision and takes its fallback branch.
 # Derived from the unions, because listing it by hand is what went wrong.
 CHECKPOINTED: tuple[Any, ...] = (
     Audience,

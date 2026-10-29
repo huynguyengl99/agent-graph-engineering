@@ -1,10 +1,10 @@
 """One run at a time per lane of a ticket.
 
-The agent keys its checkpoint on the ticket and the audience. Two runs in that
-lane are two graphs writing one thread, and the second one wins - which is how
-an approved reply could vanish: a run parked at the gate, a message arriving a
-moment later started another, and approve resumed a thread whose interrupt had
-been overwritten.
+One state blob is kept per ticket and audience. Two runs in that lane are two
+graphs writing one thread, and the second one wins - which is how an approved
+reply could vanish: a run stopped at the gate, a message arriving a moment later
+started another, and approve went back with a state that had already been
+replaced.
 
 So a run claims its lane, and whatever arrives behind it waits rather than
 racing it. The claim is held through a park, because a run waiting for a person
@@ -53,9 +53,14 @@ def claim_sync(ticket_id: str, visibility: str, question: str, user_id: Any) -> 
             logger.warning(
                 "support.claim_taken_over", ticket_id=ticket_id, lane=visibility
             )
-            run.waiting = False
-            run.waiting_question = ""
-            run.save(update_fields=["waiting", "waiting_question", "claimed_at"])
+            # A question queued behind the dead run is still unanswered, and
+            # this run is not answering it: it is working whatever it was
+            # given. Clearing it here dropped it for good. The customer's lane
+            # queues no question - their message is on the ticket and the
+            # re-run reads it - so keeping only a question avoids working the
+            # same thread twice and replying to them again.
+            run.waiting = bool(run.waiting_question)
+            run.save(update_fields=["waiting", "claimed_at"])
             return True
 
         # Last one wins on purpose: two messages while the agent works mean the

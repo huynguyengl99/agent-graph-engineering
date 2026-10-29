@@ -6,6 +6,7 @@ intended pressure.
 """
 
 import inspect
+import re
 
 from assistant.agents import AgentConfig
 from assistant.graphs.base import BaseGraph
@@ -37,7 +38,7 @@ def describe() -> list[dict[str, object]]:
 
 
 def _blocking_nodes() -> set[str]:
-    """Node names that call `interrupt()`, read off their own source.
+    """Node names that end a run to wait for a person, read off their source.
 
     Derived rather than listed. A hand-kept list of which nodes park is a
     second place to update, and the one that goes stale is the diagram, which
@@ -51,9 +52,24 @@ def _blocking_nodes() -> set[str]:
                 source = inspect.getsource(node)
             except (OSError, TypeError):  # pragma: no cover - builtins, C funcs
                 continue
-            if "interrupt(" in source:
+            if "Where the run stops" in source:
                 found.add(node_name)
     return found
+
+
+def _ids_by_label(drawn: str) -> dict[str, set[str]]:
+    """The mermaid id each node was drawn under, keyed by its label.
+
+    Expanded by `xray`, a node inside a subgraph is drawn as
+    `tool:tool_await(tool_await)`, so styling it by the name in the code
+    silently matches nothing - which is the whole point of the marking.
+    """
+    ids: dict[str, set[str]] = {}
+    for line in drawn.splitlines():
+        match = re.match(r"\s*(\S+?)\((?:<p>)?([^<)]+)", line)
+        if match:
+            ids.setdefault(match.group(2), set()).add(match.group(1))
+    return ids
 
 
 def mermaid(name: str, *, xray: bool = True) -> str:
@@ -70,7 +86,10 @@ def mermaid(name: str, *, xray: bool = True) -> str:
     compiled = graph.build().compile()
     drawn = str(compiled.get_graph(xray=xray).draw_mermaid())
 
-    parks = sorted(n for n in _blocking_nodes() if f"{n}(" in drawn)
+    ids = _ids_by_label(drawn)
+    parks = sorted(
+        drawn_id for node in _blocking_nodes() for drawn_id in ids.get(node, set())
+    )
     if not parks:
         return drawn
     marks = "\n".join(f"    class {node} blocking;" for node in parks)

@@ -1,9 +1,9 @@
 """One run at a time per lane.
 
-The agent keys its checkpoint on the ticket and the audience, so a second run
-in the same lane overwrites the first one's interrupt. That is how an approved
+One state blob is kept per ticket and audience, so a second run in the same
+lane overwrites what the first one was waiting on. That is how an approved
 reply vanished: a run parked at the gate, the customer sent another message a
-moment later, and approve resumed a thread with nothing parked in it.
+moment later, and approve went back with a state that had moved on.
 """
 
 from typing import Any
@@ -86,7 +86,7 @@ class TestLettingItGo:
 
     def test_a_parked_run_keeps_it(self, ticket: Any) -> None:
         """Waiting for a person is not being finished, and the resume needs the
-        interrupt it parked on to still be there."""
+        state it stopped with to still be there."""
         lanes.claim_sync(str(ticket.id), Visibility.PUBLIC, "", None)
         PendingReply.objects.create(
             ticket=ticket, draft="Sorted.", visibility=Visibility.PUBLIC

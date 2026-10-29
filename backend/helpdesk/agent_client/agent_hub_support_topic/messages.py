@@ -110,6 +110,7 @@ class ApprovalDecisionPayload(BaseModel):
     ticket_id: str
     approved: bool
     content: str | None = None
+    state: dict[str, Any] | None = None
     models: ModelOverrides | None = None
 
 
@@ -199,6 +200,26 @@ class ReplySentMessage(BaseModel):
     payload: ReplySentPayload
 
 
+class RunEndedPayload(BaseModel):
+    """A run finished, and the state it finished with.
+
+    Every run ends this way, whether it answered or stopped for a person, and
+    the agent forgets it the moment this is sent. The backend stores the state
+    on the thread: `awaiting` says a decision is outstanding, and the blob is
+    what that decision has to be sent back with."""
+
+    thread_id: str
+    awaiting: str = ""
+    state: dict[str, Any]
+
+
+class RunEndedMessage(BaseModel):
+    """What the run left behind, and whether anyone owes it an answer."""
+
+    action: Literal["run_ended"] = "run_ended"
+    payload: RunEndedPayload
+
+
 class RunFailedPayload(BaseModel):
     """RunFailedPayload"""
 
@@ -241,6 +262,7 @@ class RunRequestPayload(BaseModel):
     ticket: TicketRef | None = None
     history: list[RunTurn] = []
     models: ModelOverrides | None = None
+    state: dict[str, Any] | None = None
 
 
 class RunRequestMessage(BaseModel):
@@ -274,6 +296,7 @@ class ToolDecisionPayload(BaseModel):
     conversation_id: str
     approved: bool
     arguments: dict[str, Any] = {}
+    state: dict[str, Any] | None = None
 
 
 class ToolDecisionMessage(BaseModel):
@@ -311,6 +334,7 @@ IncomingMessage = (
     | ChatTokenMessage
     | ChatCompleteMessage
     | ToolApprovalMessage
+    | RunEndedMessage
     | ToolRanMessage
     | RunFailedMessage
     | ReasoningDeltaMessage

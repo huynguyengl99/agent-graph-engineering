@@ -62,8 +62,8 @@ class TestRelayingTheProposal(WebsocketTestCase):
         assert set(payload["argumentsSchema"]["properties"]) == {"email", "amount"}
 
     async def decide(self, **fields: Any) -> list[tuple[bool, dict[str, Any], bool]]:
-        """The parked graph is in the agent's checkpointer, not in a socket, so
-        a decision is a fresh run rather than a reply on this one."""
+        """The agent forgot the run when it ended, so a decision is a fresh
+        run carrying the state back, not a reply on this socket."""
         seen: list[tuple[bool, dict[str, Any], bool]] = []
 
         async def start(

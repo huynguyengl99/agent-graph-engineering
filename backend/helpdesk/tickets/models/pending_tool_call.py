@@ -8,8 +8,8 @@ from helpdesk.tickets.models.events.base import Visibility
 class PendingToolCall(models.Model):
     """A tool the agent proposed on a ticket, waiting on a person.
 
-    The run is already durable in the agent's checkpointer; this is how the
-    browser finds the card again after a reload or in a second tab.
+    What the run needs to carry on is on `AgentThread`; this is the card
+    itself, so the browser finds it again after a reload or in a second tab.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

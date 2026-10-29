@@ -16,7 +16,7 @@ class AgentHubSupportTopicClient(BaseTopicHandle):
     subscriber sees the same run.
 
     The audience is in the address because a customer's run and the team's run
-    about one ticket are two runs, with two checkpoints, that must not resume
+    about one ticket are two runs, with two states, that must not resume
     into each other.
 
 

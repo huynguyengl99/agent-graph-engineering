@@ -136,7 +136,7 @@ class TestWhatTheAgentIsTold(WebsocketTestCase):
             visibility=Visibility.INTERNAL,
         )
 
-        request = await _request(str(ticket.id), "", None)
+        request = await _request(str(ticket.id), "", None, {})
 
         assert request.history[0].content == "Customer asked twice."
         assert request.history[1].content.startswith(

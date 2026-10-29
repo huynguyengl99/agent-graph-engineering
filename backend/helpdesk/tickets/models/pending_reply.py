@@ -8,11 +8,11 @@ from helpdesk.tickets.models.events.base import Visibility
 class PendingReply(models.Model):
     """A drafted reply parked at the agent's approval gate.
 
-    The run is already durable in the agent's checkpointer. This row is how the
-    browser finds it again: the draft used to live only on the relay client
+    What the run needs to carry on is on `AgentThread`. This row is how the
+    browser finds the draft again: it used to live only on the relay client
     instance, which is discarded when the socket closes, and in the React state
     of whichever tab was open. A reload lost a customer-facing draft while the
-    graph stayed parked.
+    run sat waiting for somebody to approve it.
 
     It is also the answer to what gets recorded on the ticket. The agent's
     `reply_sent` carries a receipt, not the text, so without this a plain

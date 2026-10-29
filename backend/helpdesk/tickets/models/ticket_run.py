@@ -8,11 +8,11 @@ from helpdesk.tickets.models.events.base import Visibility
 class TicketRun(models.Model):
     """A claim on one lane of one ticket, held while the agent is working it.
 
-    The agent keys its checkpoint on the ticket and the audience, so two runs
-    in the same lane are two graphs writing one thread. The second one wins,
-    which is how an approved reply could vanish: a run parked at the gate, a
-    message arriving a moment later started another, and the reviewer's approve
-    resumed a thread whose interrupt had been overwritten.
+    One state blob per ticket and audience, so two runs in the same lane are
+    two graphs writing one thread. The second one wins, which is how an
+    approved reply could vanish: a run parked at the gate, a message arriving
+    a moment later started another, and the reviewer's approve went back with
+    a state that had already been overwritten.
 
     The claim outlives a park, because a parked run is still that lane's run -
     it is waiting for a person, not finished. `waiting` is whatever arrived

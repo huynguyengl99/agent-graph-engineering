@@ -31,6 +31,7 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ReplayRequestPayload,
     ReplyBlockedMessage,
     ReplySentMessage,
+    RunEndedMessage,
     RunFailedMessage,
     RunRequestMessage,
     RunRequestPayload,
@@ -67,6 +68,7 @@ class Sink:
         self, step: str, content: str, decision: str, model: str
     ) -> None: ...
     async def failed(self, message: str) -> None: ...
+    async def ended(self, awaiting: str, state: dict[str, Any]) -> None: ...
 
 
 class _Handle(AgentHubSupportTopicClient):
@@ -95,9 +97,9 @@ Outgoing = RunRequestPayload | ApprovalDecisionPayload | ToolDecisionPayload
 class SupportRun(AgentClient):
     """One request, then disconnect.
 
-    A run may end parked at a gate instead of at an answer, in which case the
-    connection closes with the run still checkpointed in the agent. The
-    reviewer's decision opens a fresh one and subscribes again.
+    A run may end parked at a gate instead of at an answer. Either way the
+    agent hands its state back and forgets it, and the reviewer's decision
+    opens a fresh connection with that state in the request.
     """
 
     def __init__(self, audience: str, thread_id: str, request: Outgoing, sink: Sink):
@@ -165,17 +167,14 @@ class SupportRun(AgentClient):
         run on that topic asks for a replay that starts one too early and
         applies it again.
         """
-        done = True
+        done = False
         match message:
             case ClassifiedMessage(payload=p):
                 await self.sink.classified(p.category, p.priority, p.reasoning)
-                done = False
             case DecidedMessage(payload=p):
                 await self.sink.decided(p.decision, p.reasoning)
-                done = False
             case AnswerMessage(payload=p):
                 await self.sink.drafted(p.content, p.model)
-                done = False
             case ApprovalRequiredMessage(payload=p):
                 await self.sink.approval_required(p.draft, list(p.findings or []))
             case ReplySentMessage(payload=p):
@@ -184,28 +183,32 @@ class SupportRun(AgentClient):
                 await self.sink.reply_blocked(list(p.findings or []))
             case ChatTokenMessage(payload=p):
                 await self.sink.token(p.delta)
-                done = False
             case ReasoningDeltaMessage(payload=p):
                 await self.sink.reasoning_delta(p.step, p.delta)
-                done = False
             case ReasonedMessage(payload=p):
                 await self.sink.reasoned(p.step, p.content, p.decision, p.model)
-                done = False
             case ToolApprovalMessage(payload=p):
                 await self.sink.tool_proposed(p)
             case ToolRanMessage(payload=p):
                 await self.sink.tool_ran(p)
-                done = False
             case ChatCompleteMessage(payload=p):
                 await self.sink.answered(p.content, p.model)
             case RunFailedMessage(payload=p):
                 await self.sink.failed(p.message)
+                done = True
+            case RunEndedMessage(payload=p):
+                # The only ordinary end there is. Which event came last used to
+                # be this relay's guess - a park ended on the approval, an
+                # answer on the completion - and a run that ended any other way
+                # held the socket open until the agent dropped it.
+                await self.sink.ended(p.awaiting, dict(p.state))
+                done = True
             case _:
                 # A heartbeat, or a message type the agent gained and this relay
                 # has not been taught yet. Ignored on purpose, and said so,
                 # because an unhandled branch that falls off the end reads like
                 # an oversight.
-                done = False
+                pass
 
         await advance(self.agent_topic, self.incoming_seq)
         # A terminal event caught up from the cursor ended somebody else's run,

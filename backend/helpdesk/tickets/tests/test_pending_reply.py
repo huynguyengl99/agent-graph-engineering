@@ -9,6 +9,8 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ApprovalRequiredPayload,
     ReplySentMessage,
     ReplySentPayload,
+    RunEndedMessage,
+    RunEndedPayload,
 )
 from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.auth_api_test_case import AuthAPITestCase
@@ -32,13 +34,28 @@ class TestPendingReply(WebsocketTestCase):
         return relay(str(self.ticket.id))
 
     async def park(self) -> None:
+        """Both events, on one relay, because that is the sequence.
+
+        The card is written when the run ends, in the same transaction as the
+        state behind it, so a relay sent only the first half persists nothing.
+        """
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
-        await self.client_for_ticket().on_event(
+        client = self.client_for_ticket()
+        await client.on_event(
             ApprovalRequiredMessage(
                 payload=ApprovalRequiredPayload(
                     ticket_id=str(self.ticket.id),
                     draft=DRAFT,
                     findings=["No citation for the refund window."],
+                )
+            )
+        )
+        await client.on_event(
+            RunEndedMessage(
+                payload=RunEndedPayload(
+                    thread_id=str(self.ticket.id),
+                    awaiting="reply_approval",
+                    state={"answer": {"content": DRAFT}},
                 )
             )
         )

@@ -18,6 +18,8 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
     ChatCompletePayload,
     ReplySentMessage,
     ReplySentPayload,
+    RunEndedMessage,
+    RunEndedPayload,
     RunFailedMessage,
     RunFailedPayload,
     ToolApprovalMessage,
@@ -63,6 +65,13 @@ async def settled(mock: AsyncMock, *, expected: int = 1) -> int:
             break
         await asyncio.sleep(0.01)
     return int(mock.await_count)
+
+
+def ended(ticket_id: str, awaiting: str = "") -> RunEndedMessage:
+    """The event that commits the card, which the agent always sends last."""
+    return RunEndedMessage(
+        payload=RunEndedPayload(thread_id=ticket_id, awaiting=awaiting, state={})
+    )
 
 
 class TestHandOff(WebsocketTestCase):
@@ -220,13 +229,15 @@ class TestWhoTheReplyIsFor(WebsocketTestCase):
 
     async def test_an_internal_draft_stays_internal_through_the_gate(self) -> None:
         await self.subscribe_ready(f"ticket:{self.ticket.id}")
-        await self.client_for(Visibility.INTERNAL).on_event(
+        client = self.client_for(Visibility.INTERNAL)
+        await client.on_event(
             ApprovalRequiredMessage(
                 payload=ApprovalRequiredPayload(
                     ticket_id=str(self.ticket.id), draft="Draft.", findings=[]
                 )
             )
         )
+        await client.on_event(ended(str(self.ticket.id), "reply_approval"))
 
         assert await parked_visibility(str(self.ticket.id)) == Visibility.INTERNAL
 
@@ -492,7 +503,8 @@ class TestTheGateOnTheTicket(WebsocketTestCase):
         return relay(str(self.ticket.id), visibility)
 
     async def propose(self) -> None:
-        await self.client_for().on_event(
+        client = self.client_for()
+        await client.on_event(
             ToolApprovalMessage(
                 payload=ToolApprovalPayload(
                     conversation_id=str(self.ticket.id),
@@ -503,6 +515,7 @@ class TestTheGateOnTheTicket(WebsocketTestCase):
                 )
             )
         )
+        await client.on_event(ended(str(self.ticket.id), "tool_approval"))
 
     async def test_a_proposal_survives_a_reload(self) -> None:
         await self.subscribe_ready(self.topic)

@@ -48,6 +48,7 @@ from helpdesk.tickets.messages import (
     ToolProposalPayload,
 )
 from helpdesk.tickets.models import (
+    AgentThread,
     AIResponseEvent,
     CommentEvent,
     Handling,
@@ -81,9 +82,18 @@ async def broadcast(ticket_id: str, message: BaseMessage) -> None:
 
 
 class TicketSink(Sink):
-    def __init__(self, ticket_id: str, visibility: str) -> None:
+    def __init__(
+        self, ticket_id: str, visibility: str, audience: str | None = None
+    ) -> None:
         self.ticket_id = ticket_id
+        # Where the output is filed, which is not the same question as which
+        # agent thread produced it: a draft asked for as an internal note is
+        # still the customer lane's run, and a tool the team approved can be
+        # answered to the customer.
         self.visibility = visibility
+        self.audience = audience or (
+            CUSTOMER if visibility == Visibility.PUBLIC else TEAM
+        )
         self.seq = 0
         self.agent_topic = ""
         # What the agent said wrote the reply. The ticket used to be stamped
@@ -98,6 +108,9 @@ class TicketSink(Sink):
         # The same, for the reasoning of whichever step is being written.
         self.reasoning = ""
         self.reasoning_reference = ""
+        # The card this run stopped on, written when the run ends so it lands
+        # in the same transaction as the state behind it.
+        self.card: tuple[str, dict[str, Any]] | None = None
 
     async def _progress(
         self, stage: Literal["classified", "decided", "failed"], detail: str
@@ -159,7 +172,7 @@ class TicketSink(Sink):
         await self._event(await self._persist(content))
 
     async def approval_required(self, draft: str, findings: list[str]) -> None:
-        await self._remember_draft(draft, findings)
+        self.card = ("reply", {"draft": draft, "findings": findings})
         await broadcast(
             self.ticket_id,
             ApprovalRequiredMessage(
@@ -197,7 +210,16 @@ class TicketSink(Sink):
         await self._event(await self._persist(content))
 
     async def tool_proposed(self, payload: Any) -> None:
-        await self._remember_proposal(payload)
+        self.card = (
+            "tool",
+            {
+                "tool": payload.tool,
+                "description": payload.description,
+                "arguments": payload.arguments,
+                "arguments_schema": payload.arguments_schema or {},
+                "unknown_arguments": payload.unknown_arguments or [],
+            },
+        )
         await broadcast(
             self.ticket_id,
             ToolProposalMessage(
@@ -250,35 +272,36 @@ class TicketSink(Sink):
         if self.visibility == Visibility.PUBLIC:
             await self._to_a_person(message)
 
+    async def ended(self, awaiting: str, state: dict[str, Any]) -> None:
+        """What the agent handed back on its way out.
+
+        Both or neither. The card and the state are two copies of the same
+        draft, and written apart a crash between them leaves a reviewer a card
+        to answer with no state to carry on from.
+        """
+        await self._remember(awaiting, state)
+
     async def _to_a_person(self, reason: str) -> None:
         await self._event(
             await hand_off(self.ticket_id, Handling.NEEDS_HUMAN, reason=reason)
         )
 
     @database_sync_to_async
-    def _remember_draft(self, draft: str, findings: list[str]) -> None:
-        PendingReply.objects.update_or_create(
-            ticket_id=self.ticket_id,
-            defaults={
-                "draft": draft,
-                "findings": findings,
-                "visibility": self.visibility,
-            },
-        )
-
-    @database_sync_to_async
-    def _remember_proposal(self, payload: Any) -> None:
-        PendingToolCall.objects.update_or_create(
-            ticket_id=self.ticket_id,
-            defaults={
-                "tool": payload.tool,
-                "description": payload.description,
-                "arguments": payload.arguments,
-                "arguments_schema": payload.arguments_schema or {},
-                "unknown_arguments": payload.unknown_arguments or [],
-                "visibility": self.visibility,
-            },
-        )
+    def _remember(self, awaiting: str, state: dict[str, Any]) -> None:
+        with transaction.atomic():
+            AgentThread.objects.update_or_create(
+                ticket_id=self.ticket_id,
+                audience=self.audience,
+                defaults={"awaiting": awaiting, "state": state},
+            )
+            if self.card is None:
+                return
+            kind, fields = self.card
+            model = PendingReply if kind == "reply" else PendingToolCall
+            model.objects.update_or_create(
+                ticket_id=self.ticket_id,
+                defaults={**fields, "visibility": self.visibility},
+            )
 
     @database_sync_to_async
     def _persist_reasoning(
@@ -376,7 +399,19 @@ def forget_proposal(ticket_id: str) -> None:
 
 
 @database_sync_to_async
-def _request(ticket_id: str, question: str, models: dict[str, str] | None) -> Any:
+def carried_state(ticket_id: str, audience: str) -> dict[str, Any]:
+    """What this lane's last run ended with, which is all the agent has.
+
+    Empty for a thread it has never worked, which is what a first run wants.
+    """
+    thread = AgentThread.objects.filter(ticket_id=ticket_id, audience=audience).first()
+    return dict(thread.state) if thread else {}
+
+
+@database_sync_to_async
+def _request(
+    ticket_id: str, question: str, models: dict[str, str] | None, state: dict[str, Any]
+) -> Any:
     """What the agent is told, built from what is already persisted."""
     ticket = Ticket.objects.get(id=ticket_id)
     events = ticket.events.instance_of(CommentEvent, AIResponseEvent).order_by(
@@ -400,6 +435,7 @@ def _request(ticket_id: str, question: str, models: dict[str, str] | None) -> An
         ),
         history=history,
         models=ModelOverrides(**(models or {})),
+        state=state,
     )
 
 
@@ -452,7 +488,10 @@ async def run(
         await working(ticket_id, visibility, is_working=True)
         try:
             request = await _request(
-                ticket_id, question, await model_overrides(user_id)
+                ticket_id,
+                question,
+                await model_overrides(user_id),
+                await carried_state(ticket_id, audience),
             )
             await _Run(
                 audience, ticket_id, request, TicketSink(ticket_id, visibility)
@@ -522,8 +561,9 @@ async def submit_approval(
 ) -> None:
     """Resume a run parked at the approval gate.
 
-    A separate connection from the one that started the run: the graph lives in
-    the agent's checkpointer keyed by the thread, not in the socket.
+    A separate connection from the one that started the run, and a separate
+    agent process for all this service knows: what makes it the same run is
+    the state going back out with the decision.
     """
     visibility = await parked_visibility(ticket_id)
     if approved and visibility == Visibility.PUBLIC:
@@ -545,7 +585,7 @@ async def submit_approval(
             )
             return
 
-    sink = TicketSink(ticket_id, visibility)
+    sink = TicketSink(ticket_id, visibility, CUSTOMER)
     # A resumed run is still the agent working on their ticket. Saying so is
     # also what ends the live view of it: without this the customer was left
     # watching a step that had already finished.
@@ -559,6 +599,7 @@ async def submit_approval(
                 approved=approved,
                 content=content,
                 models=ModelOverrides(**(models or {})),
+                state=await carried_state(ticket_id, CUSTOMER),
             ),
             sink,
         ).handle()
@@ -617,8 +658,9 @@ async def decide_tool(
                 conversation_id=ticket_id,
                 approved=approved,
                 arguments=arguments,
+                state=await carried_state(ticket_id, TEAM),
             ),
-            TicketSink(ticket_id, visibility),
+            TicketSink(ticket_id, visibility, TEAM),
         ).handle()
     except Exception:
         logger.exception("support.tool_decision_failed", ticket_id=ticket_id)

@@ -6,11 +6,9 @@ these tickets are written to do.
 """
 
 from assistant.agents import Context
-from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.support_graph import SupportGraph
-from langgraph.types import Command
 
-from tests.helpers.contexts import ticket_context
+from tests.helpers.contexts import resume_with, ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 DRAFT = "You were charged twice because of proration."
@@ -48,7 +46,7 @@ async def start(thread: str) -> dict:
     ):
         return (
             await SupportGraph()
-            .compile(checkpointer())
+            .compile()
             .ainvoke({"context": ticket()}, config=config(thread))
         )
 
@@ -56,22 +54,20 @@ async def start(thread: str) -> dict:
 async def test_run_pauses_and_surfaces_the_draft() -> None:
     state = await start("pause")
 
-    assert "__interrupt__" in state
-    payload = state["__interrupt__"][0].value
-    assert payload["kind"] == "reply_approval"
-    assert payload["draft"] == DRAFT
+    assert state["awaiting"] == "reply_approval"
+    assert state["answer"].content == DRAFT
     # Nothing was sent while the graph is parked.
     assert not state.get("delivery_receipt")
 
 
 async def test_approval_sends_the_reply() -> None:
     thread = "approve"
-    await start(thread)
+    parked = await start(thread)
 
     state = (
         await SupportGraph()
-        .compile(checkpointer())
-        .ainvoke(Command(resume={"approved": True}), config=config(thread))
+        .compile()
+        .ainvoke(resume_with(parked, approval_granted=True), config=config(thread))
     )
 
     assert state["approval_granted"] is True
@@ -80,12 +76,12 @@ async def test_approval_sends_the_reply() -> None:
 
 async def test_rejection_leaves_the_customer_untouched() -> None:
     thread = "reject"
-    await start(thread)
+    parked = await start(thread)
 
     state = (
         await SupportGraph()
-        .compile(checkpointer())
-        .ainvoke(Command(resume={"approved": False}), config=config(thread))
+        .compile()
+        .ainvoke(resume_with(parked, approval_granted=False), config=config(thread))
     )
 
     assert state["approval_granted"] is False
@@ -95,14 +91,18 @@ async def test_rejection_leaves_the_customer_untouched() -> None:
 
 async def test_reviewer_can_edit_before_sending() -> None:
     thread = "edit"
-    await start(thread)
+    parked = await start(thread)
     edited = "Rewritten by a human reviewer."
 
     state = (
         await SupportGraph()
-        .compile(checkpointer())
+        .compile()
         .ainvoke(
-            Command(resume={"approved": True, "content": edited}),
+            resume_with(
+                parked,
+                approval_granted=True,
+                answer={**parked["answer"].model_dump(), "content": edited},
+            ),
             config=config(thread),
         )
     )
@@ -112,14 +112,15 @@ async def test_reviewer_can_edit_before_sending() -> None:
 
 
 async def test_resume_finds_the_run_without_replaying_the_llm() -> None:
-    """The resume must not call the model again; state comes from the checkpoint."""
+    """The resume must not call the model again: everything it needs arrives
+    with the request."""
     thread = "no-replay"
-    await start(thread)
+    parked = await start(thread)
 
     # No mock installed: any provider call here would raise.
     state = (
         await SupportGraph()
-        .compile(checkpointer())
-        .ainvoke(Command(resume={"approved": True}), config=config(thread))
+        .compile()
+        .ainvoke(resume_with(parked, approval_granted=True), config=config(thread))
     )
     assert state["delivery_receipt"] is not None

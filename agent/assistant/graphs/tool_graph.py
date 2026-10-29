@@ -1,7 +1,7 @@
 from typing import Any, Literal
 
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, interrupt
+from langgraph.types import Command
 
 # Imported for the side effect: importing registers the tools.
 import assistant.tools  # noqa: F401  # pyright: ignore[reportUnusedImport]
@@ -10,6 +10,8 @@ from assistant.agents.planner import ToolPlannerAgent
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import ToolState, Update
+from assistant.graphs.states.base import Resuming
+from assistant.messages.support import ToolApprovalMessage, ToolApprovalPayload
 from assistant.outputs.tools import ToolProposal
 from assistant.tools.core import (
     Failed,
@@ -104,51 +106,54 @@ class ToolGraph(BaseGraph):
             goto="tool_gate" if meta.requires_approval else "tool_execute",
         )
 
-    async def tool_gate(
-        self, state: ToolState
-    ) -> Command[Literal["tool_execute", "__end__"]]:
-        """Park until a human approves, corrects the arguments, or cancels."""
+    async def tool_gate(self, state: ToolState) -> Command[Literal["tool_await"]]:
+        """Stop the run with the proposal on the table.
+
+        The reviewer's answer arrives as a new run rather than as a value
+        returned into this function, so the only thing left to do here is say
+        what is being waited on and let the graph finish.
+        """
         meta = metadata_for(state.tool)
-        answer = interrupt(
-            {
-                "kind": "tool_approval",
-                "tool": state.tool,
-                "arguments": state.arguments,
-                "description": meta.description,
-                # The reviewer's form is generated from this, so no tool needs
-                # a hand-written one and a new tool is reviewable on arrival.
-                # Not "schema": that name shadows a BaseModel attribute, so
-                # every generated client would carry the workaround.
-                "arguments_schema": meta.arguments,
-                # Named so the card can explain an empty required field rather
-                # than leaving the reviewer to guess why.
-                "unknown_arguments": state.unknown_arguments,
-            }
+        await self.emit(
+            ToolApprovalMessage(
+                payload=ToolApprovalPayload(
+                    conversation_id=state.context.thread_id,
+                    tool=state.tool,
+                    description=meta.description,
+                    arguments=state.arguments,
+                    # The reviewer's form is generated from this, so no tool
+                    # needs a hand-written one. Not "schema": that name
+                    # shadows a BaseModel attribute, so every generated client
+                    # would carry the workaround.
+                    arguments_schema=meta.arguments,
+                    # Named so the card can explain an empty required field
+                    # rather than leaving the reviewer to guess why.
+                    unknown_arguments=state.unknown_arguments,
+                )
+            )
         )
+        return Command(update={"awaiting": Resuming.TOOL_APPROVAL}, goto="tool_await")
 
-        if not isinstance(answer, dict):
-            approved = bool(answer)
-            return Command(
-                update={"approved": approved, "cancelled": not approved},
-                goto="tool_execute" if approved else "__end__",
-            )
-        if answer.get("decision") == "cancel":
-            return Command(
-                update={"approved": False, "cancelled": True}, goto="__end__"
-            )
+    async def tool_await(self, state: ToolState) -> ToolState:
+        """Where the run stops while a person decides.
 
-        # Corrections replace the proposed arguments wholesale, so what a
-        # reviewer saw is exactly what runs.
-        corrected = answer.get("arguments")
-        update: Update = {
-            "approved": True,
-            "cancelled": False,
-            "corrected": False,
-        }
-        if isinstance(corrected, dict) and corrected:
-            update["arguments"] = dict(corrected)
-            update["corrected"] = corrected != state.arguments
-        return Command(update=update, goto="tool_execute")
+        A node that does nothing, on purpose. Ending here rather than
+        suspending inside the gate makes the stop a place on the graph: it is
+        drawn, it gets its own span, and the state the run finished with is
+        the whole of what a resume needs.
+        """
+        return state
+
+    def entry(self, state: ToolState) -> str:
+        """Where a run enters this graph.
+
+        A fresh run plans a tool. A run carrying an approved gate skips
+        straight to running it, because the planning already happened in the
+        run that stopped.
+        """
+        if state.resuming is Resuming.TOOL_APPROVAL:
+            return "tool_execute" if state.approved else "__end__"
+        return "tool_plan"
 
     async def tool_execute(self, state: ToolState) -> Update:
         """The call itself."""
@@ -174,7 +179,8 @@ class ToolGraph(BaseGraph):
     ) -> Update:
         """At-most-once for a tool that cannot be undone.
 
-        A crash inside this node re-runs it on resume, so without the ledger an
+        A crash inside this node leaves the decision to be redelivered, which
+        re-enters the graph and arrives here again, so without the ledger an
         interrupted refund refunds twice.
         """
         key = execution_key(state.tool)
@@ -220,6 +226,7 @@ class ToolGraph(BaseGraph):
         return {
             "tool_plan": self.tool_plan,
             "tool_gate": self.tool_gate,
+            "tool_await": self.tool_await,
             "tool_execute": self.tool_execute,
         }
 
@@ -227,7 +234,12 @@ class ToolGraph(BaseGraph):
         graph: StateGraph[ToolState, None, ToolState, ToolState] = StateGraph(ToolState)
         self.add_nodes(graph)
 
-        graph.add_edge(START, "tool_plan")
+        graph.add_conditional_edges(
+            START,
+            self.entry,
+            {"tool_plan": "tool_plan", "tool_execute": "tool_execute", "__end__": END},
+        )
         graph.add_edge("tool_execute", END)
+        graph.add_edge("tool_await", END)
 
         return graph

@@ -6,6 +6,7 @@ subgraph says so by carrying `Tools`, rather than by happening to spell the
 same nine fields.
 """
 
+from enum import StrEnum
 from typing import Annotated, Any
 
 from pydantic import BaseModel
@@ -14,10 +15,29 @@ from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
 
 
+class Resuming(StrEnum):
+    """Which pause this run is picking up, if any.
+
+    A run ends at a gate rather than suspending inside it, so resuming is a
+    new run carrying the state the last one finished with. This says which
+    entry it should take instead of starting from the top.
+    """
+
+    NOTHING = ""
+    TOOL_APPROVAL = "tool_approval"
+    REPLY_APPROVAL = "reply_approval"
+
+
 class BaseState(BaseModel):
     """Every graph is handed what the run is about."""
 
     context: Context
+    # Set by the backend when it sends a reviewer's answer back, read by the
+    # entry router of whichever graph owns that gate.
+    resuming: Resuming = Resuming.NOTHING
+    # Set by a gate on its way out, so the caller knows the run stopped for a
+    # person rather than finishing.
+    awaiting: Resuming = Resuming.NOTHING
 
 
 class Knowledge(BaseModel):

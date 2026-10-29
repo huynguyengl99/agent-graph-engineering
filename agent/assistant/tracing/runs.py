@@ -45,12 +45,17 @@ class TracedRun:
         return getattr(self.graph, attribute)
 
     async def _opening(self, state: Any, config: Any) -> tuple[str, str]:
-        """A resume carries a `Command`, not a state, so its key comes from the
-        checkpoint it continues."""
-        if key := state_key(state):
-            return f"{self.name} run", key
-        parked = await self.graph.aget_state(config)
-        return f"{self.name} run resumed", state_key(parked.values)
+        """Both a first run and a resume arrive as a whole state.
+
+        They are separate runs now, so they are separate spans, and they share
+        a tree because the key comes from the ticket rather than from the run.
+        The label distinguishes them for whoever reads the trace.
+        """
+        resuming = getattr(state, "resuming", None) or (
+            state.get("resuming") if isinstance(state, dict) else None
+        )
+        label = "run resumed" if resuming else "run"
+        return f"{self.name} {label}", state_key(state)
 
     async def ainvoke(self, state: Any, config: Any = None, **kwargs: Any) -> Any:
         name, key = await self._opening(state, config)

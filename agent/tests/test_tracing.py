@@ -1,12 +1,12 @@
 """Tracing has to answer 'what happened to this one ticket', not 'list calls'."""
 
+from typing import Any
+
 import pytest
-from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
-from langgraph.types import Command
 
-from tests.helpers.contexts import ticket_context
+from tests.helpers.contexts import flagged_ticket_context, resume_with, ticket_context
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 
@@ -48,9 +48,17 @@ def names(nodes: list[dict]) -> list[str]:
     return flat
 
 
-async def run(ticket_id: str) -> str:
-    """Returns the key the run was filed under: one run, one trace."""
-    context = ticket_context(ticket_id=ticket_id, title="t", description="d")
+async def run(ticket_id: str, *, with_state: bool = False, parks: bool = False) -> Any:
+    """Returns the key the run was filed under: one run, one trace.
+
+    With `with_state`, also the state it ended with, which is what a resume
+    needs now that nothing is kept between runs.
+    """
+    context = (
+        flagged_ticket_context(ticket_id=ticket_id, title="t")
+        if parks
+        else ticket_context(ticket_id=ticket_id, title="t", description="d")
+    )
     with mock_openai(
         tool_call(
             "final_result",
@@ -64,12 +72,12 @@ async def run(ticket_id: str) -> str:
             "final_result", {"content": "Proration.", "requires_approval": False}
         ),
     ):
-        await (
+        state = await (
             SupportGraph()
-            .compile(checkpointer())
+            .compile()
             .ainvoke({"context": context}, config=config(ticket_id))
         )
-    return context.trace_key
+    return (context.trace_key, state) if with_state else context.trace_key
 
 
 async def test_trace_records_the_route_that_was_taken() -> None:
@@ -119,13 +127,13 @@ async def test_traces_are_isolated_per_run() -> None:
 
 
 async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
-    run_key = await run("t-resume")
+    run_key, parked = await run("t-resume", with_state=True, parks=True)
     before = len(names(trace_store.tree(run_key)))
 
     await (
         SupportGraph()
-        .compile(checkpointer())
-        .ainvoke(Command(resume={"approved": True}), config=config("t-resume"))
+        .compile()
+        .ainvoke(resume_with(parked, approval_granted=True), config=config("t-resume"))
     )
 
     flat = names(trace_store.tree(run_key))
@@ -166,7 +174,7 @@ async def test_a_streamed_run_is_one_trace_too() -> None:
         context = ticket_context(ticket_id="t-stream", title="t", description="d")
         async for _ in (
             SupportGraph()
-            .compile(checkpointer())
+            .compile()
             .astream(
                 {"context": context},
                 config=config("t-stream"),

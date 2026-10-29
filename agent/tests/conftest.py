@@ -23,7 +23,6 @@ os.environ["ASSISTANT_TRACE_DIR"] = ""
 
 import pytest
 from assistant.core.layers import LAYER_ALIAS
-from assistant.graphs.checkpointer import install_checkpointer, memory_checkpointer
 from assistant.runs import MemoryEventStore, install_run_events
 from assistant.tools.core.ledger import MemoryLedger, install_ledger
 from assistant.tracing import trace_store
@@ -34,13 +33,13 @@ from fast_channels.layers import InMemoryChannelLayer, register_channel_layer
 def _per_test_state() -> None:
     """Fresh stores and a layer of this process's own, per test.
 
-    The service uses Postgres and Redis; a unit test should not need either to
-    prove that a run resumes. Each of these is a process-wide singleton, so one
+    The service uses Postgres and Redis; a unit test should not need either.
+    A resume needs nothing installed at all now: the state comes in with the
+    run. Each of these is a process-wide singleton, so one
     shared between tests leaks: a conversation's model history carried a previous
     test's tool call into the next one's prompt, which read as the graph leaking
     state when it was the fixture.
     """
-    install_checkpointer(memory_checkpointer())
     install_ledger(MemoryLedger())
     install_run_events(MemoryEventStore())
     register_channel_layer(LAYER_ALIAS, InMemoryChannelLayer())

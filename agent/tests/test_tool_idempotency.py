@@ -6,12 +6,11 @@ from typing import Any
 
 import pytest
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
-from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.tools.core import get_tool
 from assistant.tools.core.ledger import MemoryLedger, install_ledger, ledger
-from langgraph.types import Command
 
+from tests.helpers.contexts import resume_with
 from tests.helpers.openai_mock import mock_openai, tool_call
 
 REFUND = tool_call(
@@ -55,57 +54,51 @@ class Crashing:
 async def park(thread: str) -> tuple[Any, dict[str, Any]]:
     config = {"configurable": {"thread_id": thread}}
     with mock_openai(REFUND):
-        compiled = (
-            ToolGraph(openai_config())
-            .build()
-            .compile(checkpointer=memory_checkpointer())
-        )
-        await compiled.ainvoke(
+        compiled = ToolGraph(openai_config()).build().compile()
+        parked = await compiled.ainvoke(
             {
                 "context": Context(thread_id=thread),
                 "request": "Refund the duplicate charge.",
             },
             config=config,
         )
-    return compiled, config
+    return compiled, config, dict(parked)
 
 
 class TestCrashMidCall:
     async def test_the_tool_is_not_called_twice(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        compiled, config = await park("t-crash")
+        compiled, config, parked = await park("t-crash")
         crashing = Crashing()
         monkeypatch.setattr(
             "assistant.graphs.tool_graph.get_tool", lambda _id: crashing
         )
 
+        approve = resume_with(parked, approved=True)
         with pytest.raises(RuntimeError):
-            await compiled.ainvoke(
-                Command(resume={"decision": "approve"}), config=config
-            )
+            await compiled.ainvoke(approve, config=config)
 
-        # Recovery, as a restarted process would: LangGraph re-runs the node.
-        done = await compiled.ainvoke(None, config=config)
+        # Recovery as it now happens: the backend sends the same state again.
+        done = await compiled.ainvoke(approve, config=config)
 
         assert len(crashing.calls) == 1, "the money moved twice"
-        assert done.get("result") is None
+        assert done.get("result") in ("", None)
         assert "outcome is unknown" in done["tool_error"]
 
     async def test_it_says_what_a_person_has_to_check(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Neither retrying nor skipping is safe, so the run says so."""
-        compiled, config = await park("t-unknown")
+        compiled, config, parked = await park("t-unknown")
         monkeypatch.setattr(
             "assistant.graphs.tool_graph.get_tool", lambda _id: Crashing()
         )
 
+        approve = resume_with(parked, approved=True)
         with pytest.raises(RuntimeError):
-            await compiled.ainvoke(
-                Command(resume={"decision": "approve"}), config=config
-            )
-        done = await compiled.ainvoke(None, config=config)
+            await compiled.ainvoke(approve, config=config)
+        done = await compiled.ainvoke(approve, config=config)
 
         assert "issue_refund" in done["tool_error"]
         assert "Check before running it again" in done["tool_error"]
@@ -113,29 +106,26 @@ class TestCrashMidCall:
 
 class TestNormalRuns:
     async def test_an_uninterrupted_approval_still_runs(self) -> None:
-        compiled, config = await park("t-fine")
+        compiled, config, parked = await park("t-fine")
 
-        done = await compiled.ainvoke(
-            Command(resume={"decision": "approve"}), config=config
-        )
+        done = await compiled.ainvoke(resume_with(parked, approved=True), config=config)
 
         assert "Refunded £29.00" in done["result"]
 
     async def test_a_refusal_leaves_the_key_free_to_try_again(self) -> None:
         """A tool that declined never reached the outside world, so a corrected
         second attempt must not be mistaken for a replay."""
-        compiled, config = await park("t-refused")
+        compiled, config, parked = await park("t-refused")
 
         await compiled.ainvoke(
-            Command(
-                resume={
-                    "decision": "approve",
-                    "arguments": {
-                        "email": "demo@example.com",
-                        "amount": 10_000.0,
-                        "reason": "Over the ceiling",
-                    },
-                }
+            resume_with(
+                parked,
+                approved=True,
+                arguments={
+                    "email": "demo@example.com",
+                    "amount": 10_000.0,
+                    "reason": "Over the ceiling",
+                },
             ),
             config=config,
         )
@@ -156,11 +146,7 @@ class TestNormalRuns:
         install_ledger(MemoryLedger())
 
         with mock_openai(lookup):
-            compiled = (
-                ToolGraph(openai_config())
-                .build()
-                .compile(checkpointer=memory_checkpointer())
-            )
+            compiled = ToolGraph(openai_config()).build().compile()
             done = await compiled.ainvoke(
                 {
                     "context": Context(thread_id="t-readonly"),

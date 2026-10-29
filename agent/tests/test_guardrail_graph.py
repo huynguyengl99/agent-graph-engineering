@@ -8,6 +8,7 @@ from typing import Any
 
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.delivery_graph import DeliveryGraph
+from assistant.graphs.states.base import Resuming
 from assistant.graphs.support_graph import SupportGraph
 
 from tests.helpers.contexts import flagged_ticket_context, ticket_context
@@ -43,15 +44,18 @@ async def run_with_reply(reply: str, context: Context | None = None) -> dict[str
         return await graph.ainvoke({"context": context or ticket()})
 
 
-def interrupt_value(state: dict[str, Any]) -> dict[str, Any]:
+def shown_to_the_reviewer(state: dict[str, Any]) -> dict[str, Any]:
     """What the reviewer is being shown.
 
-    A subgraph's writes only merge into the parent when it returns, and the
-    delivery subgraph is parked, so the draft and its findings travel on the
-    interrupt rather than in state.
+    The subgraph ends at its gate rather than suspending inside it, so its
+    writes have merged by the time anyone reads this: the draft and the
+    findings are simply on the state.
     """
-    interrupts = state["__interrupt__"]
-    return dict(interrupts[0].value)
+    answer = state.get("answer")
+    return {
+        "draft": answer.content if answer else "",
+        "findings": list(state.get("guardrail_findings") or []),
+    }
 
 
 async def test_a_clean_draft_is_sent() -> None:
@@ -61,7 +65,7 @@ async def test_a_clean_draft_is_sent() -> None:
 
     assert state["guardrail_findings"] == []
     assert state["delivery_receipt"]
-    assert "__interrupt__" not in state
+    assert not state.get("awaiting")
 
 
 async def test_a_flagged_ticket_puts_the_same_draft_in_front_of_a_reviewer() -> None:
@@ -71,8 +75,8 @@ async def test_a_flagged_ticket_puts_the_same_draft_in_front_of_a_reviewer() -> 
         flagged_ticket_context(ticket_id="aaaaaaaa-1111-2222-3333-444444444444"),
     )
 
-    parked = interrupt_value(state)
-    assert parked["kind"] == "reply_approval"
+    assert state["awaiting"] == Resuming.REPLY_APPROVAL
+    parked = shown_to_the_reviewer(state)
     assert any("override_instructions" in f for f in parked["findings"])
     assert not state.get("delivery_receipt"), "nothing sends while it is parked"
 
@@ -113,7 +117,7 @@ async def test_an_injection_attempt_is_recorded_but_does_not_stop_the_run() -> N
     # Recorded on the way in, and carried to whoever reviews the reply.
     assert any("override_instructions" in f for f in state["guardrail_findings"])
 
-    parked = interrupt_value(state)
+    parked = shown_to_the_reviewer(state)
     assert any("override_instructions" in f for f in parked["findings"])
     # Recorded, not refused: the ticket was still worked and a draft exists.
     assert parked["draft"]

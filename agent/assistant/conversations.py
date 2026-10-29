@@ -1,7 +1,8 @@
 """The model's memory of a thread, in Pydantic AI's own messages.
 
 A tool call is a call here, not a sentence about one. Carried on the graph's
-state, so the run's checkpointer persists it.
+state, which goes back to the caller when the run ends and comes in again
+with the next question.
 """
 
 from typing import Any

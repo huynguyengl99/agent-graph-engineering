@@ -1,7 +1,6 @@
 from typing import Any, cast
 
 import structlog
-from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
 from assistant.agents.base import ANSWER
@@ -46,10 +45,10 @@ class BaseGraph:
 
     @classmethod
     def thread(cls, key: str) -> str:
-        """A checkpoint thread belongs to one graph.
+        """The run's id, which a trace and the tool ledger are keyed on.
 
-        Keyed on the ticket alone, two graphs would share a thread and the
-        next run would fail validating the other's state.
+        Qualified by the graph, because keyed on the ticket alone two graphs
+        would claim one ledger entry as the same logical call.
         """
         return f"{cls.name}:{key}"
 
@@ -108,14 +107,21 @@ class BaseGraph:
             graph.add_node(name, traced(name, node))
 
     def subgraph(self) -> CompiledStateGraph[Any, Any, Any, Any]:
-        """Compiled for a parent to add as a node: it shares the parent's
-        checkpointer, so a resume reaches an interrupt one level down."""
+        """Compiled for a parent to add as a node.
+
+        Its entry router is what a resume relies on: a run carrying a
+        reviewer's answer enters here and skips the work the stopped run
+        already did."""
         return self.build().compile()
 
-    def compile(
-        self, checkpointer: BaseCheckpointSaver[Any] | None = None
-    ) -> CompiledStateGraph[Any, Any, Any, Any]:
-        compiled = self.build().compile(checkpointer=checkpointer)
+    def compile(self) -> CompiledStateGraph[Any, Any, Any, Any]:
+        """Compiled with no checkpointer, on purpose.
+
+        A run that needs a person ends and hands its state back, so there is
+        nothing for the graph to remember between two requests, and nothing
+        that ties the decision to the process that proposed it.
+        """
+        compiled = self.build().compile()
         return cast(
             CompiledStateGraph[Any, Any, Any, Any], TracedRun(self.name, compiled)
         )

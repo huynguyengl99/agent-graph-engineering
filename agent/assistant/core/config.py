@@ -77,13 +77,13 @@ class Settings(BaseSettings):
     agent_token: str = Field(default="", validation_alias="ASSISTANT_AGENT_TOKEN")
 
     redis_url: str = ""
-    # Where paused runs live. Unset falls back to memory, which loses every
-    # approval waiting on a human when the process restarts.
-    checkpoint_database_url: str = Field(
+    # The ledger and the event log, not run state: that belongs to whoever
+    # asked for the run. Unset, both fall back to memory and lose a restart.
+    storage_database_url: str = Field(
         default="",
-        validation_alias=AliasChoices("CHECKPOINT_DATABASE_URL", "DATABASE_URL"),
+        validation_alias=AliasChoices("STORAGE_DATABASE_URL", "DATABASE_URL"),
     )
-    checkpoint_pool_size: int = 10
+    storage_pool_size: int = 10
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default=["http://localhost:5173", "http://127.0.0.1:5173"],
         validation_alias="CORS_ALLOWED_ORIGINS",

@@ -45,8 +45,9 @@ class UpstreamServiceError(ToolError):
 class ApprovalRequiredError(ToolError):
     """A tool marked `requires_approval` ran without an approved call.
 
-    The interrupts work replaces this with a real pause-and-resume; until then
-    it fails loudly rather than silently doing something irreversible.
+    The gate in `tool_graph` is what ordinarily stops one; this is the
+    backstop for a graph wired to reach the tool without it, and it fails
+    loudly rather than silently doing something irreversible.
     """
 
     error_type = "approval_required"

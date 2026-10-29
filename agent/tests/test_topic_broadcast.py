@@ -112,7 +112,9 @@ async def test_a_run_reports_itself_to_a_second_subscriber(
     assert settled[:2] == ["reasoned", "classified"]
     assert "decided" in settled
     assert "answer" in settled
-    assert settled[-1] == "reply_sent"
+    assert settled[-2:] == ["reply_sent", "run_ended"], (
+        "every run signs off with the state it ended with"
+    )
 
 
 async def test_the_conversation_topic_carries_its_own_events(

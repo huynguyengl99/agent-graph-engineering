@@ -17,7 +17,7 @@ OWNED = (
     "ANTHROPIC_API_KEY",
     "CORS_ALLOWED_ORIGINS",
     "OTEL_EXPORTER_OTLP_HEADERS",
-    "CHECKPOINT_DATABASE_URL",
+    "STORAGE_DATABASE_URL",
     "DATABASE_URL",
 )
 
@@ -68,15 +68,15 @@ class TestKeys:
         assert read(OPENAI_API_KEY=" sk-abc ").openai_api_key == "sk-abc"
 
 
-class TestCheckpointDatabase:
+class TestTheAgentsDatabase:
     def test_its_own_url_wins(self, read: Read) -> None:
         settings = read(
-            CHECKPOINT_DATABASE_URL="postgresql://checkpoints",
+            STORAGE_DATABASE_URL="postgresql://agent-storage",
             DATABASE_URL="postgresql://app",
         )
-        assert settings.checkpoint_database_url == "postgresql://checkpoints"
+        assert settings.storage_database_url == "postgresql://agent-storage"
 
     def test_falls_back_to_the_application_database(self, read: Read) -> None:
-        assert read(DATABASE_URL="postgresql://app").checkpoint_database_url == (
+        assert read(DATABASE_URL="postgresql://app").storage_database_url == (
             "postgresql://app"
         )

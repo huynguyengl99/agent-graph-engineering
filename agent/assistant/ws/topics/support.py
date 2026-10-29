@@ -5,26 +5,22 @@ from chanx.core.decorators import ws_handler
 from chanx.core.topic import Topic
 from chanx.messages.base import BaseMessage
 from langchain_core.runnables import RunnableConfig
-from langgraph.types import Command
-from psycopg import OperationalError
 
 from assistant.agents import Audience, Context, Ticket, Turn
 from assistant.agents.config import AgentConfig
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
-from assistant.graphs.checkpointer import checkpointer, discard_thread
 from assistant.graphs.states import SupportState
+from assistant.graphs.states.base import Resuming
 from assistant.graphs.support_graph import SupportGraph
 from assistant.messages.support import (
     ApprovalDecisionMessage,
-    ApprovalRequiredMessage,
-    ApprovalRequiredPayload,
+    RunEndedMessage,
+    RunEndedPayload,
     RunFailedMessage,
     RunFailedPayload,
     RunRequestMessage,
     SupportEvent,
-    ToolApprovalMessage,
-    ToolApprovalPayload,
     ToolDecisionMessage,
 )
 from assistant.ws.feed import emitter_for
@@ -93,28 +89,77 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         )
 
         try:
-            await self._consume(
-                self._graph(payload.models),
-                # A whole state, not an update: the thread holds the last run's
-                # tool result, and a cancelled call must not report it as a
-                # success.
-                SupportState(context=context, question=payload.question),
-            )
+            await self._run(self._turn(payload, context), payload.models)
         except Exception:
             await logger.aexception("support.run_failed", thread=self.topic)
             await self._fail()
 
+    def _turn(self, payload: Any, context: Context) -> SupportState:
+        """A new question on the thread, which is a new run.
+
+        It starts clean. The only thing a turn inherits is what the thread is
+        meant to remember: carry the whole blob and the last run's receipt and
+        approval come with it, and the second question answers itself.
+        """
+        carried = payload.state or {}
+        return SupportState(
+            context=context,
+            question=payload.question,
+            messages_json=str(carried.get("messages_json") or ""),
+        )
+
+    def _continue(self, carried: dict[str, Any], **decision: Any) -> SupportState:
+        """The same run, picked back up where it stopped.
+
+        A whole state, not an update: the agent kept nothing, so the blob holds
+        the thread's tool result, and a cancelled call must not report it as a
+        success because the field defaulted.
+        """
+        return SupportState.model_validate({**carried, **decision})
+
+    async def _run(self, state: SupportState, models: Any) -> None:
+        """Drive the graph, then hand back what it ended with.
+
+        Always, not only when it stopped for somebody: nothing is kept here, so
+        a run that answered still has to say what the thread now remembers.
+        """
+        final = await self._consume(self._graph(models), state)
+        await emitter_for(self)(
+            RunEndedMessage(
+                payload=RunEndedPayload(
+                    thread_id=self.thread_id,
+                    awaiting=str((final or {}).get("awaiting") or Resuming.NOTHING),
+                    state=SupportState.model_validate(final).model_dump(mode="json"),
+                )
+            ),
+        )
+
     @ws_handler(
         summary="Approve or reject a drafted reply",
-        description="Resumes a run paused at the approval interrupt.",
+        description="Carries on a run that stopped at the approval gate.",
         output_type=SupportEvent,
     )
     async def handle_approval_decision(self, message: ApprovalDecisionMessage) -> None:
         payload = message.payload
-        await self._resume(
-            Command(resume={"approved": payload.approved, "content": payload.content}),
+        await self._resumed_run(
+            payload.state,
             payload.models,
+            resuming=Resuming.REPLY_APPROVAL,
+            approval_granted=payload.approved,
+            **self._edit(payload.state, payload.content),
         )
+
+    def _edit(self, carried: Any, content: str | None) -> dict[str, Any]:
+        """A reviewer's rewrite, put where the answer already is.
+
+        The whole answer, because a state is validated as a state: an extra
+        key alongside it is dropped in silence, which is what sent the model's
+        draft to a customer whose reviewer had rewritten it.
+        """
+        answer = (carried or {}).get("answer")
+        if not content or not isinstance(answer, dict):
+            return {}
+        return {"answer": {**answer, "content": content}}
 
     @ws_handler(
         summary="Approve, correct, or cancel a proposed tool call",
@@ -126,64 +171,62 @@ class SupportTopic(Replays, Topic[SupportEvent]):
     )
     async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
         payload = message.payload
-        await self._resume(
-            Command(
-                resume={
-                    "decision": "approve" if payload.approved else "cancel",
-                    "arguments": payload.arguments,
-                }
-            ),
+        extra: dict[str, Any] = {}
+        if payload.arguments:
+            # Corrections replace the proposal wholesale, so what the reviewer
+            # saw is exactly what runs. Whether they changed anything is worth
+            # carrying: the answer reads a corrected amount as an error unless
+            # it is told the smaller number was somebody's decision.
+            arguments = dict(payload.arguments)
+            proposed = (payload.state or {}).get("arguments") or {}
+            extra["arguments"] = arguments
+            extra["corrected"] = arguments != proposed
+        await self._resumed_run(
+            payload.state,
             None,
+            resuming=Resuming.TOOL_APPROVAL,
+            approved=payload.approved,
+            cancelled=not payload.approved,
+            **extra,
         )
 
-    async def _resume(self, command: Command[Any], models: Any) -> None:
-        if not await self._readable():
-            # The checkpoint cannot be loaded, so no retry of this will ever
-            # work. Drop the thread rather than leave the approval permanently
-            # unreachable; the backend still holds what was pending and can
-            # propose it again.
-            await discard_thread(self.thread_id)
+    async def _resumed_run(
+        self,
+        carried: dict[str, Any] | None,
+        models: Any,
+        **decision: Any,
+    ) -> None:
+        """Start a run from what the paused one left, plus the reviewer's answer."""
+        if not carried:
+            await logger.awarning("support.resume_without_state", thread=self.topic)
             await self._fail()
             return
         try:
-            await self._consume(self._graph(models), command)
+            await self._run(self._continue(carried, **decision), models)
         except Exception:
             await logger.aexception("support.resume_failed", thread=self.topic)
             await self._fail()
 
-    async def _readable(self) -> bool:
-        """Whether this thread's checkpoint still deserializes.
-
-        Narrow on purpose. A database that is down raises too, and discarding a
-        perfectly good checkpoint because the network blinked would be a worse
-        bug than the one this prevents, so an infrastructure failure is let
-        through to the normal error path.
-        """
-        try:
-            await checkpointer().aget_tuple(
-                {"configurable": {"thread_id": self.thread_id}}
-            )
-        except OperationalError:
-            return True  # the database, not the data. Fail the ordinary way.
-        except Exception:
-            await logger.aexception("support.checkpoint_unreadable", thread=self.topic)
-            return False
-        return True
-
     def _graph(self, models: Any) -> Any:
         """Built per run: the topology is fixed, but which model fills each
-        purpose comes from the requesting user."""
+        purpose comes from the requesting user.
+
+        Compiled without a checkpointer. A run that stops for a person ends,
+        and the state it ended with comes back on the next request, so there
+        is nothing for the graph to remember between them.
+        """
         return SupportGraph(
             AgentConfig.from_slugs(models.model_dump() if models else None),
             emitter_for(self),
-        ).compile(checkpointer())
+        ).compile()
 
-    async def _consume(self, graph: Any, start: Any) -> None:
-        """Drained for its side effects.
+    async def _consume(self, graph: Any, start: Any) -> dict[str, Any]:
+        """Drained for its side effects, and for the state it ends with.
 
         Every node publishes its own events, including the pieces of a
-        reasoning as it is written, so nothing is read out of the stream here
-        but the park - which is the one thing no node is running to report.
+        reasoning as it is written, so nothing is read out of the stream. The
+        final state is read because a run that stopped for a person has to say
+        so, and because that state is the whole of what resuming it needs.
         """
         config: RunnableConfig = {
             "configurable": {
@@ -192,46 +235,14 @@ class SupportTopic(Replays, Topic[SupportEvent]):
             "recursion_limit": settings.graph_recursion_limit,
         }
 
-        # StateT is invariant in astream, so a declared `SupportState | Command`
-        # cannot satisfy it even though that is exactly what the graph accepts.
-        stream: Any = graph.astream(start, config=config, stream_mode="updates")
+        # StateT is invariant in astream, so a declared `SupportState` cannot
+        # satisfy it even though that is exactly what the graph accepts.
+        stream: Any = graph.astream(start, config=config, stream_mode="values")
+        final: dict[str, Any] = {}
         async for chunk in stream:
-            if isinstance(chunk, dict) and "__interrupt__" in chunk:
-                await self._parked(chunk["__interrupt__"])
-
-    async def _parked(self, update: object) -> None:
-        """Both gates interrupt; which one is in the value they carry."""
-        interrupts = update if isinstance(update, list | tuple) else [update]
-        for item in interrupts:
-            value = getattr(item, "value", item)
-            if not isinstance(value, dict):
-                continue
-
-            if value.get("kind") == "reply_approval":
-                await emitter_for(self)(
-                    ApprovalRequiredMessage(
-                        payload=ApprovalRequiredPayload(
-                            ticket_id=self.thread_id,
-                            draft=str(value.get("draft", "")),
-                            findings=[str(f) for f in value.get("findings") or []],
-                        )
-                    ),
-                )
-            elif value.get("kind") == "tool_approval":
-                await emitter_for(self)(
-                    ToolApprovalMessage(
-                        payload=ToolApprovalPayload(
-                            conversation_id=self.thread_id,
-                            tool=str(value.get("tool", "")),
-                            description=str(value.get("description", "")),
-                            arguments=dict(value.get("arguments") or {}),
-                            arguments_schema=dict(value.get("arguments_schema") or {}),
-                            unknown_arguments=[
-                                str(a) for a in value.get("unknown_arguments") or []
-                            ],
-                        )
-                    ),
-                )
+            if isinstance(chunk, dict):
+                final = chunk
+        return final
 
     async def _fail(self) -> None:
         """One event for both audiences. What to do about a dead run - hand the

@@ -4,7 +4,6 @@ Emitted with nobody subscribed, then asked for and delivered in order.
 """
 
 from collections.abc import AsyncIterator
-from types import SimpleNamespace
 
 import pytest
 from assistant.core.layers import LAYER_ALIAS
@@ -12,6 +11,8 @@ from assistant.messages.runs import ReplayRequestMessage, ReplayRequestPayload
 from assistant.messages.support import (
     AnswerMessage,
     AnswerPayload,
+    ApprovalRequiredMessage,
+    ApprovalRequiredPayload,
     ClassifiedMessage,
     ClassifiedPayload,
 )
@@ -111,16 +112,14 @@ class TestReplay:
         front of a reviewer, and a run holding a gate nobody was told about
         leaves the ticket looking idle for good."""
         topic = SupportTopic(NoSocket(), TOPIC)  # type: ignore[arg-type]
-        await topic._parked(
-            [
-                SimpleNamespace(
-                    value={
-                        "kind": "reply_approval",
-                        "draft": "Looking into it.",
-                        "findings": ["notice:override_instructions: x"],
-                    }
+        await emitter_for(topic)(
+            ApprovalRequiredMessage(
+                payload=ApprovalRequiredPayload(
+                    ticket_id=topic.thread_id,
+                    draft="Looking into it.",
+                    findings=["notice:override_instructions: x"],
                 )
-            ]
+            ),
         )
 
         await socket.subscribe(TOPIC)

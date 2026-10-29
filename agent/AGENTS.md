@@ -169,15 +169,21 @@ adding a provider is config plus an API key, not code.
   guessing. It is the main cost lever inside one model: on Sonnet 5, `high`
   measured ~1.7x the cost of `low` on the same ticket.
 
-## Checkpointing
+## Where a run lives between two halves of a turn
 
-`assistant/graphs/checkpointer.py` opens one saver per process in the FastAPI
-lifespan. Postgres by default; without `CHECKPOINT_DATABASE_URL` it falls back
-to memory and says so loudly, because the failure is silent otherwise - a
-deploy drops every reply waiting on a reviewer.
+Nowhere here. A run that needs a person **ends**, and `run_ended` hands its
+whole state back to whoever asked for it; the decision comes in with that
+state and starts a new run that carries on. The agent is stateless between
+requests, which is why two of these can be behind a load balancer and why a
+deploy mid-review loses nothing.
 
-Tests install an in-memory saver via `install_checkpointer`, so proving a
-resume needs no database.
+`assistant/graphs/storage.py` opens one pool per process in the FastAPI
+lifespan, for the two things that genuinely outlive a run: the at-most-once
+tool ledger and the run event log. Without `STORAGE_DATABASE_URL` both fall
+back to memory and it says so loudly, because the failure is silent otherwise.
+
+Tests drive a resume by passing the state back in (`resume_with` in
+`tests/helpers/contexts.py`), so proving one needs no database at all.
 
 ## Graphs and subgraphs
 
@@ -207,9 +213,9 @@ Which capabilities exist is enforced by the **output schema**, not asked for in
 the prompt: a branch the model cannot name is one it cannot take. The router
 guards are backstops, not the mechanism.
 
-A customer's run and the team's run about one ticket are two runs with two
-checkpoints - `support:customer:<id>` and `support:team:<id>` - and the one
-thing they must never do is resume into each other.
+A customer's run and the team's run about one ticket are two threads -
+`support:customer:<id>` and `support:team:<id>` - stored apart by the backend,
+and the one thing they must never do is resume into each other.
 
 Subgraphs are compiled and added as nodes (`graph.add_node("knowledge", build_knowledge_graph(...))`).
 They share only the keys they need with the parent state, so nothing has to be
@@ -219,9 +225,13 @@ leaves.
 Two things this changed that are easy to trip over:
 
 - **A subgraph's writes reach the parent only when it returns.** The approval
-  gate is inside `delivery`, so while a run is parked the parent cannot see
-  `guardrail_findings` or `reply_blocked`. The reviewer's information travels
-  on the interrupt payload instead, which is where it belongs anyway.
+  gate is inside `delivery`, which is why the gate node *ends* the subgraph
+  rather than suspending in it: everything the parent and the reviewer need -
+  `guardrail_findings`, `reply_blocked`, the draft - has merged by the time
+  the run stops. A gate that parked mid-subgraph would strand all of it.
+- **A parked subgraph has to stop the parent too.** `route_after_tool` ends
+  the run when `awaiting` is set. Without that the parent carried on and
+  answered a tool call that had not run yet.
 - **The parent seeds the subgraph.** `decide` writes `kb_query` from the
   decision, so retrieval searches for what the decider asked for rather than
   for the whole ticket.

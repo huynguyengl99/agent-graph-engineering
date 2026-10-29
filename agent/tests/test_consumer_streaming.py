@@ -87,7 +87,9 @@ async def test_every_graph_step_is_emitted_in_order(
     assert "answer" in settled
     # Nothing in this ticket asked for a person, so the run ends at the reply
     # rather than parked in front of one.
-    assert settled[-1] == "reply_sent"
+    assert settled[-2:] == ["reply_sent", "run_ended"], (
+        "every run signs off with the state it ended with"
+    )
     assert events.last("answer").payload.content == "Two charges means proration."
 
 

@@ -83,15 +83,21 @@ def request() -> RunRequestMessage:
     )
 
 
-async def park(consumer: DetachedTopic) -> None:
+async def park(consumer: DetachedTopic, events: Recorded) -> dict[str, Any]:
+    """Run until the gate, and hand back the state the backend would store."""
     with mock_openai(ROUTE_TO_TOOL, PROPOSE_REFUND):
         await consumer.handle_run_request(request())
+    return dict(events.last("run_ended").payload.state)
 
 
 async def decide(
-    consumer: DetachedTopic, *, approved: bool, arguments: dict[str, Any]
+    consumer: DetachedTopic,
+    state: dict[str, Any],
+    *,
+    approved: bool,
+    arguments: dict[str, Any],
 ) -> Recorder:
-    """Resume, and hand back what the answering model was told."""
+    """Send the reviewer's answer back with the state, as the backend does."""
     with mock_openai(answer_stream("Done", " - ", "refunded.")) as recorder:
         await consumer.handle_tool_decision(
             ToolDecisionMessage(
@@ -99,6 +105,7 @@ async def decide(
                     conversation_id=CONVERSATION,
                     approved=approved,
                     arguments=arguments,
+                    state=state,
                 )
             )
         )
@@ -109,7 +116,7 @@ class TestParking:
     async def test_the_proposal_reaches_the_client(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
+        await park(consumer, events)
 
         assert "tool_approval" in events.actions()
         payload = events.last("tool_approval").payload
@@ -121,7 +128,7 @@ class TestParking:
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
         """The UI builds the correction form from this and nothing else."""
-        await park(consumer)
+        await park(consumer, events)
 
         schema = events.last("tool_approval").payload.arguments_schema
         assert set(schema["properties"]) == {"email", "amount", "reason"}
@@ -136,7 +143,7 @@ class TestParking:
     async def test_no_answer_is_sent_while_a_human_is_deciding(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
+        await park(consumer, events)
 
         assert "chat_complete" not in events.actions()
         assert events.of("chat_token") == []
@@ -145,7 +152,7 @@ class TestParking:
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
         """Called `schema`, this field warns in every generated client."""
-        await park(consumer)
+        await park(consumer, events)
 
         wire = events.last("tool_approval").model_dump()
         assert "arguments_schema" in wire["payload"]
@@ -161,13 +168,13 @@ class TestOneTurnDoesNotLeakIntoTheNext:
     """
 
     async def test_a_cancelled_call_is_not_reported_as_the_last_success(
-        self, consumer: DetachedTopic
+        self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
-        await decide(consumer, approved=True, arguments={})
+        parked = await park(consumer, events)
+        await decide(consumer, parked, approved=True, arguments={})
 
-        await park(consumer)
-        recorder = await decide(consumer, approved=False, arguments={})
+        parked = await park(consumer, events)
+        recorder = await decide(consumer, parked, approved=False, arguments={})
 
         # This turn's prompt, not the whole exchange: history legitimately holds
         # the earlier refund.
@@ -177,10 +184,10 @@ class TestOneTurnDoesNotLeakIntoTheNext:
         assert "cancelled" in recorder.last_user_prompt
 
     async def test_a_plain_question_does_not_inherit_a_tool_result(
-        self, consumer: DetachedTopic
+        self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
-        await decide(consumer, approved=True, arguments={})
+        parked = await park(consumer, events)
+        await decide(consumer, parked, approved=True, arguments={})
 
         answer_directly = tool_call(
             "final_result_Answer", {"reasoning": "Already covered."}
@@ -216,19 +223,20 @@ class TestDeciding:
     async def test_approving_runs_the_tool_and_answers(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
-        recorder = await decide(consumer, approved=True, arguments={})
+        parked = await park(consumer, events)
+        recorder = await decide(consumer, parked, approved=True, arguments={})
 
         assert "Refunded \u00a329.00" in recorder.prompts
-        assert events.actions()[-1] == "chat_complete"
+        assert events.actions()[-2:] == ["chat_complete", "run_ended"]
         assert "refunded" in events.last("chat_complete").payload.content
 
     async def test_a_correction_is_what_runs(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
+        parked = await park(consumer, events)
         recorder = await decide(
             consumer,
+            parked,
             approved=True,
             arguments={
                 "email": "demo@example.com",
@@ -243,17 +251,18 @@ class TestDeciding:
         assert "29" not in recorder.prompts, (
             "the proposed amount must not survive a correction"
         )
-        assert events.actions()[-1] == "chat_complete"
+        assert events.actions()[-2:] == ["chat_complete", "run_ended"]
 
     async def test_the_answer_is_told_a_person_changed_the_arguments(
-        self, consumer: DetachedTopic
+        self, consumer: DetachedTopic, events: Recorded
     ) -> None:
         """A live run answered a corrected £9 refund by telling the rep to
         refund the missing £20 - the reviewer's decision undone by the summary
         of it. The answer has to know the smaller number was deliberate."""
-        await park(consumer)
+        parked = await park(consumer, events)
         recorder = await decide(
             consumer,
+            parked,
             approved=True,
             arguments={
                 "email": "demo@example.com",
@@ -265,22 +274,22 @@ class TestDeciding:
         assert "A reviewer changed the arguments" in recorder.prompts
 
     async def test_an_untouched_approval_says_nothing_about_corrections(
-        self, consumer: DetachedTopic
+        self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
-        recorder = await decide(consumer, approved=True, arguments={})
+        parked = await park(consumer, events)
+        recorder = await decide(consumer, parked, approved=True, arguments={})
 
         assert "A reviewer changed the arguments" not in recorder.prompts
 
     async def test_cancelling_answers_without_running_anything(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
-        recorder = await decide(consumer, approved=False, arguments={})
+        parked = await park(consumer, events)
+        recorder = await decide(consumer, parked, approved=False, arguments={})
 
         assert "Refunded" not in recorder.prompts
         assert "cancelled" in recorder.prompts
-        assert events.actions()[-1] == "chat_complete"
+        assert events.actions()[-2:] == ["chat_complete", "run_ended"]
 
     async def test_a_decision_for_an_unknown_thread_reports_an_error(
         self, consumer: DetachedTopic, events: Recorded
@@ -305,10 +314,10 @@ class TestTheParkAndTheResumeAreOneRun:
     ) -> None:
         setup_tracing()
         trace_store.clear()
-        await park(consumer)
+        parked = await park(consumer, events)
         [run] = trace_store.runs()
 
-        await decide(consumer, approved=True, arguments={})
+        await decide(consumer, parked, approved=True, arguments={})
 
         assert trace_store.runs() == [run], "the resume opened a trace of its own"
         assert [root["name"] for root in trace_store.tree(run)] == [
@@ -324,9 +333,9 @@ class TestTheTicketRecordsWhatRan:
     async def test_an_approved_call_is_reported(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
+        parked = await park(consumer, events)
 
-        await decide(consumer, approved=True, arguments={})
+        await decide(consumer, parked, approved=True, arguments={})
 
         ran = events.last("tool_ran").payload
         assert ran.tool == "issue_refund"
@@ -337,9 +346,9 @@ class TestTheTicketRecordsWhatRan:
     async def test_a_cancelled_one_says_so(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
+        parked = await park(consumer, events)
 
-        await decide(consumer, approved=False, arguments={})
+        await decide(consumer, parked, approved=False, arguments={})
 
         ran = events.last("tool_ran").payload
         assert ran.cancelled
@@ -353,7 +362,7 @@ class TestReasoningIsReported:
     async def test_the_reasoning_streams_then_settles(
         self, consumer: DetachedTopic, events: Recorded
     ) -> None:
-        await park(consumer)
+        await park(consumer, events)
 
         streamed = "".join(e.payload.delta for e in events.of("reasoning_delta"))
         assert streamed, "no reasoning was published while it was being written"

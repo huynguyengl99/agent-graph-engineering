@@ -7,7 +7,6 @@ $0.00. This one goes through the HTTP layer, where the parsing actually happens.
 
 from assistant.agents import AgentConfig, ModelPurpose
 from assistant.agents.config import ModelConfig
-from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
 
@@ -39,7 +38,7 @@ async def test_token_counts_survive_the_provider_response() -> None:
         context = ticket_context(
             ticket_id="usage-1", title="Charged twice", description="Two."
         )
-        graph = SupportGraph(config).compile(checkpointer())
+        graph = SupportGraph(config).compile()
         await graph.ainvoke(
             {"context": context},
             config={"configurable": {"thread_id": "usage-1"}},

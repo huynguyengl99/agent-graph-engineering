@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from assistant.agents import AgentConfig, Audience, Context, Ticket, Turn
-from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.states import SupportState
 from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
@@ -60,9 +59,7 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
     )
     runnable: RunnableConfig = {"configurable": {"thread_id": conversation_id}}
 
-    # A checkpointer of its own: the tool gate interrupts, and an eval drives
-    # the graph without the service's Postgres saver.
-    graph = SupportGraph(config).compile(memory_checkpointer())
+    graph = SupportGraph(config).compile()
     try:
         state = await graph.ainvoke(
             SupportState(context=context, question=scenario.question), config=runnable
@@ -70,7 +67,7 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite
         return Observation(error=f"{type(exc).__name__}: {exc}")
 
-    parked, tool = await _gate(graph, runnable, state)
+    parked, tool = _gate(state)
     decision = state.get("decision")
     return Observation(
         decision=type(decision).__name__ if decision is not None else None,
@@ -81,22 +78,14 @@ async def _run_chat(scenario: Scenario, config: AgentConfig) -> Observation:
     )
 
 
-async def _gate(
-    graph: Any, runnable: RunnableConfig, state: Any
-) -> tuple[bool, str | None]:
+def _gate(state: Any) -> tuple[bool, str | None]:
     """Whether the run stopped for a person, and what it was holding.
 
-    A subgraph's writes merge only when it returns, so while parked the parent
-    knows nothing: the proposal is in the interrupt, where the UI reads it too.
+    A run that needs a decision ends rather than suspending, so both answers
+    are on the state it ended with: no snapshot to fetch, and nothing to read
+    out of a task's interrupts.
     """
-    snapshot = await graph.aget_state(runnable)
-    interrupts = [i for task in snapshot.tasks for i in task.interrupts]
-    proposal: dict[str, Any] = next(
-        (i.value for i in interrupts if isinstance(i.value, dict)), {}
-    )
-    return bool(interrupts), str(
-        proposal.get("tool") or state.get("tool") or ""
-    ) or None
+    return bool(state.get("awaiting")), str(state.get("tool") or "") or None
 
 
 async def _run_for_customer(scenario: Scenario, config: AgentConfig) -> Observation:
@@ -119,7 +108,7 @@ async def _run_for_customer(scenario: Scenario, config: AgentConfig) -> Observat
     )
     runnable: RunnableConfig = {"configurable": {"thread_id": ticket_id}}
 
-    graph = SupportGraph(config).compile(memory_checkpointer())
+    graph = SupportGraph(config).compile()
     try:
         state = await graph.ainvoke(SupportState(context=context), config=runnable)
     except Exception as exc:  # a crashed run is a failed scenario, not a crashed suite
@@ -128,7 +117,7 @@ async def _run_for_customer(scenario: Scenario, config: AgentConfig) -> Observat
     classification = state.get("classification")
     decision = state.get("decision")
     answer = state.get("answer")
-    parked, tool = await _gate(graph, runnable, state)
+    parked, tool = _gate(state)
 
     return Observation(
         category=getattr(classification, "category", None),

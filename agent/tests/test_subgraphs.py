@@ -13,14 +13,12 @@ from assistant.agents import (
     ModelConfig,
     ModelPurpose,
 )
-from assistant.graphs.checkpointer import memory_checkpointer
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import KnowledgeGraph
 from assistant.graphs.limits import KB_MAX_ATTEMPTS
 from assistant.graphs.support_graph import SupportGraph
-from langgraph.types import Command
 
-from tests.helpers.contexts import FLAGGED, ticket_context
+from tests.helpers.contexts import FLAGGED, resume_with, ticket_context
 
 TICKET = "aaaaaaaa-1111-2222-3333-444444444444"
 # The gate is this class's subject, and only a flagged ticket reaches it now.
@@ -106,7 +104,7 @@ class TestApprovalThroughASubgraph:
     """
 
     async def build(self) -> Any:
-        return SupportGraph(scripted()).compile(memory_checkpointer())
+        return SupportGraph(scripted()).compile()
 
     async def test_a_run_parks_inside_the_delivery_subgraph(self) -> None:
         graph = await self.build()
@@ -117,20 +115,20 @@ class TestApprovalThroughASubgraph:
             config=config,
         )
 
-        assert state["__interrupt__"], "the run should be parked, not finished"
-        assert state["__interrupt__"][0].value["kind"] == "reply_approval"
+        assert state["awaiting"], "the run should be parked, not finished"
+        assert state["awaiting"] == "reply_approval"
         assert not state.get("delivery_receipt")
 
     async def test_resume_reaches_the_interrupt_one_level_down(self) -> None:
         graph = await self.build()
         config = {"configurable": {"thread_id": "sub-resume"}}
 
-        await graph.ainvoke(
+        parked = await graph.ainvoke(
             {"context": ticket("Charged twice", FLAGGED_DESCRIPTION)},
             config=config,
         )
         state = await graph.ainvoke(
-            Command(resume={"approved": True, "content": None}), config=config
+            resume_with(parked, approval_granted=True), config=config
         )
 
         assert state["delivery_receipt"], "approving must reach send_reply"
@@ -140,12 +138,12 @@ class TestApprovalThroughASubgraph:
         graph = await self.build()
         config = {"configurable": {"thread_id": "sub-reject"}}
 
-        await graph.ainvoke(
+        parked = await graph.ainvoke(
             {"context": ticket("Charged twice", FLAGGED_DESCRIPTION)},
             config=config,
         )
         state = await graph.ainvoke(
-            Command(resume={"approved": False, "content": None}), config=config
+            resume_with(parked, approval_granted=False), config=config
         )
 
         assert not state.get("delivery_receipt")
@@ -155,16 +153,21 @@ class TestApprovalThroughASubgraph:
         graph = await self.build()
         config = {"configurable": {"thread_id": "sub-edit"}}
 
-        await graph.ainvoke(
+        parked = await graph.ainvoke(
             {"context": ticket("Charged twice", FLAGGED_DESCRIPTION)},
             config=config,
         )
+        edited = "Rewritten by a human."
         state = await graph.ainvoke(
-            Command(resume={"approved": True, "content": "Rewritten by a human."}),
+            resume_with(
+                parked,
+                approval_granted=True,
+                answer={**parked["answer"].model_dump(), "content": edited},
+            ),
             config=config,
         )
 
-        assert state["answer"].content == "Rewritten by a human."
+        assert state["answer"].content == edited
         assert state["delivery_receipt"]
 
 

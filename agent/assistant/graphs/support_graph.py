@@ -20,6 +20,7 @@ from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.feed import AnswerFeed
 from assistant.graphs.knowledge_graph import KnowledgeGraph
 from assistant.graphs.states import SupportState, Update
+from assistant.graphs.states.base import Resuming
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.guardrails import screen_input
 from assistant.messages.support import (
@@ -92,8 +93,24 @@ class SupportGraph(AnswerFeed, BaseGraph):
 
     async def support_start(
         self, state: SupportState
-    ) -> Command[Literal["support_classify", "support_decide"]]:
-        """Only a customer's ticket is graded; the team's question is not one."""
+    ) -> Command[Literal["support_classify", "support_decide", "tool", "delivery"]]:
+        """Where a run begins, which is not always the beginning.
+
+        A run carrying a reviewer's answer goes straight to the subgraph that
+        stopped for them. Its own entry router then skips the work the paused
+        run already did, so nothing is classified, decided or drafted twice.
+        """
+        # Clearing `awaiting` is what lets the run past the gate it stopped
+        # at: the carried state still says it is waiting, and every router
+        # after the subgraph reads that as a reason to stop.
+        match state.resuming:
+            case Resuming.TOOL_APPROVAL:
+                return Command(update={"awaiting": Resuming.NOTHING}, goto="tool")
+            case Resuming.REPLY_APPROVAL:
+                return Command(update={"awaiting": Resuming.NOTHING}, goto="delivery")
+            case _:
+                pass
+        # Only a customer's ticket is graded; the team's question is not one.
         return Command(
             goto="support_classify" if state.context.for_customer else "support_decide"
         )
@@ -278,8 +295,16 @@ class SupportGraph(AnswerFeed, BaseGraph):
         return as_messages(state.context.history)
 
     def route_after_tool(self, state: SupportState) -> str:
-        """A planner finding no tool is not a tool call. A method rather than
-        a `Command` because only a parent can route after a subgraph."""
+        """A method rather than a `Command`, because only a parent can route
+        after a subgraph.
+
+        A gate inside the subgraph ends the run rather than suspending it, so
+        the parent has to notice: carrying on here would report and answer a
+        tool call that has not happened yet.
+        """
+        if state.awaiting is not Resuming.NOTHING:
+            return "__end__"
+        # A planner finding no tool is not a tool call.
         return "support_report_tool" if state.tool else "support_respond"
 
     # --- wiring -------------------------------------------------------------
@@ -317,6 +342,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
             {
                 "support_report_tool": "support_report_tool",
                 "support_respond": "support_respond",
+                "__end__": END,
             },
         )
         graph.add_edge("delivery", END)

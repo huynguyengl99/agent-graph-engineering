@@ -1,13 +1,16 @@
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, interrupt
+from langgraph.types import Command
 
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.feed import AnswerFeed
 from assistant.graphs.states import DeliveryState, Update
+from assistant.graphs.states.base import Resuming
 from assistant.guardrails import screen_reply
 from assistant.messages.support import (
+    ApprovalRequiredMessage,
+    ApprovalRequiredPayload,
     ReplyBlockedMessage,
     ReplyBlockedPayload,
     ReplySentMessage,
@@ -44,7 +47,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         )
         findings = list(state.guardrail_findings) + result.rendered()
         if result.blocked:
-            # Nothing follows: say so here, because no interrupt will.
+            # Nothing follows: say so here, because no gate will.
             await self.emit(
                 ReplyBlockedMessage(
                     payload=ReplyBlockedPayload(
@@ -67,45 +70,36 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     async def delivery_approval(
         self, state: DeliveryState
-    ) -> Command[Literal["delivery_send", "__end__"]]:
-        """Park the run until a human accepts, edits, or rejects the draft."""
+    ) -> Command[Literal["delivery_await"]]:
+        """Hand the draft to a person and stop.
+
+        The findings go out with the proposal rather than being left in state
+        for the parent to merge, because the reviewer needs them now and the
+        run is about to end.
+        """
         answer = state.answer
-        # Findings ride the interrupt rather than the state: a subgraph's
-        # writes only merge into the parent when it returns, and the reviewer
-        # needs them now.
-        decision = interrupt(
-            {
-                "kind": "reply_approval",
-                "draft": answer.content,
-                "findings": list(state.guardrail_findings),
-            }
-        )
-
-        approved = (
-            bool(decision.get("approved"))
-            if isinstance(decision, dict)
-            else bool(decision)
-        )
-        if not approved:
-            rejected = answer.model_copy(
-                update={"content": "The draft reply was rejected by a reviewer."}
+        await self.emit(
+            ApprovalRequiredMessage(
+                payload=ApprovalRequiredPayload(
+                    ticket_id=state.context.thread_id,
+                    draft=answer.content,
+                    findings=list(state.guardrail_findings),
+                )
             )
-            await self.answered(state.context.ticket_id, rejected)
-            return Command(
-                update={"approval_granted": False, "answer": rejected},
-                goto="__end__",
-            )
-
-        edited = decision.get("content") if isinstance(decision, dict) else None
+        )
         return Command(
-            update={
-                "approval_granted": True,
-                "answer": answer.model_copy(
-                    update={"content": edited or answer.content}
-                ),
-            },
-            goto="delivery_send",
+            update={"awaiting": Resuming.REPLY_APPROVAL}, goto="delivery_await"
         )
+
+    async def delivery_await(self, state: DeliveryState) -> DeliveryState:
+        """Where the run stops while a reviewer reads the draft."""
+        return state
+
+    def entry(self, state: DeliveryState) -> str:
+        """A fresh run screens the draft. A resumed one already has a verdict."""
+        if state.resuming is not Resuming.REPLY_APPROVAL:
+            return "delivery_screen"
+        return "delivery_send" if state.approval_granted else "__end__"
 
     async def delivery_send(self, state: DeliveryState) -> Update:
         """The irreversible step."""
@@ -143,6 +137,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         return {
             "delivery_screen": self.delivery_screen,
             "delivery_approval": self.delivery_approval,
+            "delivery_await": self.delivery_await,
             "delivery_send": self.delivery_send,
         }
 
@@ -152,7 +147,16 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         )
         self.add_nodes(graph)
 
-        graph.add_edge(START, "delivery_screen")
+        graph.add_conditional_edges(
+            START,
+            self.entry,
+            {
+                "delivery_screen": "delivery_screen",
+                "delivery_send": "delivery_send",
+                "__end__": END,
+            },
+        )
         graph.add_edge("delivery_send", END)
+        graph.add_edge("delivery_await", END)
 
         return graph

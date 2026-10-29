@@ -1,9 +1,9 @@
 """What the model remembers of a thread, and where it is kept.
 
-It lives on the graph's state, so the checkpointer that already persists a
-parked run persists this too. It used to be a table of its own behind a
-process-wide singleton: two durable copies of one thread, written separately,
-with no way to rebuild either from the other.
+It lives on the graph's state, which the agent hands back when the run ends
+and the backend sends in with the next question. It used to be a table of its
+own behind a process-wide singleton: two durable copies of one thread, written
+separately, with no way to rebuild either from the other.
 """
 
 from typing import Any
@@ -17,7 +17,6 @@ from assistant.agents import (
     Turn,
 )
 from assistant.conversations import as_messages, dump_messages, load_messages
-from assistant.graphs.checkpointer import checkpointer
 from assistant.graphs.states import SupportState
 from assistant.graphs.support_graph import SupportGraph
 from pydantic_ai.messages import (
@@ -47,7 +46,7 @@ def config(thread: str = THREAD) -> dict[str, Any]:
 
 class TestWhatSurvivesATurn:
     async def test_a_turn_is_remembered_as_messages(self) -> None:
-        graph = SupportGraph(scripted()).compile(checkpointer())
+        graph = SupportGraph(scripted()).compile()
         state = await graph.ainvoke(question("Why two charges?"), config())
 
         remembered = load_messages(state["messages_json"])
@@ -55,10 +54,14 @@ class TestWhatSurvivesATurn:
         assert any(isinstance(m, ModelResponse) for m in remembered)
 
     async def test_a_second_turn_sees_the_first(self) -> None:
-        graph = SupportGraph(scripted()).compile(checkpointer())
+        """The agent keeps nothing between runs, so the memory makes the round
+        trip: out with the run that ended, back in with the next question."""
+        graph = SupportGraph(scripted()).compile()
 
-        await graph.ainvoke(question("Why two charges?"), config())
-        state = await graph.ainvoke(question("And the second one?"), config())
+        first = await graph.ainvoke(question("Why two charges?"), config())
+        second = question("And the second one?")
+        second.messages_json = first["messages_json"]
+        state = await graph.ainvoke(second, config())
 
         # What was sent is the rendered prompt, and the question is inside it.
         asked = " ".join(

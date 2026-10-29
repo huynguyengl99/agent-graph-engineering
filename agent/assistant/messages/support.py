@@ -12,6 +12,11 @@ from pydantic import BaseModel
 
 from assistant.outputs.support import Category, Priority
 
+# What a paused run finished with, handed back verbatim to resume it. The
+# agent keeps nothing between runs, so this is the whole of its memory: the
+# backend stores it against the pending approval and returns it unread.
+AgentState = dict[str, Any]
+
 
 class ModelOverrides(BaseModel):
     """Which model fills each purpose for this run.
@@ -113,6 +118,8 @@ class ApprovalDecisionPayload(BaseModel):
     ticket_id: str
     approved: bool
     content: str | None = None
+    # The paused run's state, as the agent last reported it.
+    state: AgentState | None = None
     # Carried on the resume too, so a run does not change models halfway
     # through. Nothing after the gate calls a model today, but that is a
     # property of the current graph, not something to rely on.
@@ -221,6 +228,8 @@ class ToolDecisionPayload(BaseModel):
     # Corrected arguments, when the reviewer changed them. Empty means run
     # what was proposed.
     arguments: dict[str, Any] = {}
+    # The paused run's state, as the agent last reported it.
+    state: AgentState | None = None
 
 
 class ToolDecisionMessage(BaseMessage):
@@ -262,6 +271,27 @@ class RunTurn(BaseModel):
     content: str
 
 
+class RunEndedPayload(BaseModel):
+    """A run finished, and the state it finished with.
+
+    Every run ends this way, whether it answered or stopped for a person, and
+    the agent forgets it the moment this is sent. The backend stores the state
+    on the thread: `awaiting` says a decision is outstanding, and the blob is
+    what that decision has to be sent back with.
+    """
+
+    thread_id: str
+    awaiting: str = ""
+    state: AgentState
+
+
+class RunEndedMessage(BaseMessage):
+    """What the run left behind, and whether anyone owes it an answer."""
+
+    action: Literal["run_ended"] = "run_ended"
+    payload: RunEndedPayload
+
+
 class RunRequestPayload(BaseModel):
     """One message to work.
 
@@ -275,6 +305,10 @@ class RunRequestPayload(BaseModel):
     ticket: TicketRef | None = None
     history: list[RunTurn] = []
     models: ModelOverrides | None = None
+    # What the thread's last run ended with. A new turn starts clean and takes
+    # only what a thread is supposed to remember from it, never the last run's
+    # receipt or approval.
+    state: AgentState | None = None
 
 
 class RunRequestMessage(BaseMessage):
@@ -325,6 +359,7 @@ SupportEvent = (
     | ChatTokenMessage
     | ChatCompleteMessage
     | ToolApprovalMessage
+    | RunEndedMessage
     | ToolRanMessage
     | RunFailedMessage
     | ReasoningDeltaMessage

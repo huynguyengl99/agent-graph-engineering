@@ -15,12 +15,8 @@ from assistant.core.auth import SharedTokenMiddleware
 from assistant.core.config import settings
 from assistant.core.layers import setup_layers
 from assistant.core.logging import setup_logging
-from assistant.graphs.checkpointer import (
-    checkpoint_pool,
-    close_checkpointer,
-    setup_checkpointer,
-)
 from assistant.graphs.registry import GRAPHS, describe, mermaid
+from assistant.graphs.storage import close_storage, pool, setup_storage
 from assistant.runs import setup_run_events
 from assistant.tools.core.ledger import setup_ledger
 from assistant.tracing import setup_tracing, trace_store
@@ -35,12 +31,11 @@ setup_tracing()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Opens the pool and creates the checkpoint tables before the first socket.
-    await setup_checkpointer()
-    await setup_ledger(checkpoint_pool())
-    await setup_run_events(checkpoint_pool())
+    await setup_storage()
+    await setup_ledger(pool())
+    await setup_run_events(pool())
     yield
-    await close_checkpointer()
+    await close_storage()
 
 
 app = FastAPI(

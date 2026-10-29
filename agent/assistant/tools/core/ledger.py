@@ -1,12 +1,13 @@
 """At-most-once execution for tools that cannot be undone.
 
-A crash inside a node re-runs that node on resume: LangGraph only checkpoints
-after a node returns, so a process killed mid-refund refunds again when it comes
-back. Verified, not assumed.
+A process killed mid-refund refunds again when the work comes back. The state
+the backend holds is the one the run started from, so a redelivered decision
+re-enters the graph and reaches the refund node a second time. Verified, not
+assumed.
 
-`checkpoint_ns` is stable across that re-run, so thread plus namespace names one
-logical execution and survives a restart in the same Postgres the checkpoints
-use.
+`checkpoint_ns` names the node within the run and is stable across that retry,
+so thread plus namespace names one logical execution, and the claim is kept in
+the agent's own Postgres so it survives the restart.
 
 The honest limit: if the process dies between claiming and recording, nobody
 knows whether the call went through. That is reported rather than guessed, so a
@@ -57,10 +58,14 @@ def execution_key(tool: str) -> str | None:
         return None
 
     thread = configurable.get("thread_id")
-    namespace = configurable.get("checkpoint_ns")
-    if not thread or not namespace:
+    namespace = configurable.get("checkpoint_ns") or ""
+    if not thread:
         return None
-    return f"{thread}:{namespace}:{tool}"
+    # "node:task-uuid", and the uuid is minted per invocation: keep it and
+    # every retry gets a key of its own, which is the one thing that must not
+    # happen here.
+    node = namespace.split(":", 1)[0]
+    return f"{thread}:{node}:{tool}"
 
 
 class ToolLedger:

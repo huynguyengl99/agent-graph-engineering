@@ -10,7 +10,7 @@ interface Props {
 
 /**
  * The human gate. Until someone acts here the graph stays parked in the
- * agent's checkpointer and nothing reaches the customer.
+ * backend and nothing reaches the customer.
  */
 export function ApprovalPanel({ draft, findings = [], onDecide }: Props) {
   const [content, setContent] = useState(draft);

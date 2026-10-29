@@ -28,7 +28,7 @@ interface Props {
  * tool added to the agent is reviewable here without touching this file.
  *
  * Nothing has run at this point: the graph is parked in the agent's
- * checkpointer, and it stays parked until this card is answered.
+ * backend, and nothing runs until this card is answered.
  */
 export function ToolApprovalCard({
   proposal,

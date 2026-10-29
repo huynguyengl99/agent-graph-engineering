@@ -3,9 +3,9 @@
 Where each thing is kept, and which direction updates travel. The diagram and
 the service table are in the [README](../README.md).
 
-The backend owns users, tickets, and the thread as a person reads it. The agent service owns the graphs, the tools, the checkpoints, and the thread as the *model* remembers it - Pydantic AI's own message history, which is not the same thing as a list of rows and is why both exist.
+The backend owns users, tickets, the thread as a person reads it, and - because the agent keeps nothing between requests - the state of whatever run is in flight. The agent service owns the graphs, the tools, and the thread as the *model* remembers it: Pydantic AI's own message history, which is not the same thing as a list of rows and is why both exist.
 
-That memory rides on the graph's state, so the checkpointer that already persists a parked run persists it too. It had a table and a process-wide singleton of its own until the two copies of one thread became the problem they look like: written separately, a crash between them left them disagreeing, and neither could be rebuilt from the other. A lane with nothing remembered yet starts from the record the backend sends, which makes the memory a cache over that record - lose a checkpoint and what is lost is the shape of past tool calls, not the conversation.
+That memory rides on the graph's state, which is handed back when a run ends and sent in again with the next question, so it is stored exactly where everything else durable about the thread is stored. It had a table and a process-wide singleton of its own in the agent until the two copies of one thread became the problem they look like: written separately, a crash between them left them disagreeing, and neither could be rebuilt from the other. A lane with nothing remembered yet starts from the record the backend sends, which makes the memory a cache over that record - lose it and what is lost is the shape of past tool calls, not the conversation.
 
 Every browser tab holds **one** WebSocket at `/ws/`. Each ticket is a *topic* on it, addressed per frame, so watching four tickets is one connection rather than four. Publishing needs no consumer instance: `Topic.broadcast` is a classmethod, which is what a background task driving the agent requires.
 
@@ -22,16 +22,23 @@ caller, which is why a fresh clone runs without one.
 Neither service mirrors the other. They hold different things, and only one
 direction carries updates.
 
-The agent owns **execution** state: which node runs next, the channel values, the
-pending interrupt payload. That is a LangGraph checkpoint in Postgres, and it is
-the only reason a resume works - rebuilding it by hand would mean reimplementing
-the execution model.
+The agent owns **execution**: which node runs next, and the state while a run
+is in flight. It owns none of it between runs. A run that needs a person ends
+rather than suspending, `run_ended` carries the whole state out, and the agent
+forgets it - so there is one durable copy of a thread rather than two, and the
+process that proposed a refund need not be the one that performs it.
 
-The backend owns the **record**: messages, ticket events, and the two things a
-reload needs to find - a drafted reply waiting for approval, and a proposed tool
-call. Neither is a copy of graph state. They exist because the browser cannot ask
-the agent what is waiting, and because a `PendingApproval` row is what rebuilds
-the approval card after a refresh.
+The backend owns the **record**, and now the state too: messages, ticket events,
+an `AgentThread` row per lane holding the last state and what it is waiting on,
+and the two things a reload needs to find - a drafted reply waiting for approval
+and a proposed tool call. Those last two are not copies of graph state; they are
+the cards, and they exist because the browser cannot ask the agent what is
+waiting and because a row is what rebuilds the card after a refresh.
+
+The cost is paid on the wire: every decision carries the state back. The gain is
+that there is nothing to keep in sync, nothing pinned to one process, and a
+resume that does not depend on a serialization format LangGraph is free to
+change.
 
 Updates travel one way. A node broadcasts an event on its topic, the backend is
 subscribed, and its relay does two things with each one: writes what belongs in
@@ -50,11 +57,11 @@ Two consequences worth knowing:
   in both directions: an event in that window renders twice, and a snapshot
   taken a moment earlier drops it. At-most-once on the server does not make the
   client idempotent; `lib/eventList.ts` is what does.
-- **One run at a time per lane.** The agent keys its checkpoint on the ticket
-  and the audience, so two runs in one lane are two graphs writing one thread
-  and the second wins. That is how an approved reply could vanish: a run parked
-  at the gate, a message a moment later started another, and approve resumed a
-  thread whose interrupt had been overwritten. A run now claims its lane and
+- **One run at a time per lane.** One state blob is kept per ticket and
+  audience, so two runs in one lane are two graphs writing one thread and the
+  second wins. That is how an approved reply could vanish: a run parked at the
+  gate, a message a moment later started another, and approve went back with a
+  state that had already been replaced. A run now claims its lane and
   holds the claim through a park, because waiting for a person is not being
   finished; whatever arrives behind it is run when the claim is released rather
   than dropped. A claim older than `AGENT_RUN_CLAIM_TIMEOUT` is taken over, so

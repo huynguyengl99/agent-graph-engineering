@@ -104,17 +104,6 @@ just gen-agent-client  # agent AsyncAPI to Python client
 
 Each generator reads a live schema, so it starts the service it reads from if that service is not already up.
 
-## Checking out the state a post describes
-
-Each part of the series is pinned to a tag:
-
-```bash
-git tag -l
-git checkout interrupts
-```
-
-`main` is always the latest state, and will be ahead of whatever post you are reading.
-
 ## The worker
 
 Asking for a run does not run it. `start_run`, `start_approval` and
@@ -147,8 +136,26 @@ worker is killed mid-run.
 | `task_reject_on_worker_lost` | `True` | Makes that true for a hard kill too, not only a clean shutdown. |
 | `visibility_timeout` | 3600s | Redis has no server-side ack, so redelivery after a lost worker runs on this timer. It has to outlast both the longest run and `AGENT_RUN_CLAIM_TIMEOUT`: expire early and a running task is handed to a second worker too; expire before the lane goes stale and the redelivered run no-ops and acks, losing the work. |
 
-Retrying is safe because of two things that have nothing to do with Celery: the
-agent resumes a thread from its checkpoint rather than starting over, and
-anything irreversible goes through the at-most-once ledger. A queue without
-those two would make a redelivered refund a second refund.
+It is a floor, not a schedule. The timeout says when a message becomes
+*eligible* to be handed on; kombu sweeps for eligible messages on one call in
+ten of its polling cycle (`restore_visible(..., interval=10)`), so the
+hand-over lands well after it. `just crash-test` measures it: with the timeout
+turned down to 10s, a killed worker's task came back after **91s**. Read the
+hour here as "not before an hour", and a run lost to a hard kill as something
+a person notices first. A sweeper that finds threads still waiting and picks
+them up is the missing piece, and it is in the README's list of what is owed.
+
+Retrying is safe because of two things that have nothing to do with Celery: a
+redelivered task carries the state its run started from, so the agent carries on
+rather than starting the thread over, and anything irreversible goes through the
+at-most-once ledger. A queue without those two would make a redelivered refund a
+second refund.
+
+The third thing is the lane the dead run was holding. A redelivered task finds
+that claim still there and takes it over once it has gone stale, and a question
+that queued behind the dead run is kept rather than cleared, because nothing
+has answered it and the recovering run is working something else. The customer's
+lane queues no question - their message is on the ticket and a re-run reads the
+thread - so only a question is carried over, and the same thread is not worked
+twice. `agent_runs/tests/test_redelivery.py` drives all of it through `run`.
 

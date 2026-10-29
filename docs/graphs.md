@@ -136,11 +136,11 @@ arguments**, or cancel - correcting £29 to £9 means £9 is what gets refunded.
 Underneath, `@wrap_tool` refuses an approval-marked tool that arrives without
 `approved=True`, so a mis-wired graph fails closed rather than spending money.
 
-Approval is not the end of the risk. LangGraph checkpoints *after* a node
-returns, so a process killed mid-refund re-runs that node on resume and refunds
-twice. A ledger keyed on the thread and the checkpoint namespace claims the call
-before it is made and records the result after, so the second attempt returns the
-first one's result. If the process dies between those two, nobody can know
+Approval is not the end of the risk. A process killed mid-refund leaves the
+backend holding the state the run started from, so the redelivered decision
+re-enters the graph, reaches that node again and refunds twice. A ledger keyed on
+the run and the node claims the call before it is made and records the result
+after, so the second attempt returns the first one's result. If the process dies between those two, nobody can know
 whether the money moved, so the run says exactly that and asks a person to check
 rather than guessing.
 

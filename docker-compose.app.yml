@@ -39,7 +39,7 @@ services:
       dockerfile: agent/Dockerfile
     env_file: [agent/.env]
     environment:
-      CHECKPOINT_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agent_graph_dev
+      STORAGE_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agent_graph_dev
       REDIS_URL: redis://redis:6379/0
       ASSISTANT_TRACE_DIR: /traces
     depends_on:

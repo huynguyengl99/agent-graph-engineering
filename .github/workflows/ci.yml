@@ -83,8 +83,8 @@ jobs:
         working-directory: agent
       - run: uv run pyright
         working-directory: agent
-      # No database: the suite installs an in-memory checkpointer and ledger, so
-      # proving a run resumes should not need Postgres.
+      # No database: the suite installs an in-memory ledger and passes state
+      # between runs by hand, so proving a resume should not need Postgres.
       - run: uv run pytest
         working-directory: agent
 

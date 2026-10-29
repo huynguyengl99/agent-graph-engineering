@@ -124,8 +124,6 @@ test:
     cd agent && uv run pytest
     @echo "🧪 Running web tests..."
     cd web && pnpm test
-    @echo "🧪 Running web tests..."
-    cd web && pnpm test
 
 # Run the eval golden set against the agent
 evals *args:
@@ -150,6 +148,11 @@ e2e: seed
     @echo "🌐 Running the end-to-end smoke..."
     @bash scripts/dev.sh up
     cd web/e2e && npm install --silent && node smoke.mjs
+
+# Kill a worker mid-task and watch the broker hand the task to another one
+crash-test:
+    @echo "💀 Killing a worker mid-task..."
+    cd backend && uv run python ../scripts/crash_redelivery.py
 
 # Record a walk through every feature, as both people, into captures/ (gitignored)
 capture:

@@ -158,3 +158,31 @@ class TestAnEvalRunIsOneTrace:
         run = trace_store.runs()[-1]
         roots = trace_store.tree(run)
         assert [root["name"] for root in roots] == ["support run"]
+
+
+class TestAnObservationSeesAStoppedRun:
+    """`parked` is a thing scenarios assert on, and it is read off the state
+    the run ended with. When the field it read was renamed, every stopped run
+    silently scored as not stopped."""
+
+    def test_a_pending_tool_reads_as_parked(self) -> None:
+        from assistant.graphs.states.base import ToolRun
+        from evals.core.runner import _gate
+
+        parked, tool = _gate({"tool_run": ToolRun.PENDING, "tool": "issue_refund"})
+
+        assert parked is True
+        assert tool == "issue_refund"
+
+    def test_a_pending_reply_reads_as_parked(self) -> None:
+        from assistant.graphs.states.base import ReplyRun
+        from evals.core.runner import _gate
+
+        assert _gate({"reply_run": ReplyRun.PENDING})[0] is True
+
+    def test_a_finished_run_does_not(self) -> None:
+        from assistant.graphs.states.base import ReplyRun, ToolRun
+        from evals.core.runner import _gate
+
+        assert _gate({"tool_run": ToolRun.DONE, "reply_run": ReplyRun.SENT})[0] is False
+        assert _gate({})[0] is False

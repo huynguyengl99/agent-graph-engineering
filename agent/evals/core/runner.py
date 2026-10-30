@@ -6,6 +6,7 @@ from typing import Any
 
 from assistant.agents import AgentConfig, Audience, Context, Ticket, Turn
 from assistant.graphs.states import SupportState
+from assistant.graphs.states.base import ReplyRun, ToolRun
 from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
 from assistant.tracing.cost import RunCost
@@ -82,10 +83,14 @@ def _gate(state: Any) -> tuple[bool, str | None]:
     """Whether the run stopped for a person, and what it was holding.
 
     A run that needs a decision ends rather than suspending, so both answers
-    are on the state it ended with: no snapshot to fetch, and nothing to read
-    out of a task's interrupts.
+    are on the state it ended with. Read off the work's own status, like the
+    routers do: pending is the only thing that means somebody is holding it.
     """
-    return bool(state.get("awaiting")), str(state.get("tool") or "") or None
+    pending = (
+        state.get("tool_run") == ToolRun.PENDING
+        or state.get("reply_run") == ReplyRun.PENDING
+    )
+    return pending, str(state.get("tool") or "") or None
 
 
 async def _run_for_customer(scenario: Scenario, config: AgentConfig) -> Observation:

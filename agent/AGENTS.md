@@ -185,6 +185,20 @@ back to memory and it says so loudly, because the failure is silent otherwise.
 Tests drive a resume by passing the state back in (`resume_with` in
 `tests/helpers/contexts.py`), so proving one needs no database at all.
 
+## Routing
+
+Every route is a node returning `Command[Literal[...]]`, and every edge is a
+plain `add_edge`. There are no `add_conditional_edges`: the `Literal` lists a
+node's destinations in its signature, the routing sits next to the decision
+that drives it, and the router is drawn and traced like anything else.
+
+Routing after a subgraph looks like the exception and is not. A subgraph
+cannot route into its parent, so the *parent* decides, but that decision is a
+node like any other (`support_after_tool`), not an edge.
+
+Each graph has one entry node and one named finish, so `START` and `END` have
+a single edge each and nothing reaches past a subgraph's boundary.
+
 ## Graphs and subgraphs
 
 `assistant/graphs/registry.py` is the list of every flow this service runs. A
@@ -227,11 +241,15 @@ Two things this changed that are easy to trip over:
 - **A subgraph's writes reach the parent only when it returns.** The approval
   gate is inside `delivery`, which is why the gate node *ends* the subgraph
   rather than suspending in it: everything the parent and the reviewer need -
-  `guardrail_findings`, `reply_blocked`, the draft - has merged by the time
-  the run stops. A gate that parked mid-subgraph would strand all of it.
-- **A parked subgraph has to stop the parent too.** `route_after_tool` ends
-  the run when `awaiting` is set. Without that the parent carried on and
-  answered a tool call that had not run yet.
+  `guardrail_findings`, the draft, the status - has merged by the time the
+  run stops. A gate that parked mid-subgraph would strand all of it.
+- **A subgraph that stopped has to stop the parent too.** `support_after_tool`
+  ends the run when `tool_run` is `PENDING`. Without that the parent carried
+  on and answered a tool call that had not run yet.
+- **The parent must carry every key its subgraphs write.** A write to a
+  channel the parent does not have is dropped in silence, no error and no
+  warning. `TestTheParentCarriesWhatItsSubgraphsWrite` derives the check from
+  the mixins rather than listing the fields.
 - **The parent seeds the subgraph.** `decide` writes `kb_query` from the
   decision, so retrieval searches for what the decider asked for rather than
   for the whole ticket.

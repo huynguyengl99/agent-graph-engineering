@@ -1,5 +1,6 @@
 """Ticket models."""
 
+from .agent_run import AgentRun
 from .agent_thread import AgentThread
 from .events import (
     AIResponseEvent,
@@ -29,6 +30,7 @@ __all__ = [
     "HandoffEvent",
     "ReasoningEvent",
     "ToolCallEvent",
+    "AgentRun",
     "AgentThread",
     "PendingReply",
     "PendingToolCall",

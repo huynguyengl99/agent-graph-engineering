@@ -585,6 +585,17 @@ const runButtons = page.locator('aside button');
   ? ok(`${await runButtons.count()} run(s) listed in the trace view`)
   : bad('the trace view listed no runs after a full session');
 
+// A stop for a person ends one run and the approval arrives as the next, so
+// one ticket is several runs and the list has to say which belong together.
+const conversations = await page
+  .locator('aside section header')
+  .allInnerTexts();
+conversations.some((heading) => /\b([2-9]|\d\d+) turns\b/.test(heading))
+  ? ok(`runs grouped into ${conversations.length} conversation(s)`)
+  : bad(
+      `no conversation holds more than one turn: ${conversations.join(' | ')}`,
+    );
+
 await runButtons.first().click();
 await page.waitForSelector('section[aria-label="trace"] li', {
   timeout: 20000,

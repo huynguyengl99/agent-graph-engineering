@@ -115,6 +115,19 @@ class TraceStore:
                 total = total + call
         return total
 
+    def threads(self) -> dict[str, list[str]]:
+        """Runs grouped by the thread they belong to, oldest first.
+
+        A run is one question answered, so a conversation is several, and the
+        thread is the only thing that says which. Reading one run tells you
+        what the agent did; reading a thread tells you what it has been
+        doing, which is the question somebody actually arrives with.
+        """
+        grouped: dict[str, list[str]] = defaultdict(list)
+        for run_id in self.runs():
+            grouped[_thread(self.spans(run_id))].append(run_id)
+        return dict(grouped)
+
     def summary(self, run_id: str) -> dict[str, Any]:
         """Enough to pick a run out of a list without opening each one."""
         spans = self.spans(run_id)

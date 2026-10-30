@@ -1,11 +1,13 @@
-/** One run, as the chain of steps it was. */
+/** One run, as the chain of steps it was, under the conversation it belongs to. */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  conversationsOf,
   fetchTrace,
   listRuns,
   type ModelCall,
   type NodeState,
+  type Conversation,
   type RunSummary,
   type Span,
   type Trace,
@@ -52,6 +54,8 @@ export function TracesRoute() {
     };
   }, [selected]);
 
+  const conversations = useMemo(() => conversationsOf(runs), [runs]);
+
   if (error) return <p className="p-8 text-red-600">{error}</p>;
   if (!runs.length)
     return (
@@ -68,33 +72,18 @@ export function TracesRoute() {
         }`}
       >
         <h2 className="border-b px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          {runs.length} run{runs.length === 1 ? '' : 's'}
+          {runs.length} run{runs.length === 1 ? '' : 's'} in{' '}
+          {conversations.length} conversation
+          {conversations.length === 1 ? '' : 's'}
         </h2>
-        <ul>
-          {runs.map((run) => (
-            <li key={run.run_id} className="border-b">
-              <button
-                onClick={() => setSelected(run.run_id)}
-                className={`block w-full px-4 py-2.5 text-left hover:bg-gray-50 ${
-                  selected === run.run_id ? 'bg-indigo-50' : ''
-                }`}
-              >
-                <p className="truncate text-sm">{run.label || run.run_id}</p>
-                <p className="mt-0.5 flex gap-3 text-xs text-gray-500">
-                  <span>{when(run.started_at)}</span>
-                  {run.thread && (
-                    <span className="truncate font-mono">
-                      {run.thread.slice(0, 8)}
-                    </span>
-                  )}
-                  <span>{run.calls} calls</span>
-                  <span>{money(run.cost_usd, run.priced)}</span>
-                  <span>{(run.duration_ms / 1000).toFixed(1)}s</span>
-                </p>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {conversations.map((conversation) => (
+          <Conversation
+            key={conversation.thread}
+            conversation={conversation}
+            selected={selected}
+            onSelect={setSelected}
+          />
+        ))}
       </aside>
 
       <section
@@ -105,6 +94,57 @@ export function TracesRoute() {
         {trace && <Chain spans={trace.spans} />}
       </section>
     </div>
+  );
+}
+
+function Conversation({
+  conversation,
+  selected,
+  onSelect,
+}: {
+  conversation: Conversation;
+  selected: string | null;
+  onSelect: (runId: string) => void;
+}) {
+  const { thread, runs } = conversation;
+  const spent = runs.reduce((total, run) => total + run.cost_usd, 0);
+  const priced = runs.every((run) => run.priced);
+
+  return (
+    <section className="border-b">
+      <header className="flex items-baseline gap-2 bg-gray-50 px-4 py-1.5 text-xs text-gray-500">
+        <span className="truncate font-mono text-gray-700">{thread}</span>
+        <span className="ml-auto shrink-0">
+          {runs.length} turn{runs.length === 1 ? '' : 's'}
+        </span>
+        <span className="shrink-0">{money(spent, priced)}</span>
+      </header>
+      <ul>
+        {runs.map((run, turn) => (
+          <li key={run.run_id} className="border-t">
+            <button
+              onClick={() => onSelect(run.run_id)}
+              className={`flex w-full gap-2 px-4 py-2.5 text-left hover:bg-gray-50 ${
+                selected === run.run_id ? 'bg-indigo-50' : ''
+              }`}
+            >
+              <span className="mt-0.5 shrink-0 text-xs tabular-nums text-gray-400">
+                {turn + 1}
+              </span>
+              <span className="min-w-0">
+                <p className="truncate text-sm">{run.label || run.run_id}</p>
+                <p className="mt-0.5 flex gap-3 text-xs text-gray-500">
+                  <span>{when(run.started_at)}</span>
+                  <span>{run.calls} calls</span>
+                  <span>{money(run.cost_usd, run.priced)}</span>
+                  <span>{(run.duration_ms / 1000).toFixed(1)}s</span>
+                </p>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -48,6 +48,7 @@ from helpdesk.tickets.messages import (
     ToolProposalPayload,
 )
 from helpdesk.tickets.models import (
+    AgentRun,
     AgentThread,
     AIResponseEvent,
     CommentEvent,
@@ -291,6 +292,16 @@ class TicketSink(Sink):
                 ticket_id=self.ticket_id,
                 audience=self.audience,
                 defaults={"awaiting": awaiting, "state": state},
+            )
+            # The thread row is overwritten, so this is the only record of
+            # what the agent knew on each run. The id is the one its tracer
+            # files spans under, which is what joins a row to a trace.
+            AgentRun.objects.create(
+                ticket_id=self.ticket_id,
+                audience=self.audience,
+                run_id=str((state.get("context") or {}).get("run_id") or ""),
+                awaiting=awaiting,
+                state=state,
             )
             if self.card is None:
                 return

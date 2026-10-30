@@ -61,6 +61,27 @@ export interface Trace {
   spans: Span[];
 }
 
+/** A conversation is its runs, oldest first: a stop for a person ends one run
+ *  and the approval arrives as the next, so the turns only read in order. */
+export interface Conversation {
+  thread: string;
+  runs: RunSummary[];
+}
+
+export function conversationsOf(runs: RunSummary[]): Conversation[] {
+  const byThread = new Map<string, RunSummary[]>();
+  for (const run of runs) {
+    const thread = run.thread || run.run_id;
+    const held = byThread.get(thread);
+    if (held) held.push(run);
+    else byThread.set(thread, [run]);
+  }
+  return [...byThread].map(([thread, found]) => ({
+    thread,
+    runs: [...found].reverse(),
+  }));
+}
+
 export async function listRuns(): Promise<RunSummary[]> {
   const response = await fetch('/agent/traces');
   if (!response.ok) throw new Error(`agent returned ${response.status}`);

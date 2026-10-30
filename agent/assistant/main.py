@@ -20,6 +20,7 @@ from assistant.graphs.storage import close_storage, pool, setup_storage
 from assistant.runs import setup_run_events
 from assistant.tools.core.ledger import setup_ledger
 from assistant.tracing import setup_tracing, trace_store
+from assistant.tracing.cost import RunCost
 from assistant.tracing.readable import prepare
 from assistant.ws.hub import AgentHubConsumer
 
@@ -113,6 +114,27 @@ async def list_traced_runs() -> dict[str, list[dict[str, object]]]:
     """Newest first, with enough on each to pick one without opening it."""
     runs = [trace_store.summary(run) for run in trace_store.runs()]
     return {"runs": list(reversed(runs))}
+
+
+@app.get("/threads/{thread_id}", tags=["Observability"])
+async def thread_trace(thread_id: str) -> dict[str, object]:
+    """A whole conversation: its runs in the order they ran, and what it cost.
+
+    A run is one question answered, so this is the view that spans a stop for
+    a person: the run that proposed a refund and the run that carried out the
+    approval are two runs here, under one thread. The backend keeps a state
+    snapshot per run filed under the same run id, so a row there and a run
+    here are the two halves of one turn.
+    """
+    runs = trace_store.threads().get(thread_id, [])
+    total = RunCost()
+    for run in runs:
+        total = total + trace_store.cost(run)
+    return {
+        "thread_id": thread_id,
+        "usage": total.as_dict(),
+        "runs": [trace_store.summary(run) for run in runs],
+    }
 
 
 @app.get("/traces/{run_id}", tags=["Observability"])

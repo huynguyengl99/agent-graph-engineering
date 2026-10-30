@@ -20,7 +20,7 @@ from helpdesk.agent_client.agent_hub_support_topic.messages import (
 from helpdesk.hub.consumer import HubConsumer
 from helpdesk.test_utils.websocket import WebsocketTestCase
 from helpdesk.tickets.factories import TicketFactory
-from helpdesk.tickets.models import AgentThread, PendingReply, Visibility
+from helpdesk.tickets.models import AgentRun, AgentThread, PendingReply, Visibility
 from helpdesk.tickets.services.support import (
     CUSTOMER,
     TEAM,
@@ -147,3 +147,69 @@ class TestTheCardAndTheStateLandTogether(WebsocketTestCase):
 
         assert not await PendingReply.objects.filter(ticket=self.ticket).aexists()
         assert await carried_state(str(self.ticket.id), CUSTOMER) == {}
+
+
+class TestEveryRunIsKept(WebsocketTestCase):
+    """The thread row is overwritten, so on its own it cannot answer what the
+    agent knew when it proposed the refund a reviewer is now reading."""
+
+    consumer = HubConsumer
+    ws_path = "/ws/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.ticket = TicketFactory.create(created_by=self.user)
+
+    async def end_run(self, awaiting: str, state: Any) -> None:
+        await relay(str(self.ticket.id), Visibility.PUBLIC).on_event(
+            RunEndedMessage(
+                payload=RunEndedPayload(
+                    thread_id=str(self.ticket.id), awaiting=awaiting, state=state
+                )
+            )
+        )
+
+    async def runs(self) -> list[AgentRun]:
+        return await sync_to_async(
+            lambda: list(AgentRun.objects.filter(ticket=self.ticket))
+        )()
+
+    async def test_a_second_run_is_kept_beside_the_first(self) -> None:
+        await self.end_run("reply_approval", PARKED)
+        await self.end_run("", {"messages_json": "[]"})
+
+        kept = await self.runs()
+
+        assert [run.awaiting for run in kept] == ["reply_approval", ""]
+        assert kept[0].state == PARKED
+
+    async def test_a_row_says_which_trace_it_belongs_to(self) -> None:
+        """The run id is read out of the state rather than sent alongside it:
+        it is already there, and it is the one the tracer files spans under."""
+        await self.end_run("", {"context": {"run_id": "abc123"}})
+
+        kept = await self.runs()
+
+        assert [run.run_id for run in kept] == ["abc123"]
+
+    async def test_a_run_that_never_said_is_still_kept(self) -> None:
+        """Without a run id the row cannot be joined to a trace, which is a
+        worse row rather than a reason to drop the only record of the run."""
+        await self.end_run("", {"messages_json": "[]"})
+
+        kept = await self.runs()
+
+        assert [run.run_id for run in kept] == [""]
+
+    async def test_a_stop_and_its_resume_are_two_rows_under_one_id(self) -> None:
+        """The decision carries the same context back, so the id is the turn
+        rather than the run: the pair is what a reviewer reads."""
+        await self.end_run("tool_approval", {"context": {"run_id": "abc123"}})
+        await self.end_run("", {"context": {"run_id": "abc123"}})
+
+        kept = await self.runs()
+
+        assert [(run.run_id, run.awaiting) for run in kept] == [
+            ("abc123", "tool_approval"),
+            ("abc123", ""),
+        ]

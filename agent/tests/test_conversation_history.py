@@ -147,3 +147,27 @@ class TestSerialization:
     def test_nothing_remembered_loads_as_nothing(self) -> None:
         assert load_messages("") == []
         assert as_messages([]) == []
+
+
+class TestAMemoryThisVersionCannotRead:
+    """The blob is a cache over the record, and it comes back every turn.
+
+    Raising on it would wedge the thread for good: the same unreadable blob
+    is sent again on the next question, and on every one after that.
+    """
+
+    def test_it_is_dropped_rather_than_raised(self) -> None:
+        assert load_messages('[{"parts": [{"kind": "from-the-future"}]}]') == []
+
+    def test_a_thread_carrying_one_still_answers(self) -> None:
+        graph = SupportGraph()
+        state = SupportState(
+            context=Context(thread_id=THREAD, history=[Turn("user", "Refund it.")]),
+            messages_json='{"not": "messages"}',
+        )
+
+        seeded = graph._history(state)
+
+        assert [type(m).__name__ for m in seeded] == ["ModelRequest"], (
+            "it should fall back to the record the backend sent"
+        )

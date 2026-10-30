@@ -290,9 +290,12 @@ class SupportGraph(AnswerFeed, BaseGraph):
         carries the thread in its prompt instead."""
         if state.context.for_customer:
             return None
-        if state.messages_json:
-            return load_messages(state.messages_json)
-        return as_messages(state.context.history)
+        # `or` rather than `if messages_json`: an unreadable blob loads as
+        # nothing, and falling through to the record is what makes losing it
+        # cost the shape of past tool calls instead of the conversation.
+        return load_messages(state.messages_json) or as_messages(
+            state.context.history
+        )
 
     def route_after_tool(self, state: SupportState) -> str:
         """A method rather than a `Command`, because only a parent can route

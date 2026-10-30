@@ -18,7 +18,6 @@ from assistant.messages.support import (
     ToolApprovalMessage,
     ToolApprovalPayload,
 )
-from assistant.ws.feed import TopicFeed
 from assistant.ws.hub import AgentHubConsumer
 from assistant.ws.topics import SupportTopic
 from chanx.fast_channels.testing import WebsocketCommunicator
@@ -64,7 +63,7 @@ async def test_the_emitter_a_topic_hands_its_graph_reaches_a_subscriber(
     reply = await socket.subscribe(f"support:customer:{TICKET}")
     assert reply["action"] == "subscribed", reply
 
-    emit = TopicFeed(detached_customer_run())
+    emit = detached_customer_run().publish
     await emit(
         AnswerMessage(
             payload=AnswerPayload(
@@ -123,7 +122,7 @@ async def test_the_conversation_topic_carries_its_own_events(
     """Each topic declares its own passthrough list, so each can be wrong alone."""
     await socket.subscribe(f"support:team:{CONVERSATION}")
 
-    emit = TopicFeed(detached_conversation())
+    emit = detached_conversation().publish
     await emit(
         ToolApprovalMessage(
             payload=ToolApprovalPayload(

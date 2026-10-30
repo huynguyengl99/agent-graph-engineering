@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import Any, ClassVar, get_args
 
 import structlog
@@ -24,13 +23,13 @@ from assistant.messages.support import (
     SupportEvent,
     ToolDecisionMessage,
 )
-from assistant.ws.feed import TopicFeed
+from assistant.ws.feed import Publishes
 from assistant.ws.replay import Replays
 
 logger = structlog.get_logger(__name__)
 
 
-class SupportTopic(Replays, Topic[SupportEvent]):
+class SupportTopic(Publishes, Replays, Topic[SupportEvent]):
     """One run, addressed as `support:<audience>:<thread_id>`.
 
     A topic rather than a channel so the run belongs to the thread instead of to
@@ -48,11 +47,6 @@ class SupportTopic(Replays, Topic[SupportEvent]):
     # The nodes broadcast, and an event with no handler is dropped with a log
     # line. Derived from the feed so the two cannot drift.
     passthrough_events: ClassVar[list[type[BaseMessage]]] = list(get_args(SupportEvent))
-
-    @cached_property
-    def feed(self) -> TopicFeed:
-        """How this topic speaks: to its subscribers, and into the log."""
-        return TopicFeed(self)
 
     async def authorize(self, **params: str) -> bool:
         """The socket is already authenticated: only the backend can reach this
@@ -128,7 +122,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         a run that answered still has to say what the thread now remembers.
         """
         final = await self._consume(self._graph(models), state)
-        await self.feed(
+        await self.publish(
             RunEndedMessage(
                 payload=RunEndedPayload(
                     thread_id=self.thread_id,
@@ -226,7 +220,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         """
         return SupportGraph(
             AgentConfig.from_slugs(models.model_dump() if models else None),
-            self.feed,
+            self.publish,
         ).compile()
 
     async def _consume(self, graph: Any, start: Any) -> dict[str, Any]:
@@ -257,7 +251,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         """One event for both audiences. What to do about a dead run - hand the
         ticket to a person, or tell the team their question died - is the
         reader's to decide, and the backend decides it by which lane it is in."""
-        await self.feed(
+        await self.publish(
             RunFailedMessage(
                 payload=RunFailedPayload(
                     thread_id=self.thread_id,

@@ -5,7 +5,7 @@ conversation's - and the generator produced two clients that each knew half of
 what a run does.
 """
 
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from chanx.messages.base import BaseMessage
 from pydantic import BaseModel
@@ -184,6 +184,9 @@ class ChatTokenMessage(BaseMessage):
 
     action: Literal["chat_token"] = "chat_token"
     payload: ChatTokenPayload
+    # One piece of something still being written. Live only: a
+    # replay of half a sentence is worse than not replaying it.
+    replayable: ClassVar[bool] = False
 
 
 class ChatCompletePayload(BaseModel):
@@ -329,6 +332,9 @@ class ReasoningDeltaMessage(BaseMessage):
 
     action: Literal["reasoning_delta"] = "reasoning_delta"
     payload: ReasoningDeltaPayload
+    # One piece of something still being written. Live only: a
+    # replay of half a sentence is worse than not replaying it.
+    replayable: ClassVar[bool] = False
 
 
 class ReasonedPayload(BaseModel):

@@ -17,7 +17,7 @@ from assistant.messages.support import (
     ClassifiedPayload,
 )
 from assistant.runs import MemoryEventStore, install_run_events, run_events
-from assistant.ws.feed import emitter_for
+from assistant.ws.feed import TopicFeed
 from assistant.ws.hub import AgentHubConsumer
 from assistant.ws.topics import SupportTopic
 from chanx.fast_channels.testing import WebsocketCommunicator
@@ -69,7 +69,7 @@ def answered() -> AnswerMessage:
 
 class TestEveryEventIsKept:
     async def test_emitting_records_a_sequence(self) -> None:
-        emit = emitter_for(SupportTopic(NoSocket(), TOPIC))  # type: ignore[arg-type]
+        emit = TopicFeed(SupportTopic(NoSocket(), TOPIC))  # type: ignore[arg-type]
         await emit(classified())
         await emit(answered())
 
@@ -78,9 +78,9 @@ class TestEveryEventIsKept:
         assert [e.action for e in kept] == ["classified", "answer"]
 
     async def test_a_sequence_is_per_run(self) -> None:
-        await emitter_for(SupportTopic(NoSocket(), TOPIC))(classified())  # type: ignore[arg-type]
+        await TopicFeed(SupportTopic(NoSocket(), TOPIC))(classified())  # type: ignore[arg-type]
         other = f"support:customer:{TICKET}-other"
-        await emitter_for(SupportTopic(NoSocket(), other))(classified())  # type: ignore[arg-type]
+        await TopicFeed(SupportTopic(NoSocket(), other))(classified())  # type: ignore[arg-type]
 
         assert [e.seq for e in await run_events().since(other, 0)] == [1]
 
@@ -90,7 +90,7 @@ class TestReplay:
         self, socket: WebsocketCommunicator
     ) -> None:
         """Emitted with nobody subscribed, which is the restart being modelled."""
-        emit = emitter_for(SupportTopic(NoSocket(), TOPIC))  # type: ignore[arg-type]
+        emit = TopicFeed(SupportTopic(NoSocket(), TOPIC))  # type: ignore[arg-type]
         await emit(classified())
         await emit(answered())
 
@@ -112,7 +112,7 @@ class TestReplay:
         front of a reviewer, and a run holding a gate nobody was told about
         leaves the ticket looking idle for good."""
         topic = SupportTopic(NoSocket(), TOPIC)  # type: ignore[arg-type]
-        await emitter_for(topic)(
+        await TopicFeed(topic)(
             ApprovalRequiredMessage(
                 payload=ApprovalRequiredPayload(
                     ticket_id=topic.thread_id,
@@ -134,7 +134,7 @@ class TestReplay:
     async def test_asking_from_a_sequence_skips_what_was_handled(
         self, socket: WebsocketCommunicator
     ) -> None:
-        emit = emitter_for(SupportTopic(NoSocket(), TOPIC))  # type: ignore[arg-type]
+        emit = TopicFeed(SupportTopic(NoSocket(), TOPIC))  # type: ignore[arg-type]
         await emit(classified())
         await emit(answered())
 
@@ -149,7 +149,7 @@ class TestReplay:
     async def test_nothing_missed_sends_nothing(
         self, socket: WebsocketCommunicator
     ) -> None:
-        await emitter_for(SupportTopic(NoSocket(), TOPIC))(classified())  # type: ignore[arg-type]
+        await TopicFeed(SupportTopic(NoSocket(), TOPIC))(classified())  # type: ignore[arg-type]
 
         await socket.subscribe(TOPIC)
         await socket.send_message(

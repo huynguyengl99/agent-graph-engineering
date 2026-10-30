@@ -75,7 +75,6 @@ class BaseGraph:
                         thread_id=context.thread_id, step=step, delta=delta
                     )
                 ),
-                replayable=False,
             )
 
         output = await agent.run_aloud(prompt, context, history, on_delta=aloud)

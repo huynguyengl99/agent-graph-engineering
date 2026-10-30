@@ -37,7 +37,7 @@ async def run(context: Context) -> tuple[list[str], dict[str, Any]]:
     """
     deltas: list[str] = []
 
-    async def emit(event: Any, *, replayable: bool = True) -> None:
+    async def emit(event: Any, /) -> None:
         if event.action == "chat_token":
             deltas.append(event.payload.delta)
 

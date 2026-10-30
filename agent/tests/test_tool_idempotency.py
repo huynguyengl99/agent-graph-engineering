@@ -161,3 +161,36 @@ class TestNormalRuns:
         assert "Annual Pro" in done["result"]
         assert isinstance(ledger(), MemoryLedger)
         assert ledger().rows == {}, "nothing irreversible happened"
+
+
+class TestTwoTurnsOnOneTicket:
+    """A key naming the position in the graph is identical on every turn of a
+    thread, so a reviewer approving a second refund claims the first one's
+    row: nothing runs, and the run reports the first receipt as though the
+    money had moved. The key is the run's id for exactly this reason."""
+
+    async def test_a_second_refund_actually_runs(self) -> None:
+        install_ledger(MemoryLedger())
+
+        first = await park("t-two-turns")
+        done = await first[0].ainvoke(
+            resume_with(first[2], tool_run=ToolRun.APPROVED), config=first[1]
+        )
+        assert "Refunded £29.00" in done["result"]
+
+        # A new turn on the same ticket, so a new context and a new run id.
+        second = await park("t-two-turns")
+        again = await second[0].ainvoke(
+            resume_with(
+                second[2],
+                tool_run=ToolRun.APPROVED,
+                arguments={
+                    "email": "demo@example.com",
+                    "amount": 50.0,
+                    "reason": "A second duplicate",
+                },
+            ),
+            config=second[1],
+        )
+
+        assert "Refunded £50.00" in again["result"]

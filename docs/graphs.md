@@ -154,8 +154,9 @@ Underneath, `@wrap_tool` refuses an approval-marked tool that arrives without
 Approval is not the end of the risk. A process killed mid-refund leaves the
 backend holding the state the run started from, so the redelivered decision
 re-enters the graph, reaches that node again and refunds twice. A ledger keyed on
-the run and the node claims the call before it is made and records the result
-after, so the second attempt returns the first one's result. If the process dies between those two, nobody can know
+the run's own id and the tool claims the call before it is made and records the
+result after, so the second attempt returns the first one's result while a
+refund asked for later, in a new run, goes through. If the process dies between those two, nobody can know
 whether the money moved, so the run says exactly that and asks a person to check
 rather than guessing.
 

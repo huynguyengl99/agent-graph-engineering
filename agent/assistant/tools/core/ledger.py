@@ -5,9 +5,11 @@ the backend holds is the one the run started from, so a redelivered decision
 re-enters the graph and reaches the refund node a second time. Verified, not
 assumed.
 
-`checkpoint_ns` names the node within the run and is stable across that retry,
-so thread plus namespace names one logical execution, and the claim is kept in
-the agent's own Postgres so it survives the restart.
+What makes two attempts the same call is the run they belong to. The run id is
+minted when a turn arrives and comes back whole with a reviewer's decision, so
+a redelivered decision claims the key its interrupted attempt made, while a
+second refund somebody genuinely asked for is a new turn, a new id and a new
+key. The claim is kept in the agent's own Postgres so it survives the restart.
 
 The honest limit: if the process dies between claiming and recording, nobody
 knows whether the call went through. That is reported rather than guessed, so a
@@ -19,7 +21,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import structlog
-from langgraph.config import get_config
 
 logger = structlog.get_logger(__name__)
 
@@ -50,22 +51,15 @@ class Claim:
         return not self.fresh and not self.settled
 
 
-def execution_key(tool: str) -> str | None:
-    """None outside a graph run, where there is nothing to be idempotent about."""
-    try:
-        configurable = get_config().get("configurable") or {}
-    except RuntimeError:
-        return None
+def execution_key(run_id: str, tool: str) -> str | None:
+    """None when a run has no id, where there is nothing to tie attempts to.
 
-    thread = configurable.get("thread_id")
-    namespace = configurable.get("checkpoint_ns") or ""
-    if not thread:
-        return None
-    # "node:task-uuid", and the uuid is minted per invocation: keep it and
-    # every retry gets a key of its own, which is the one thing that must not
-    # happen here.
-    node = namespace.split(":", 1)[0]
-    return f"{thread}:{node}:{tool}"
+    Not `checkpoint_ns`, which names the position in the graph: stable across
+    a retry, which is half of what a key needs, and identical for every turn
+    on one thread, which is the other half wrong. A reviewer's second refund
+    on a ticket would claim the first one's row and never run.
+    """
+    return f"{run_id}:{tool}" if run_id else None
 
 
 class ToolLedger:

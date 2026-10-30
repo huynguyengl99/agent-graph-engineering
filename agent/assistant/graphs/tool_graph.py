@@ -184,7 +184,7 @@ class ToolGraph(BaseGraph):
         re-enters the graph and arrives here again, so without the ledger an
         interrupted refund refunds twice.
         """
-        key = execution_key(state.tool)
+        key = execution_key(state.context.run_id, state.tool)
         if key is None:
             return await self._call(state, arguments)
 

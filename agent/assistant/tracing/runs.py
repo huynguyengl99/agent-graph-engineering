@@ -30,6 +30,27 @@ def run_span(name: str, run_key: str, thread: str) -> Iterator[None]:
         yield
 
 
+# The statuses a run cannot have arrived with unless a person answered first.
+_DECIDED = {"approved", "cancelled", "rejected"}
+
+
+def _carries_a_decision(state: Any) -> bool:
+    """Whether this run is somebody's answer to one that stopped.
+
+    Read off the work, like every other router here: there is no flag saying
+    a run is a resume, and adding one just to label a span would be a second
+    place to keep in step.
+    """
+
+    def read(field: str) -> str:
+        value = (
+            state.get(field) if isinstance(state, dict) else getattr(state, field, None)
+        )
+        return str(value or "")
+
+    return any(read(field) in _DECIDED for field in ("tool_run", "reply_run"))
+
+
 class TracedRun:
     """A compiled graph that opens its run's root span however it is driven.
 
@@ -51,10 +72,7 @@ class TracedRun:
         a tree because the key comes from the ticket rather than from the run.
         The label distinguishes them for whoever reads the trace.
         """
-        resuming = getattr(state, "resuming", None) or (
-            state.get("resuming") if isinstance(state, dict) else None
-        )
-        label = "run resumed" if resuming else "run"
+        label = "run resumed" if _carries_a_decision(state) else "run"
         return f"{self.name} {label}", state_key(state)
 
     async def ainvoke(self, state: Any, config: Any = None, **kwargs: Any) -> Any:

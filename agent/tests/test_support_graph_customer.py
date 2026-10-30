@@ -1,5 +1,6 @@
 from assistant.agents import Audience, Context
 from assistant.graphs.states import SupportState
+from assistant.graphs.states.base import ToolRun
 from assistant.graphs.support_graph import SupportGraph, _route_for
 from assistant.outputs.support import Escalate, RunTool, SearchKnowledgeBase
 
@@ -81,7 +82,7 @@ async def test_an_ordinary_reply_is_sent_without_a_person() -> None:
             .ainvoke({"context": ticket()}, config=config(thread))
         )
 
-    assert not state.get("awaiting")
+    assert state.get("tool_run", "") != ToolRun.CANCELLED
     assert "Reply queued" in state["delivery_receipt"]
 
 
@@ -108,7 +109,7 @@ async def test_a_flagged_ticket_stops_for_one() -> None:
             .ainvoke({"context": flagged}, config=config(thread))
         )
 
-    assert state["awaiting"] == "reply_approval"
+    assert state["reply_run"] == "pending"
     assert not state.get("delivery_receipt")
 
 
@@ -134,7 +135,7 @@ async def test_escalation_skips_the_answer_agent() -> None:
     # It still reaches the customer, by the one route out. Holding "a colleague
     # is picking this up" behind that colleague helps nobody.
     assert state["delivery_receipt"]
-    assert not state.get("awaiting")
+    assert state.get("tool_run", "") != ToolRun.CANCELLED
 
 
 async def test_classification_is_typed_not_parsed() -> None:

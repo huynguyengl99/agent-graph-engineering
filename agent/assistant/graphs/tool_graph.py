@@ -10,7 +10,7 @@ from assistant.agents.planner import ToolPlannerAgent
 from assistant.events import Emitter, silent
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.states import ToolState, Update
-from assistant.graphs.states.base import Resuming
+from assistant.graphs.states.base import ToolRun
 from assistant.messages.support import ToolApprovalMessage, ToolApprovalPayload
 from assistant.outputs.tools import ToolProposal
 from assistant.tools.core import (
@@ -132,7 +132,7 @@ class ToolGraph(BaseGraph):
                 )
             )
         )
-        return Command(update={"awaiting": Resuming.TOOL_APPROVAL}, goto="tool_await")
+        return Command(update={"tool_run": ToolRun.PENDING}, goto="tool_await")
 
     async def tool_await(self, state: ToolState) -> ToolState:
         """Where the run stops while a person decides.
@@ -144,16 +144,31 @@ class ToolGraph(BaseGraph):
         """
         return state
 
-    def entry(self, state: ToolState) -> str:
-        """Where a run enters this graph.
+    async def tool_start(
+        self, state: ToolState
+    ) -> Command[Literal["tool_plan", "tool_execute", "tool_done"]]:
+        """Where a run enters this graph, and the whole of the resume.
 
-        A fresh run plans a tool. A run carrying an approved gate skips
-        straight to running it, because the planning already happened in the
-        run that stopped.
+        There is no flag saying "this is a resume". `tool_run` says how far
+        the call got, and that is enough: a proposal a person has answered
+        comes back approved or cancelled, so planning it again would be
+        redoing work somebody already reviewed.
         """
-        if state.resuming is Resuming.TOOL_APPROVAL:
-            return "tool_execute" if state.approved else "__end__"
-        return "tool_plan"
+        match state.tool_run:
+            case ToolRun.APPROVED:
+                return Command(goto="tool_execute")
+            case ToolRun.CANCELLED:
+                return Command(goto="tool_done")
+            case _:
+                return Command(goto="tool_plan")
+
+    async def tool_done(self, state: ToolState) -> ToolState:
+        """One exit, whatever happened inside.
+
+        It changes nothing on the way past: `tool_run` already says which of
+        the three endings this was, and the parent needs all three apart.
+        """
+        return state
 
     async def tool_execute(self, state: ToolState) -> Update:
         """The call itself."""
@@ -189,7 +204,7 @@ class ToolGraph(BaseGraph):
 
         claim = await ledger().claim(key, state.tool, arguments)
         if claim.settled:
-            return {"result": str(claim.result)}
+            return {"result": str(claim.result), "tool_run": ToolRun.DONE}
         if claim.unknown:
             return {
                 "tool_error": (
@@ -216,7 +231,7 @@ class ToolGraph(BaseGraph):
 
         match outcome:
             case Succeeded(result=result):
-                return {"result": str(result)}
+                return {"result": str(result), "tool_run": ToolRun.DONE}
             case Failed(user_error=user_error):
                 return {"tool_error": user_error}
 
@@ -224,22 +239,21 @@ class ToolGraph(BaseGraph):
 
     def nodes(self) -> dict[str, Node]:
         return {
+            "tool_start": self.tool_start,
             "tool_plan": self.tool_plan,
             "tool_gate": self.tool_gate,
             "tool_await": self.tool_await,
             "tool_execute": self.tool_execute,
+            "tool_done": self.tool_done,
         }
 
     def build(self) -> StateGraph[ToolState, None, ToolState, ToolState]:
         graph: StateGraph[ToolState, None, ToolState, ToolState] = StateGraph(ToolState)
         self.add_nodes(graph)
 
-        graph.add_conditional_edges(
-            START,
-            self.entry,
-            {"tool_plan": "tool_plan", "tool_execute": "tool_execute", "__end__": END},
-        )
-        graph.add_edge("tool_execute", END)
-        graph.add_edge("tool_await", END)
+        graph.add_edge(START, "tool_start")
+        graph.add_edge("tool_execute", "tool_done")
+        graph.add_edge("tool_await", "tool_done")
+        graph.add_edge("tool_done", END)
 
         return graph

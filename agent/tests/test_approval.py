@@ -6,6 +6,7 @@ these tickets are written to do.
 """
 
 from assistant.agents import Context
+from assistant.graphs.states.base import ReplyRun
 from assistant.graphs.support_graph import SupportGraph
 
 from tests.helpers.contexts import resume_with, ticket_context
@@ -54,7 +55,7 @@ async def start(thread: str) -> dict:
 async def test_run_pauses_and_surfaces_the_draft() -> None:
     state = await start("pause")
 
-    assert state["awaiting"] == "reply_approval"
+    assert state["reply_run"] == "pending"
     assert state["answer"].content == DRAFT
     # Nothing was sent while the graph is parked.
     assert not state.get("delivery_receipt")
@@ -67,10 +68,12 @@ async def test_approval_sends_the_reply() -> None:
     state = (
         await SupportGraph()
         .compile()
-        .ainvoke(resume_with(parked, approval_granted=True), config=config(thread))
+        .ainvoke(
+            resume_with(parked, reply_run=ReplyRun.APPROVED), config=config(thread)
+        )
     )
 
-    assert state["approval_granted"] is True
+    assert state["reply_run"] == ReplyRun.SENT
     assert "Reply queued" in state["delivery_receipt"]
 
 
@@ -81,10 +84,12 @@ async def test_rejection_leaves_the_customer_untouched() -> None:
     state = (
         await SupportGraph()
         .compile()
-        .ainvoke(resume_with(parked, approval_granted=False), config=config(thread))
+        .ainvoke(
+            resume_with(parked, reply_run=ReplyRun.REJECTED), config=config(thread)
+        )
     )
 
-    assert state["approval_granted"] is False
+    assert state["reply_run"] == ReplyRun.REJECTED
     # The irreversible node never ran.
     assert not state.get("delivery_receipt")
 
@@ -100,7 +105,7 @@ async def test_reviewer_can_edit_before_sending() -> None:
         .ainvoke(
             resume_with(
                 parked,
-                approval_granted=True,
+                reply_run=ReplyRun.APPROVED,
                 answer={**parked["answer"].model_dump(), "content": edited},
             ),
             config=config(thread),
@@ -121,6 +126,8 @@ async def test_resume_finds_the_run_without_replaying_the_llm() -> None:
     state = (
         await SupportGraph()
         .compile()
-        .ainvoke(resume_with(parked, approval_granted=True), config=config(thread))
+        .ainvoke(
+            resume_with(parked, reply_run=ReplyRun.APPROVED), config=config(thread)
+        )
     )
     assert state["delivery_receipt"] is not None

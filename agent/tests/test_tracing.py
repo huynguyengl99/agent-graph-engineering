@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from assistant.graphs.states.base import ReplyRun
 from assistant.graphs.support_graph import SupportGraph
 from assistant.tracing import setup_tracing, trace_store
 
@@ -133,7 +134,9 @@ async def test_resuming_after_approval_extends_the_same_ticket_trace() -> None:
     await (
         SupportGraph()
         .compile()
-        .ainvoke(resume_with(parked, approval_granted=True), config=config("t-resume"))
+        .ainvoke(
+            resume_with(parked, reply_run=ReplyRun.APPROVED), config=config("t-resume")
+        )
     )
 
     flat = names(trace_store.tree(run_key))

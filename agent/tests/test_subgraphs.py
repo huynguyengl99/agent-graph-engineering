@@ -16,6 +16,7 @@ from assistant.agents import (
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import KnowledgeGraph
 from assistant.graphs.limits import KB_MAX_ATTEMPTS
+from assistant.graphs.states.base import ReplyRun
 from assistant.graphs.support_graph import SupportGraph
 
 from tests.helpers.contexts import FLAGGED, resume_with, ticket_context
@@ -115,8 +116,8 @@ class TestApprovalThroughASubgraph:
             config=config,
         )
 
-        assert state["awaiting"], "the run should be parked, not finished"
-        assert state["awaiting"] == "reply_approval"
+        assert not state.get("delivery_receipt"), "it should have stopped, not sent"
+        assert state["reply_run"] == "pending"
         assert not state.get("delivery_receipt")
 
     async def test_resume_reaches_the_interrupt_one_level_down(self) -> None:
@@ -128,11 +129,11 @@ class TestApprovalThroughASubgraph:
             config=config,
         )
         state = await graph.ainvoke(
-            resume_with(parked, approval_granted=True), config=config
+            resume_with(parked, reply_run=ReplyRun.APPROVED), config=config
         )
 
         assert state["delivery_receipt"], "approving must reach send_reply"
-        assert state["approval_granted"] is True
+        assert state["reply_run"] == ReplyRun.SENT
 
     async def test_rejecting_inside_the_subgraph_sends_nothing(self) -> None:
         graph = await self.build()
@@ -143,11 +144,11 @@ class TestApprovalThroughASubgraph:
             config=config,
         )
         state = await graph.ainvoke(
-            resume_with(parked, approval_granted=False), config=config
+            resume_with(parked, reply_run=ReplyRun.REJECTED), config=config
         )
 
         assert not state.get("delivery_receipt")
-        assert state["approval_granted"] is False
+        assert state["reply_run"] == ReplyRun.REJECTED
 
     async def test_an_edit_made_at_the_gate_is_what_gets_sent(self) -> None:
         graph = await self.build()
@@ -161,7 +162,7 @@ class TestApprovalThroughASubgraph:
         state = await graph.ainvoke(
             resume_with(
                 parked,
-                approval_granted=True,
+                reply_run=ReplyRun.APPROVED,
                 answer={**parked["answer"].model_dump(), "content": edited},
             ),
             config=config,

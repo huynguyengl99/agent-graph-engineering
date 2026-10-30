@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
@@ -6,7 +6,7 @@ from langgraph.types import Command
 from assistant.graphs.base import BaseGraph
 from assistant.graphs.feed import AnswerFeed
 from assistant.graphs.states import DeliveryState, Update
-from assistant.graphs.states.base import Resuming
+from assistant.graphs.states.base import ReplyRun
 from assistant.guardrails import screen_reply
 from assistant.messages.support import (
     ApprovalRequiredMessage,
@@ -37,7 +37,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     async def delivery_screen(
         self, state: DeliveryState
-    ) -> Command[Literal["delivery_approval", "delivery_send", "__end__"]]:
+    ) -> Command[Literal["delivery_approval", "delivery_send", "delivery_done"]]:
         """The machine check before the human one: a blocked draft never
         reaches the gate."""
         answer = state.answer
@@ -56,11 +56,14 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
                 )
             )
             return Command(
-                update={"guardrail_findings": findings, "reply_blocked": True},
-                goto="__end__",
+                update={
+                    "guardrail_findings": findings,
+                    "reply_run": ReplyRun.BLOCKED,
+                },
+                goto="delivery_done",
             )
 
-        update = {"guardrail_findings": findings, "reply_blocked": False}
+        update: dict[str, Any] = {"guardrail_findings": findings}
         waiting = self.needs_a_person(
             state.model_copy(update={"guardrail_findings": findings})
         )
@@ -87,19 +90,32 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
                 )
             )
         )
-        return Command(
-            update={"awaiting": Resuming.REPLY_APPROVAL}, goto="delivery_await"
-        )
+        return Command(update={"reply_run": ReplyRun.PENDING}, goto="delivery_await")
 
     async def delivery_await(self, state: DeliveryState) -> DeliveryState:
         """Where the run stops while a reviewer reads the draft."""
         return state
 
-    def entry(self, state: DeliveryState) -> str:
-        """A fresh run screens the draft. A resumed one already has a verdict."""
-        if state.resuming is not Resuming.REPLY_APPROVAL:
-            return "delivery_screen"
-        return "delivery_send" if state.approval_granted else "__end__"
+    async def delivery_start(
+        self, state: DeliveryState
+    ) -> Command[Literal["delivery_screen", "delivery_send", "delivery_done"]]:
+        """Where a run enters, and the whole of the resume.
+
+        A draft nobody has looked at gets screened. One a reviewer has
+        answered carries their verdict, so screening it again would ask the
+        guard a question it already answered.
+        """
+        match state.reply_run:
+            case ReplyRun.APPROVED:
+                return Command(goto="delivery_send")
+            case ReplyRun.REJECTED:
+                return Command(goto="delivery_done")
+            case _:
+                return Command(goto="delivery_screen")
+
+    async def delivery_done(self, state: DeliveryState) -> DeliveryState:
+        """One exit, whatever happened inside."""
+        return state
 
     async def delivery_send(self, state: DeliveryState) -> Update:
         """The irreversible step."""
@@ -117,7 +133,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
                 )
             )
         )
-        return {"delivery_receipt": receipt}
+        return {"delivery_receipt": receipt, "reply_run": ReplyRun.SENT}
 
     def needs_a_person(self, state: DeliveryState) -> bool:
         """Whether a person reads this before the customer does.
@@ -135,10 +151,12 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     def nodes(self) -> dict[str, Node]:
         return {
+            "delivery_start": self.delivery_start,
             "delivery_screen": self.delivery_screen,
             "delivery_approval": self.delivery_approval,
             "delivery_await": self.delivery_await,
             "delivery_send": self.delivery_send,
+            "delivery_done": self.delivery_done,
         }
 
     def build(self) -> StateGraph[DeliveryState, None, DeliveryState, DeliveryState]:
@@ -147,16 +165,9 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
         )
         self.add_nodes(graph)
 
-        graph.add_conditional_edges(
-            START,
-            self.entry,
-            {
-                "delivery_screen": "delivery_screen",
-                "delivery_send": "delivery_send",
-                "__end__": END,
-            },
-        )
-        graph.add_edge("delivery_send", END)
-        graph.add_edge("delivery_await", END)
+        graph.add_edge(START, "delivery_start")
+        graph.add_edge("delivery_send", "delivery_done")
+        graph.add_edge("delivery_await", "delivery_done")
+        graph.add_edge("delivery_done", END)
 
         return graph

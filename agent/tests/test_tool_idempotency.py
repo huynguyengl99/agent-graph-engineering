@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
+from assistant.graphs.states.base import ToolRun
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.tools.core import get_tool
 from assistant.tools.core.ledger import MemoryLedger, install_ledger, ledger
@@ -75,7 +76,7 @@ class TestCrashMidCall:
             "assistant.graphs.tool_graph.get_tool", lambda _id: crashing
         )
 
-        approve = resume_with(parked, approved=True)
+        approve = resume_with(parked, tool_run=ToolRun.APPROVED)
         with pytest.raises(RuntimeError):
             await compiled.ainvoke(approve, config=config)
 
@@ -95,7 +96,7 @@ class TestCrashMidCall:
             "assistant.graphs.tool_graph.get_tool", lambda _id: Crashing()
         )
 
-        approve = resume_with(parked, approved=True)
+        approve = resume_with(parked, tool_run=ToolRun.APPROVED)
         with pytest.raises(RuntimeError):
             await compiled.ainvoke(approve, config=config)
         done = await compiled.ainvoke(approve, config=config)
@@ -108,7 +109,9 @@ class TestNormalRuns:
     async def test_an_uninterrupted_approval_still_runs(self) -> None:
         compiled, config, parked = await park("t-fine")
 
-        done = await compiled.ainvoke(resume_with(parked, approved=True), config=config)
+        done = await compiled.ainvoke(
+            resume_with(parked, tool_run=ToolRun.APPROVED), config=config
+        )
 
         assert "Refunded £29.00" in done["result"]
 
@@ -120,7 +123,7 @@ class TestNormalRuns:
         await compiled.ainvoke(
             resume_with(
                 parked,
-                approved=True,
+                tool_run=ToolRun.APPROVED,
                 arguments={
                     "email": "demo@example.com",
                     "amount": 10_000.0,

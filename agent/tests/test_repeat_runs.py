@@ -11,7 +11,7 @@ from typing import Any
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.conversations import dump_messages
 from assistant.graphs.states import SupportState
-from assistant.graphs.states.base import Resuming
+from assistant.graphs.states.base import ReplyRun
 from assistant.graphs.support_graph import SupportGraph
 from assistant.messages.support import RunRequestPayload
 from assistant.ws.topics import SupportTopic
@@ -48,9 +48,7 @@ async def first_run() -> dict[str, Any]:
     graph = SupportGraph(scripted()).compile()
     parked = await graph.ainvoke(SupportState(context=context()))
     sent = await graph.ainvoke(
-        SupportState.model_validate(
-            {**parked, "resuming": Resuming.REPLY_APPROVAL, "approval_granted": True}
-        )
+        SupportState.model_validate({**parked, "reply_run": ReplyRun.APPROVED})
     )
     return SupportState.model_validate(sent).model_dump(mode="json")
 
@@ -68,8 +66,8 @@ async def test_a_second_question_starts_clean() -> None:
     fresh = Detached()._turn(ask(finished), context())
 
     assert not fresh.delivery_receipt, "the new turn inherited the last reply"
-    assert not fresh.approval_granted
-    assert fresh.awaiting is Resuming.NOTHING
+    assert fresh.reply_run is ReplyRun.NONE
+    assert fresh.reply_run is ReplyRun.NONE
 
 
 async def test_a_second_question_still_remembers_the_thread() -> None:
@@ -94,9 +92,7 @@ async def test_a_decision_keeps_everything_the_run_had() -> None:
         await graph.ainvoke(SupportState(context=context()))
     ).model_dump(mode="json")
 
-    resumed = Detached()._continue(
-        parked, resuming=Resuming.REPLY_APPROVAL, approval_granted=True
-    )
+    resumed = Detached()._continue(parked, reply_run=ReplyRun.APPROVED)
 
     assert resumed.answer == SupportState.model_validate(parked).answer
-    assert resumed.approval_granted is True
+    assert resumed.reply_run is ReplyRun.APPROVED

@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from assistant.agents import AgentConfig, Audience, Context, ModelConfig, ModelPurpose
 from assistant.graphs.states import ToolState
+from assistant.graphs.states.base import ToolRun
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.tools.core import (
     ApprovalRequiredError,
@@ -76,25 +77,27 @@ async def propose(
 class TestApprovalGate:
     async def test_an_irreversible_tool_parks_before_running(self) -> None:
         _, parked, _ = await propose("t-park", REFUND)
-        assert parked["awaiting"] == "tool_approval"
+        assert parked["tool_run"] == "pending"
         assert parked["tool"] == "issue_refund"
         assert parked["arguments"]["amount"] == 29.0
         assert parked.get("result") in ("", None), "nothing may run before the gate"
 
     async def test_approving_runs_it(self) -> None:
         compiled, parked, config = await propose("t-approve", REFUND)
-        done = await compiled.ainvoke(resume_with(parked, approved=True), config=config)
+        done = await compiled.ainvoke(
+            resume_with(parked, tool_run=ToolRun.APPROVED), config=config
+        )
 
         assert "Refunded £29.00" in done["result"]
 
     async def test_cancelling_runs_nothing(self) -> None:
         compiled, parked, config = await propose("t-cancel", REFUND)
         done = await compiled.ainvoke(
-            resume_with(parked, approved=False, cancelled=True), config=config
+            resume_with(parked, tool_run=ToolRun.CANCELLED), config=config
         )
 
         assert done.get("result") in ("", None)
-        assert done["cancelled"] is True
+        assert done["tool_run"] == ToolRun.CANCELLED
 
     async def test_a_correction_is_what_actually_runs(self) -> None:
         """The reviewer's number, not the model's."""
@@ -102,7 +105,7 @@ class TestApprovalGate:
         done = await compiled.ainvoke(
             resume_with(
                 parked,
-                approved=True,
+                tool_run=ToolRun.APPROVED,
                 arguments={
                     "email": "demo@example.com",
                     "amount": 9.0,
@@ -118,7 +121,7 @@ class TestApprovalGate:
     async def test_a_read_only_tool_skips_the_gate(self) -> None:
         _, done, _ = await propose("t-readonly", LOOKUP)
 
-        assert not done.get("awaiting")
+        assert done.get("tool_run") != ToolRun.CANCELLED
         assert "Annual Pro" in done["result"]
 
 
@@ -142,7 +145,7 @@ class TestFailingClosed:
             ),
         )
 
-        assert not done.get("awaiting")
+        assert done.get("tool_run") != ToolRun.CANCELLED
         assert "No such tool" in done["tool_error"]
 
     @pytest.mark.parametrize("amount", [0, -5, 10_000])
@@ -195,7 +198,9 @@ class TestMisnamedArguments:
     ) -> None:
         """Approval is not a licence to call the tool with a hole in it."""
         compiled, parked, config = await propose("t-missing", self.MISNAMED)
-        done = await compiled.ainvoke(resume_with(parked, approved=True), config=config)
+        done = await compiled.ainvoke(
+            resume_with(parked, tool_run=ToolRun.APPROVED), config=config
+        )
 
         assert done.get("result") in ("", None)
         assert "email" in done["tool_error"]
@@ -207,7 +212,7 @@ class TestMisnamedArguments:
         done = await compiled.ainvoke(
             resume_with(
                 parked,
-                approved=True,
+                tool_run=ToolRun.APPROVED,
                 arguments={
                     "email": "demo@example.com",
                     "amount": 29.0,

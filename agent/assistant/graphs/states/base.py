@@ -15,29 +15,36 @@ from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
 
 
-class Resuming(StrEnum):
-    """Which pause this run is picking up, if any.
+class ToolRun(StrEnum):
+    """How far a tool call has got.
 
-    A run ends at a gate rather than suspending inside it, so resuming is a
-    new run carrying the state the last one finished with. This says which
-    entry it should take instead of starting from the top.
+    Where the entry router reads from, so a run that comes back carrying a
+    reviewer's answer needs nothing else to say so: `PENDING` means a person
+    is still holding it, and anything past that is their answer.
     """
 
-    NOTHING = ""
-    TOOL_APPROVAL = "tool_approval"
-    REPLY_APPROVAL = "reply_approval"
+    NONE = ""
+    PENDING = "pending"
+    APPROVED = "approved"
+    CANCELLED = "cancelled"
+    DONE = "done"
+
+
+class ReplyRun(StrEnum):
+    """The same, for a drafted reply on its way to a customer."""
+
+    NONE = ""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    SENT = "sent"
+    BLOCKED = "blocked"
 
 
 class BaseState(BaseModel):
     """Every graph is handed what the run is about."""
 
     context: Context
-    # Set by the backend when it sends a reviewer's answer back, read by the
-    # entry router of whichever graph owns that gate.
-    resuming: Resuming = Resuming.NOTHING
-    # Set by a gate on its way out, so the caller knows the run stopped for a
-    # person rather than finishing.
-    awaiting: Resuming = Resuming.NOTHING
 
 
 class Knowledge(BaseModel):
@@ -54,9 +61,8 @@ class Tools(BaseModel):
     tool: str = ""
     arguments: Annotated[dict[str, Any], last_wins] = {}
     unknown_arguments: list[str] = []
-    approved: bool = False
+    tool_run: ToolRun = ToolRun.NONE
     corrected: bool = False
-    cancelled: bool = False
     result: str = ""
     tool_error: str = ""
 
@@ -68,6 +74,5 @@ class Delivery(BaseModel):
     # who reads the message first: a person has already been sent for.
     escalation_reason: str = ""
     guardrail_findings: Annotated[list[str], last_wins] = []
-    reply_blocked: bool = False
-    approval_granted: bool = False
+    reply_run: ReplyRun = ReplyRun.NONE
     delivery_receipt: str = ""

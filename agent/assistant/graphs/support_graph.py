@@ -20,7 +20,7 @@ from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.feed import AnswerFeed
 from assistant.graphs.knowledge_graph import KnowledgeGraph
 from assistant.graphs.states import SupportState, Update
-from assistant.graphs.states.base import Resuming
+from assistant.graphs.states.base import ReplyRun, ToolRun
 from assistant.graphs.tool_graph import ToolGraph
 from assistant.guardrails import screen_input
 from assistant.messages.support import (
@@ -100,16 +100,13 @@ class SupportGraph(AnswerFeed, BaseGraph):
         stopped for them. Its own entry router then skips the work the paused
         run already did, so nothing is classified, decided or drafted twice.
         """
-        # Clearing `awaiting` is what lets the run past the gate it stopped
-        # at: the carried state still says it is waiting, and every router
-        # after the subgraph reads that as a reason to stop.
-        match state.resuming:
-            case Resuming.TOOL_APPROVAL:
-                return Command(update={"awaiting": Resuming.NOTHING}, goto="tool")
-            case Resuming.REPLY_APPROVAL:
-                return Command(update={"awaiting": Resuming.NOTHING}, goto="delivery")
-            case _:
-                pass
+        # Nothing to clear on the way in. A reviewer's answer is already on
+        # the state as the status of the work they answered about, so the
+        # subgraph that stopped is the one that knows what to do with it.
+        if state.tool_run in (ToolRun.APPROVED, ToolRun.CANCELLED):
+            return Command(goto="tool")
+        if state.reply_run in (ReplyRun.APPROVED, ReplyRun.REJECTED):
+            return Command(goto="delivery")
         # Only a customer's ticket is graded; the team's question is not one.
         return Command(
             goto="support_classify" if state.context.for_customer else "support_decide"
@@ -213,7 +210,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
                     arguments=state.arguments or {},
                     result=state.result or "",
                     error=state.tool_error or "",
-                    cancelled=bool(state.cancelled),
+                    cancelled=state.tool_run is ToolRun.CANCELLED,
                 )
             )
         )
@@ -279,7 +276,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
                     "\nA reviewer changed the arguments before approving. That "
                     "is the decision, not a mistake: report what ran."
                 )
-        elif state.cancelled:
+        elif state.tool_run is ToolRun.CANCELLED:
             prompt += "\n\nThe action was cancelled by a reviewer. Say so plainly."
         elif state.tool_error:
             prompt += f"\n\nA tool failed:\n{state.tool_error}"
@@ -293,9 +290,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
         # `or` rather than `if messages_json`: an unreadable blob loads as
         # nothing, and falling through to the record is what makes losing it
         # cost the shape of past tool calls instead of the conversation.
-        return load_messages(state.messages_json) or as_messages(
-            state.context.history
-        )
+        return load_messages(state.messages_json) or as_messages(state.context.history)
 
     def route_after_tool(self, state: SupportState) -> str:
         """A method rather than a `Command`, because only a parent can route
@@ -305,7 +300,7 @@ class SupportGraph(AnswerFeed, BaseGraph):
         the parent has to notice: carrying on here would report and answer a
         tool call that has not happened yet.
         """
-        if state.awaiting is not Resuming.NOTHING:
+        if state.tool_run is ToolRun.PENDING:
             return "__end__"
         # A planner finding no tool is not a tool call.
         return "support_report_tool" if state.tool else "support_respond"

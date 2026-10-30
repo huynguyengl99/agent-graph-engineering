@@ -8,7 +8,7 @@ from typing import Any
 
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.delivery_graph import DeliveryGraph
-from assistant.graphs.states.base import Resuming
+from assistant.graphs.states.base import ReplyRun
 from assistant.graphs.support_graph import SupportGraph
 
 from tests.helpers.contexts import flagged_ticket_context, ticket_context
@@ -65,7 +65,7 @@ async def test_a_clean_draft_is_sent() -> None:
 
     assert state["guardrail_findings"] == []
     assert state["delivery_receipt"]
-    assert not state.get("awaiting")
+    assert state["reply_run"] == ReplyRun.SENT
 
 
 async def test_a_flagged_ticket_puts_the_same_draft_in_front_of_a_reviewer() -> None:
@@ -75,7 +75,7 @@ async def test_a_flagged_ticket_puts_the_same_draft_in_front_of_a_reviewer() -> 
         flagged_ticket_context(ticket_id="aaaaaaaa-1111-2222-3333-444444444444"),
     )
 
-    assert state["awaiting"] == Resuming.REPLY_APPROVAL
+    assert state["reply_run"] == ReplyRun.PENDING
     parked = shown_to_the_reviewer(state)
     assert any("override_instructions" in f for f in parked["findings"])
     assert not state.get("delivery_receipt"), "nothing sends while it is parked"
@@ -84,10 +84,10 @@ async def test_a_flagged_ticket_puts_the_same_draft_in_front_of_a_reviewer() -> 
 async def test_a_draft_leaking_a_credential_never_reaches_a_human() -> None:
     state = await run_with_reply(f"Sure, the key is {LEAKED_KEY}")
 
-    assert state["reply_blocked"] is True
+    assert state["reply_run"] == "blocked"
     assert any("openai_key" in f for f in state["guardrail_findings"])
     # The run stopped at `screen`: no approval was granted, nothing was sent.
-    assert not state.get("approval_granted")
+    assert state.get("reply_run") != ReplyRun.PENDING
     assert not state.get("delivery_receipt")
 
 

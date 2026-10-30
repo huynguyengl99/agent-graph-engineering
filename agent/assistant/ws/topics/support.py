@@ -11,7 +11,7 @@ from assistant.agents.config import AgentConfig
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import SupportState
-from assistant.graphs.states.base import Resuming
+from assistant.graphs.states.base import ReplyRun, ToolRun
 from assistant.graphs.support_graph import SupportGraph
 from assistant.messages.support import (
     ApprovalDecisionMessage,
@@ -128,11 +128,23 @@ class SupportTopic(Replays, Topic[SupportEvent]):
             RunEndedMessage(
                 payload=RunEndedPayload(
                     thread_id=self.thread_id,
-                    awaiting=str((final or {}).get("awaiting") or Resuming.NOTHING),
+                    awaiting=self._awaiting(final),
                     state=SupportState.model_validate(final).model_dump(mode="json"),
                 )
             ),
         )
+
+    def _awaiting(self, final: dict[str, Any]) -> str:
+        """What this run stopped for, read off the work rather than a flag.
+
+        Only two things in the graph wait on a person, and each says so by
+        leaving its own status pending.
+        """
+        if (final or {}).get("tool_run") == ToolRun.PENDING:
+            return "tool_approval"
+        if (final or {}).get("reply_run") == ReplyRun.PENDING:
+            return "reply_approval"
+        return ""
 
     @ws_handler(
         summary="Approve or reject a drafted reply",
@@ -144,8 +156,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         await self._resumed_run(
             payload.state,
             payload.models,
-            resuming=Resuming.REPLY_APPROVAL,
-            approval_granted=payload.approved,
+            reply_run=ReplyRun.APPROVED if payload.approved else ReplyRun.REJECTED,
             **self._edit(payload.state, payload.content),
         )
 
@@ -184,9 +195,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         await self._resumed_run(
             payload.state,
             None,
-            resuming=Resuming.TOOL_APPROVAL,
-            approved=payload.approved,
-            cancelled=not payload.approved,
+            tool_run=ToolRun.APPROVED if payload.approved else ToolRun.CANCELLED,
             **extra,
         )
 

@@ -3,7 +3,7 @@ between. No checkpointer is involved anywhere in these."""
 
 from assistant.agents.deps import Context
 from assistant.graphs.states import ToolState
-from assistant.graphs.states.base import Resuming
+from assistant.graphs.states.base import ToolRun
 from assistant.graphs.tool_graph import ToolGraph
 
 
@@ -13,24 +13,28 @@ def paused() -> dict[str, object]:
         context=Context(thread_id="t-1", audience="team"),
         tool="issue_refund",
         arguments={"email": "a@b.c", "amount": 29, "reason": "dup"},
-        awaiting=Resuming.TOOL_APPROVAL,
+        tool_run=ToolRun.PENDING,
     ).model_dump(mode="json")
 
 
 def resumed(**decision: object) -> ToolState:
-    return ToolState.model_validate(
-        {**paused(), "resuming": Resuming.TOOL_APPROVAL, **decision}
-    )
+    """The reviewer's answer is the status of the work, and nothing else."""
+    return ToolState.model_validate({**paused(), **decision})
 
 
 class TestAGateStopsTheRun:
     async def test_the_run_ends_saying_what_it_waits_for(self) -> None:
-        assert paused()["awaiting"] == Resuming.TOOL_APPROVAL
+        assert paused()["tool_run"] == ToolRun.PENDING
 
 
 class TestALaterRunFinishesIt:
     async def test_approving_runs_the_tool(self) -> None:
-        out = await ToolGraph().build().compile().ainvoke(resumed(approved=True))
+        out = (
+            await ToolGraph()
+            .build()
+            .compile()
+            .ainvoke(resumed(tool_run=ToolRun.APPROVED))
+        )
         assert "Refunded" in str(out["result"])
 
     async def test_a_correction_is_what_actually_runs(self) -> None:
@@ -41,7 +45,7 @@ class TestALaterRunFinishesIt:
             .compile()
             .ainvoke(
                 resumed(
-                    approved=True,
+                    tool_run=ToolRun.APPROVED,
                     arguments={"email": "a@b.c", "amount": 9, "reason": "dup"},
                 )
             )
@@ -50,10 +54,7 @@ class TestALaterRunFinishesIt:
 
     async def test_cancelling_runs_nothing(self) -> None:
         out = await (
-            ToolGraph()
-            .build()
-            .compile()
-            .ainvoke(resumed(approved=False, cancelled=True))
+            ToolGraph().build().compile().ainvoke(resumed(tool_run=ToolRun.CANCELLED))
         )
         assert out["result"] == ""
-        assert out["cancelled"] is True
+        assert out["tool_run"] == ToolRun.CANCELLED

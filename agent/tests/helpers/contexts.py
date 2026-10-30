@@ -37,14 +37,11 @@ def flagged_ticket_context(
 def resume_with(paused: object, **decision: object) -> dict[str, object]:
     """The state a later run starts from, given what a paused one ended with.
 
-    What the backend does: keep the blob, add the reviewer's answer, send it
-    back. Tests that used `Command(resume=...)` use this instead, because
-    there is no suspended run to deliver a value into any more.
+    What the backend does: keep the blob, set the status of the work the
+    reviewer answered about, send it back. There is no "this is a resume"
+    flag to set, because the status is the whole of it.
     """
-    from assistant.graphs.states.base import Resuming
-
     carried = (
         paused if isinstance(paused, dict) else paused.model_dump(mode="json")  # type: ignore[union-attr]
     )
-    awaiting = carried.get("awaiting") or Resuming.NOTHING
-    return {**carried, "resuming": awaiting, **decision}
+    return {**carried, **decision}

@@ -68,7 +68,7 @@ class ToolGraph(BaseGraph):
 
     async def tool_plan(
         self, state: ToolState
-    ) -> Command[Literal["tool_gate", "tool_execute", "__end__"]]:
+    ) -> Command[Literal["tool_gate", "tool_execute", "tool_done"]]:
         """Pick a tool, or report that none fits."""
         context = state.context
         prompt = (
@@ -80,7 +80,7 @@ class ToolGraph(BaseGraph):
         if not isinstance(decision, ToolProposal):
             # Nothing to run. The parent reports no tool call, because there
             # was none.
-            return Command(update={"plan": decision}, goto="__end__")
+            return Command(update={"plan": decision}, goto="tool_done")
 
         if decision.tool not in all_tools():
             # A hallucinated tool id never reaches a human, let alone a call:
@@ -90,7 +90,7 @@ class ToolGraph(BaseGraph):
                     "plan": decision,
                     "tool_error": f"No such tool: {decision.tool!r}.",
                 },
-                goto="__end__",
+                goto="tool_done",
             )
 
         meta = metadata_for(decision.tool)

@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from langgraph.graph import START, StateGraph
+from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from assistant.agents import AgentConfig
@@ -46,7 +46,7 @@ class KnowledgeGraph(BaseGraph):
 
     async def knowledge_search(
         self, state: KnowledgeState
-    ) -> Command[Literal["knowledge_refine", "__end__"]]:
+    ) -> Command[Literal["knowledge_refine", "knowledge_done"]]:
         """Search once; nothing found with attempts left means better terms."""
         query = state.kb_query or _searchable(state.context)
         attempts = state.kb_attempts + 1
@@ -62,7 +62,7 @@ class KnowledgeGraph(BaseGraph):
         found = bool(snippets) or attempts >= KB_MAX_ATTEMPTS
         return Command(
             update={"kb_snippets": snippets, "kb_attempts": attempts},
-            goto="__end__" if found else "knowledge_refine",
+            goto="knowledge_done" if found else "knowledge_refine",
         )
 
     async def knowledge_refine(
@@ -81,10 +81,15 @@ class KnowledgeGraph(BaseGraph):
 
     # --- wiring -------------------------------------------------------------
 
+    async def knowledge_done(self, state: KnowledgeState) -> KnowledgeState:
+        """One exit, whether the search found something or ran out of tries."""
+        return state
+
     def nodes(self) -> dict[str, Node]:
         return {
             "knowledge_search": self.knowledge_search,
             "knowledge_refine": self.knowledge_refine,
+            "knowledge_done": self.knowledge_done,
         }
 
     def build(self) -> StateGraph[KnowledgeState, None, KnowledgeState, KnowledgeState]:
@@ -93,4 +98,5 @@ class KnowledgeGraph(BaseGraph):
         )
         self.add_nodes(graph)
         graph.add_edge(START, "knowledge_search")
+        graph.add_edge("knowledge_done", END)
         return graph

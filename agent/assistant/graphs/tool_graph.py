@@ -137,8 +137,9 @@ class ToolGraph(BaseGraph):
         """Where the run stops while a person decides.
 
         It does nothing on purpose. Stopping at a node rather than inside one
-        makes the stop a place: drawn on the diagram, and a span in a trace
-        whose duration is how long the person took.
+        makes the stop a place with a name: drawn on the diagram, and the
+        last span of the run in a trace. The wait itself is the gap to the
+        run that carries on, since this one ends here.
         """
         return state
 

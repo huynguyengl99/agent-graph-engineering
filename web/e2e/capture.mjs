@@ -16,8 +16,14 @@ const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
 const results = [];
-const ok = (n, d = '') => { results.push(['PASS', n, d]); console.log(`  PASS  ${n}${d ? '  ' + d : ''}`); };
-const bad = (n, d = '') => { results.push(['FAIL', n, d]); console.log(`  FAIL  ${n}${d ? '  ' + d : ''}`); };
+const ok = (n, d = '') => {
+  results.push(['PASS', n, d]);
+  console.log(`  PASS  ${n}${d ? '  ' + d : ''}`);
+};
+const bad = (n, d = '') => {
+  results.push(['FAIL', n, d]);
+  console.log(`  FAIL  ${n}${d ? '  ' + d : ''}`);
+};
 
 async function scenario(browser, name, viewport, body) {
   const dir = path.join(OUT, name);
@@ -30,12 +36,15 @@ async function scenario(browser, name, viewport, body) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !/401|Unauthorized/.test(m.text())) errors.push(m.text());
+    if (m.type() === 'error' && !/401|Unauthorized/.test(m.text()))
+      errors.push(m.text());
   });
   let n = 0;
   const shot = async (label) => {
     n += 1;
-    await page.screenshot({ path: path.join(dir, `${String(n).padStart(2, '0')}-${label}.png`) });
+    await page.screenshot({
+      path: path.join(dir, `${String(n).padStart(2, '0')}-${label}.png`),
+    });
   };
   console.log(`\n== ${name} ==`);
   try {
@@ -44,7 +53,8 @@ async function scenario(browser, name, viewport, body) {
     bad(`${name} threw`, String(e).split('\n')[0].slice(0, 120));
     await shot('threw');
   }
-  if (errors.length) bad(`${name}: page errors`, errors.slice(0, 2).join(' | ').slice(0, 140));
+  if (errors.length)
+    bad(`${name}: page errors`, errors.slice(0, 2).join(' | ').slice(0, 140));
   else ok(`${name}: no page errors`);
   await context.close();
   return dir;
@@ -81,16 +91,22 @@ const settled = async (page, ticketId, label) => {
   }
 };
 
-const toBottom = (page) => page.evaluate(() => {
-  Array.from(document.querySelectorAll('*'))
-    .filter((e) => e.scrollHeight > e.clientHeight + 40 && e.clientHeight > 200)
-    .forEach((e) => (e.scrollTop = e.scrollHeight));
-});
+const toBottom = (page) =>
+  page.evaluate(() => {
+    Array.from(document.querySelectorAll('*'))
+      .filter(
+        (e) => e.scrollHeight > e.clientHeight + 40 && e.clientHeight > 200,
+      )
+      .forEach((e) => (e.scrollTop = e.scrollHeight));
+  });
 
 const newTicket = async (page, title, body) => {
   await page.getByRole('button', { name: /new ticket/i }).click();
   await page.waitForTimeout(500);
-  const dlg = page.locator('div').filter({ hasText: /What do you need help with/ }).last();
+  const dlg = page
+    .locator('div')
+    .filter({ hasText: /What do you need help with/ })
+    .last();
   await dlg.locator('input').first().fill(title);
   await dlg.locator('textarea').first().fill(body);
   return dlg;
@@ -104,10 +120,16 @@ const newTicket = async (page, title, body) => {
     await page.goto(URL, { waitUntil: 'networkidle' });
     await shot('login');
     await login(page, 'customer@example.com');
-    page.url().includes('/portal') ? ok('customer lands on the portal') : bad('customer lands on the portal', page.url());
+    page.url().includes('/portal')
+      ? ok('customer lands on the portal')
+      : bad('customer lands on the portal', page.url());
     await shot('portal');
 
-    const dlg = await newTicket(page, 'Charged twice for my plan', 'My statement shows two charges of 29.00 this month for the same plan. Can you check?');
+    const dlg = await newTicket(
+      page,
+      'Charged twice for my plan',
+      'My statement shows two charges of 29.00 this month for the same plan. Can you check?',
+    );
     await shot('dialog');
     await dlg.getByRole('button', { name: /^send$/i }).click();
     await page.waitForTimeout(1500);
@@ -123,8 +145,11 @@ const newTicket = async (page, title, body) => {
     // means the stream is being dropped somewhere between the model and here.
     const lengths = [];
     const grow = setInterval(async () => {
-      const t = await page.locator('li', { hasText: /^Agent/ }).last()
-        .innerText().catch(() => '');
+      const t = await page
+        .locator('li', { hasText: /^Agent/ })
+        .last()
+        .innerText()
+        .catch(() => '');
       if (t) lengths.push(t.length);
     }, 700);
     const outcome = await settled(page, ticketId, 'the customer ticket');
@@ -135,7 +160,10 @@ const newTicket = async (page, title, body) => {
         ? ok('the reply is written in front of them', `${steps} step(s)`)
         : bad('the reply is written in front of them', 'arrived whole');
     } else {
-      ok('the reply is written in front of them', 'skipped: handed to a person');
+      ok(
+        'the reply is written in front of them',
+        'skipped: handed to a person',
+      );
     }
     await page.waitForTimeout(2500);
     await toBottom(page);
@@ -147,8 +175,8 @@ const newTicket = async (page, title, body) => {
     const thread = (await page.locator('main').innerText()).toLowerCase();
     // Not 'escalat': a reply saying it will escalate to billing is the normal
     // thing to tell a customer.
-    const leaks = ['internal note', 'guardrail'].filter(
-      (w) => thread.includes(w),
+    const leaks = ['internal note', 'guardrail'].filter((w) =>
+      thread.includes(w),
     );
     leaks.length
       ? bad('nothing internal reaches the customer', leaks.join(','))
@@ -166,7 +194,9 @@ const newTicket = async (page, title, body) => {
       ok('the answer survives a reload', 'skipped: handed to a person');
     }
 
-    await page.locator('input[placeholder*="Add to this ticket" i]').fill('Thanks, that explains it.');
+    await page
+      .locator('input[placeholder*="Add to this ticket" i]')
+      .fill('Thanks, that explains it.');
     await shot('customer-replies');
     await page.getByRole('button', { name: /^send$/i }).click();
     await page.waitForTimeout(3000);
@@ -181,36 +211,57 @@ const newTicket = async (page, title, body) => {
     await shot('console');
     ok('staff land on the console');
 
-    await page.locator('li, a').filter({ hasText: /Charged twice for my plan/ }).first().click();
+    await page
+      .locator('li, a')
+      .filter({ hasText: /Charged twice for my plan/ })
+      .first()
+      .click();
     await page.waitForTimeout(2500);
     await toBottom(page);
     await shot('ticket');
 
-    const trail = await page.getByRole('button', { name: /Chose what to do|Filed the ticket/ }).count();
-    trail ? ok('the reasoning trail is on the ticket', `${trail} step(s)`) : bad('the reasoning trail is on the ticket');
+    const trail = await page
+      .getByRole('button', { name: /Chose what to do|Filed the ticket/ })
+      .count();
+    trail
+      ? ok('the reasoning trail is on the ticket', `${trail} step(s)`)
+      : bad('the reasoning trail is on the ticket');
 
-    const first = page.getByRole('button', { name: /Filed the ticket|Chose what to do/ }).first();
+    const first = page
+      .getByRole('button', { name: /Filed the ticket|Chose what to do/ })
+      .first();
     await first.click();
     await page.waitForTimeout(600);
     await shot('trail-expanded');
     ok('a reasoning step expands');
 
-    await page.locator('input[placeholder*="Note for your team" i]').fill('Checked billing: two charges confirmed on the same day.');
+    await page
+      .locator('input[placeholder*="Note for your team" i]')
+      .fill('Checked billing: two charges confirmed on the same day.');
     await shot('note-typed');
     await page.getByRole('button', { name: /^note$/i }).click();
     await page.waitForTimeout(2500);
     await toBottom(page);
     await shot('note-posted');
-    (await page.locator('text=/INTERNAL NOTE/i').count()) ? ok('an internal note is recorded') : bad('an internal note is recorded');
+    (await page.locator('text=/INTERNAL NOTE/i').count())
+      ? ok('an internal note is recorded')
+      : bad('an internal note is recorded');
 
-    await page.locator('input[placeholder*="Note for your team" i]').fill('What should we tell them while billing checks?');
-    await page.getByRole('button', { name: /^send$/i }).last().click();
+    await page
+      .locator('input[placeholder*="Note for your team" i]')
+      .fill('What should we tell them while billing checks?');
+    await page
+      .getByRole('button', { name: /^send$/i })
+      .last()
+      .click();
     await page.waitForTimeout(4000);
     await shot('agent-thinking');
     try {
       await page.waitForSelector('text=/Agent \\(/', { timeout: 120000 });
       ok('the agent answers the team');
-    } catch { bad('the agent answers the team', 'nothing in 120s'); }
+    } catch {
+      bad('the agent answers the team', 'nothing in 120s');
+    }
     await page.waitForTimeout(2000);
     await toBottom(page);
     await shot('agent-answered');
@@ -225,29 +276,51 @@ const newTicket = async (page, title, body) => {
   // ---------- 3. the tool gate ----------
   await scenario(browser, '3-tool-gate', DESKTOP, async (page, shot) => {
     await login(page, 'demo@example.com');
-    await page.locator('li, a').filter({ hasText: /Charged twice for my plan/ }).first().click();
+    await page
+      .locator('li, a')
+      .filter({ hasText: /Charged twice for my plan/ })
+      .first()
+      .click();
     await page.waitForTimeout(2500);
-    await page.locator('input[placeholder*="Note for your team" i]')
-      .fill('Please issue a refund of 29.00 to customer@example.com for the duplicate charge.');
-    await page.getByRole('button', { name: /^send$/i }).last().click();
+    await page
+      .locator('input[placeholder*="Note for your team" i]')
+      .fill(
+        'Please issue a refund of 29.00 to customer@example.com for the duplicate charge.',
+      );
+    await page
+      .getByRole('button', { name: /^send$/i })
+      .last()
+      .click();
     await page.waitForTimeout(4000);
     await shot('asked');
-    try {
-      await page.waitForSelector('text=/Run issue_refund/i', { timeout: 120000 });
-      ok('the tool gate opens before anything runs');
-    } catch { bad('the tool gate opens before anything runs', 'nothing in 120s'); }
+    // Two models stand between the ask and the gate, and either can decline:
+    // the router can answer without a tool at all. Everything below reads a
+    // refund card, so without one it throws and takes the rest of the walk
+    // with it, which is a worse record than one honest failure.
+    const gated = await page
+      .waitForSelector('text=/Run issue_refund/i', { timeout: 120000 })
+      .then(() => true)
+      .catch(() => false);
+    gated
+      ? ok('the tool gate opens before anything runs')
+      : bad('the tool gate opens before anything runs', 'nothing in 120s');
     await page.waitForTimeout(2000);
     await toBottom(page);
     await shot('gate');
+    if (!gated) return;
 
     const fields = await page.getByLabel(/^(Email|Amount|Reason)$/).count();
-    fields >= 3 ? ok('the gate form came from the tool schema', `${fields} field(s)`) : bad('the gate form came from the tool schema', `${fields}`);
+    fields >= 3
+      ? ok('the gate form came from the tool schema', `${fields} field(s)`)
+      : bad('the gate form came from the tool schema', `${fields}`);
 
     await page.getByLabel('Amount').fill('9');
     await page.waitForTimeout(500);
     await shot('corrected');
     // Approval and correction are not the same act, and the button says so.
-    const correct = page.getByRole('button', { name: /run with my corrections/i });
+    const correct = page.getByRole('button', {
+      name: /run with my corrections/i,
+    });
     (await correct.isVisible())
       ? ok('editing an argument turns approval into a correction')
       : bad('editing an argument turns approval into a correction');
@@ -260,9 +333,13 @@ const newTicket = async (page, title, body) => {
     await toBottom(page);
     await shot('running');
     try {
-      await page.waitForSelector('text=/refund processed|9\\.00|£9/i', { timeout: 120000 });
+      await page.waitForSelector('text=/refund processed|9\\.00|£9/i', {
+        timeout: 120000,
+      });
       ok('the corrected amount is what ran');
-    } catch { bad('the corrected amount is what ran', 'no result in 120s'); }
+    } catch {
+      bad('the corrected amount is what ran', 'no result in 120s');
+    }
     await page.waitForTimeout(2500);
     await toBottom(page);
     await shot('ran');
@@ -280,7 +357,9 @@ const newTicket = async (page, title, body) => {
       await page.waitForTimeout(3000);
       await shot(label);
       const text = await page.locator('body').innerText();
-      probe.test(text) ? ok(`${label} renders`) : bad(`${label} renders`, text.slice(0, 60));
+      probe.test(text)
+        ? ok(`${label} renders`)
+        : bad(`${label} renders`, text.slice(0, 60));
     }
 
     // the xray toggle on the graph
@@ -298,31 +377,51 @@ const newTicket = async (page, title, body) => {
     // a trace, opened
     await page.goto(URL + '/traces', { waitUntil: 'networkidle' });
     await page.waitForTimeout(2500);
-    await page.locator('li').filter({ hasText: /support run/ }).first().click();
+    await page
+      .locator('li')
+      .filter({ hasText: /support run/ })
+      .first()
+      .click();
     await page.waitForTimeout(2000);
     await shot('trace-open');
     // Not the "NODE" chip: that text is lowercase in the DOM and uppercased by
     // CSS, so matching it asserts on the stylesheet rather than the trace.
     const steps = await page.getByText(/support_start|support_decide/).count();
-    steps ? ok('a trace shows its steps', `${steps} node(s)`) : bad('a trace shows its steps');
+    steps
+      ? ok('a trace shows its steps', `${steps} node(s)`)
+      : bad('a trace shows its steps');
   });
 
   // ---------- 5. the same app on a phone ----------
   await scenario(browser, '5-phone', PHONE, async (page, shot) => {
     await login(page, 'customer@example.com');
     await shot('portal-list');
-    let over = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
-    over ? bad('the portal list fits a phone') : ok('the portal list fits a phone');
+    let over = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth + 2,
+    );
+    over
+      ? bad('the portal list fits a phone')
+      : ok('the portal list fits a phone');
 
-    await page.locator('a, li').filter({ hasText: /Charged twice for my plan/ }).first().click();
+    await page
+      .locator('a, li')
+      .filter({ hasText: /Charged twice for my plan/ })
+      .first()
+      .click();
     await page.waitForTimeout(2500);
     await toBottom(page);
     await shot('portal-thread');
-    over = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
-    over ? bad('the portal thread fits a phone') : ok('the portal thread fits a phone');
+    over = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth + 2,
+    );
+    over
+      ? bad('the portal thread fits a phone')
+      : ok('the portal thread fits a phone');
 
     const back = page.getByRole('link', { name: /All tickets/i });
-    (await back.isVisible()) ? ok('a phone gets a way back to the list') : bad('a phone gets a way back to the list');
+    (await back.isVisible())
+      ? ok('a phone gets a way back to the list')
+      : bad('a phone gets a way back to the list');
     await back.click();
     await page.waitForTimeout(1200);
     await shot('back-to-list');
@@ -330,11 +429,18 @@ const newTicket = async (page, title, body) => {
     await page.getByRole('button', { name: /sign out/i }).click();
     await page.waitForTimeout(1500);
     await login(page, 'demo@example.com');
-    for (const [route, label] of [['/', 'console'], ['/graphs', 'graphs'], ['/traces', 'traces'], ['/settings', 'settings']]) {
+    for (const [route, label] of [
+      ['/', 'console'],
+      ['/graphs', 'graphs'],
+      ['/traces', 'traces'],
+      ['/settings', 'settings'],
+    ]) {
       await page.goto(URL + route, { waitUntil: 'networkidle' });
       await page.waitForTimeout(1800);
       await shot(`staff-${label}`);
-      const o = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+      const o = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 2,
+      );
       o ? bad(`${label} fits a phone`) : ok(`${label} fits a phone`);
     }
   });
@@ -355,7 +461,9 @@ const newTicket = async (page, title, body) => {
       let i = 0;
       const sh = async (l) => {
         i += 1;
-        await pg.screenshot({ path: path.join(dir, who, `${String(i).padStart(2, '0')}-${l}.png`) });
+        await pg.screenshot({
+          path: path.join(dir, who, `${String(i).padStart(2, '0')}-${l}.png`),
+        });
       };
       return { ctx, pg, errs, sh };
     };
@@ -363,17 +471,26 @@ const newTicket = async (page, title, body) => {
     const S = await mk('staff');
 
     try {
-      await Promise.all([login(C.pg, 'customer@example.com'), login(S.pg, 'demo@example.com')]);
+      await Promise.all([
+        login(C.pg, 'customer@example.com'),
+        login(S.pg, 'demo@example.com'),
+      ]);
       ok('both sessions are live at once');
 
-      const dlg = await newTicket(C.pg, 'Two people watching', 'My plan was billed twice this month. Please take a look.');
+      const dlg = await newTicket(
+        C.pg,
+        'Two people watching',
+        'My plan was billed twice this month. Please take a look.',
+      );
       await dlg.getByRole('button', { name: /^send$/i }).click();
       await C.pg.waitForTimeout(2500);
       const ticketId = C.pg.url().split('/').pop();
       await C.sh('customer-opened');
 
       // staff opens the same ticket, without the customer doing anything
-      await S.pg.goto(`${URL}/tickets/${ticketId}`, { waitUntil: 'networkidle' });
+      await S.pg.goto(`${URL}/tickets/${ticketId}`, {
+        waitUntil: 'networkidle',
+      });
       await S.pg.waitForTimeout(2500);
       await toBottom(S.pg);
       await S.sh('staff-opened');
@@ -383,7 +500,10 @@ const newTicket = async (page, title, body) => {
 
       // the agent works: staff watch the reasoning, the customer must not
       await Promise.all([C.pg.waitForTimeout(5000), S.pg.waitForTimeout(5000)]);
-      await Promise.all([C.sh('customer-while-working'), S.sh('staff-while-working')]);
+      await Promise.all([
+        C.sh('customer-while-working'),
+        S.sh('staff-while-working'),
+      ]);
       const staffMid = await S.pg.locator('body').innerText();
       const custMid = await C.pg.locator('body').innerText();
       /Filed the ticket|Chose what to do|reasoning/i.test(staffMid)
@@ -393,13 +513,19 @@ const newTicket = async (page, title, body) => {
       // see is the team's half, which is a different run on a topic they
       // cannot subscribe to.
       /INTERNAL/.test(custMid)
-        ? bad("the team's half never reaches the customer", 'internal content visible')
+        ? bad(
+            "the team's half never reaches the customer",
+            'internal content visible',
+          )
         : ok("the team's half never reaches the customer");
       // "Agent" without the model: that is the bubble being written. The model
       // name only appears once the finished reply is an event.
       /Filed the ticket|Chose what to do|Wrote the reply|Agent/.test(custMid)
         ? ok('the customer watches their own reply being worked out')
-        : bad('the customer watches their own reply being worked out', 'nothing shown');
+        : bad(
+            'the customer watches their own reply being worked out',
+            'nothing shown',
+          );
 
       await settled(S.pg, ticketId, 'the run with both watching');
       await Promise.all([C.pg.waitForTimeout(3000), S.pg.waitForTimeout(3000)]);
@@ -408,7 +534,9 @@ const newTicket = async (page, title, body) => {
 
       // the customer types while staff are on the same ticket: staff see it live
       const before = await S.pg.locator('text=/Any update/i').count();
-      await C.pg.locator('input[placeholder*="Add to this ticket" i]').fill('Any update on this?');
+      await C.pg
+        .locator('input[placeholder*="Add to this ticket" i]')
+        .fill('Any update on this?');
       await C.pg.getByRole('button', { name: /^send$/i }).click();
       await S.pg.waitForTimeout(4000);
       await toBottom(S.pg);
@@ -419,13 +547,21 @@ const newTicket = async (page, title, body) => {
         : bad("the customer's message reaches staff without a reload");
 
       // staff post an internal note: the customer must never see it
-      await S.pg.locator('input[placeholder*="Note for your team" i]').fill('Billing confirmed the duplicate, refund pending.');
+      await S.pg
+        .locator('input[placeholder*="Note for your team" i]')
+        .fill('Billing confirmed the duplicate, refund pending.');
       await S.pg.getByRole('button', { name: /^note$/i }).click();
       await Promise.all([S.pg.waitForTimeout(3500), C.pg.waitForTimeout(3500)]);
       await Promise.all([toBottom(S.pg), toBottom(C.pg)]);
-      await Promise.all([S.sh('staff-note'), C.sh('customer-must-not-see-note')]);
+      await Promise.all([
+        S.sh('staff-note'),
+        C.sh('customer-must-not-see-note'),
+      ]);
       (await C.pg.locator('text=/Billing confirmed the duplicate/i').count())
-        ? bad('an internal note never reaches the customer', 'the customer can see it')
+        ? bad(
+            'an internal note never reaches the customer',
+            'the customer can see it',
+          )
         : ok('an internal note never reaches the customer');
       (await S.pg.locator('text=/Billing confirmed the duplicate/i').count())
         ? ok('the note is on the team half')
@@ -434,19 +570,28 @@ const newTicket = async (page, title, body) => {
       bad('6-concurrent threw', String(e).split('\n')[0].slice(0, 120));
     }
     const allErrs = [...C.errs, ...S.errs];
-    allErrs.length ? bad('6-concurrent: page errors', allErrs.slice(0, 2).join(' | ').slice(0, 140))
-                   : ok('6-concurrent: no page errors');
+    allErrs.length
+      ? bad(
+          '6-concurrent: page errors',
+          allErrs.slice(0, 2).join(' | ').slice(0, 140),
+        )
+      : ok('6-concurrent: no page errors');
     await Promise.all([C.ctx.close(), S.ctx.close()]);
   }
 
   await browser.close();
 
   const failed = results.filter((r) => r[0] === 'FAIL');
-  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+  console.log(
+    `\n${results.length - failed.length}/${results.length} checks passed`,
+  );
   if (failed.length) {
     console.log('failures:');
     failed.forEach(([, n, d]) => console.log(`  - ${n} ${d}`));
   }
-  fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(results, null, 2));
+  fs.writeFileSync(
+    path.join(OUT, 'results.json'),
+    JSON.stringify(results, null, 2),
+  );
   process.exit(failed.length ? 1 : 0);
 })();

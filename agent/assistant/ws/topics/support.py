@@ -95,11 +95,10 @@ class SupportTopic(Replays, Topic[SupportEvent]):
             await self._fail()
 
     def _turn(self, payload: Any, context: Context) -> SupportState:
-        """A new question on the thread, which is a new run.
+        """A new question, which is a new run, starting clean.
 
-        It starts clean. The only thing a turn inherits is what the thread is
-        meant to remember: carry the whole blob and the last run's receipt and
-        approval come with it, and the second question answers itself.
+        Carry the whole blob instead and the last run's receipt comes with
+        it, so the second question answers itself.
         """
         carried = payload.state or {}
         return SupportState(
@@ -111,9 +110,8 @@ class SupportTopic(Replays, Topic[SupportEvent]):
     def _continue(self, carried: dict[str, Any], **decision: Any) -> SupportState:
         """The same run, picked back up where it stopped.
 
-        A whole state, not an update: the agent kept nothing, so the blob holds
-        the thread's tool result, and a cancelled call must not report it as a
-        success because the field defaulted.
+        A whole state, not an update: nothing is kept here, so a field left
+        out would default rather than hold what the stopped run had.
         """
         return SupportState.model_validate({**carried, **decision})
 
@@ -135,11 +133,7 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         )
 
     def _awaiting(self, final: dict[str, Any]) -> str:
-        """What this run stopped for, read off the work rather than a flag.
-
-        Only two things in the graph wait on a person, and each says so by
-        leaving its own status pending.
-        """
+        """What this run stopped for, read off the work rather than a flag."""
         if (final or {}).get("tool_run") == ToolRun.PENDING:
             return "tool_approval"
         if (final or {}).get("reply_run") == ReplyRun.PENDING:
@@ -161,11 +155,11 @@ class SupportTopic(Replays, Topic[SupportEvent]):
         )
 
     def _edit(self, carried: Any, content: str | None) -> dict[str, Any]:
-        """A reviewer's rewrite, put where the answer already is.
+        """A reviewer's rewrite, put inside the answer rather than beside it.
 
-        The whole answer, because a state is validated as a state: an extra
-        key alongside it is dropped in silence, which is what sent the model's
-        draft to a customer whose reviewer had rewritten it.
+        A state is validated as a state, so a loose key is dropped in
+        silence. That is what sent the model's draft to a customer whose
+        reviewer had rewritten it.
         """
         answer = (carried or {}).get("answer")
         if not content or not isinstance(answer, dict):

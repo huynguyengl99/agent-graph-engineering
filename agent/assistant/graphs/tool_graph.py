@@ -107,11 +107,10 @@ class ToolGraph(BaseGraph):
         )
 
     async def tool_gate(self, state: ToolState) -> Command[Literal["tool_await"]]:
-        """Stop the run with the proposal on the table.
+        """Put the proposal on the table and let the graph finish.
 
-        The reviewer's answer arrives as a new run rather than as a value
-        returned into this function, so the only thing left to do here is say
-        what is being waited on and let the graph finish.
+        The answer comes back as a new run, not as a value returned into this
+        function, so there is nothing to wait for here.
         """
         meta = metadata_for(state.tool)
         await self.emit(
@@ -137,22 +136,19 @@ class ToolGraph(BaseGraph):
     async def tool_await(self, state: ToolState) -> ToolState:
         """Where the run stops while a person decides.
 
-        A node that does nothing, on purpose. Ending here rather than
-        suspending inside the gate makes the stop a place on the graph: it is
-        drawn, it gets its own span, and the state the run finished with is
-        the whole of what a resume needs.
+        It does nothing on purpose. Stopping at a node rather than inside one
+        makes the stop a place: drawn on the diagram, and a span in a trace
+        whose duration is how long the person took.
         """
         return state
 
     async def tool_start(
         self, state: ToolState
     ) -> Command[Literal["tool_plan", "tool_execute", "tool_done"]]:
-        """Where a run enters this graph, and the whole of the resume.
+        """Where a run enters, and the whole of the resume.
 
-        There is no flag saying "this is a resume". `tool_run` says how far
-        the call got, and that is enough: a proposal a person has answered
-        comes back approved or cancelled, so planning it again would be
-        redoing work somebody already reviewed.
+        Planning again a proposal somebody has already answered would redo
+        the work they reviewed.
         """
         match state.tool_run:
             case ToolRun.APPROVED:
@@ -163,11 +159,8 @@ class ToolGraph(BaseGraph):
                 return Command(goto="tool_plan")
 
     async def tool_done(self, state: ToolState) -> ToolState:
-        """One exit, whatever happened inside.
-
-        It changes nothing on the way past: `tool_run` already says which of
-        the three endings this was, and the parent needs all three apart.
-        """
+        """One exit, changing nothing: the parent needs stopped, cancelled
+        and ran told apart, and `tool_run` already says which."""
         return state
 
     async def tool_execute(self, state: ToolState) -> Update:

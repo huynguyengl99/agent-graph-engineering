@@ -16,11 +16,10 @@ from assistant.graphs.states.reducers import last_wins
 
 
 class ToolRun(StrEnum):
-    """How far a tool call has got.
+    """How far a tool call has got, and the whole of how a resume routes.
 
-    Where the entry router reads from, so a run that comes back carrying a
-    reviewer's answer needs nothing else to say so: `PENDING` means a person
-    is still holding it, and anything past that is their answer.
+    Nothing says "this run is a resume": `PENDING` means a person is holding
+    it, and anything past that is their answer.
     """
 
     NONE = ""

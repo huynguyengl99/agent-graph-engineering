@@ -101,9 +101,8 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
     ) -> Command[Literal["delivery_screen", "delivery_send", "delivery_done"]]:
         """Where a run enters, and the whole of the resume.
 
-        A draft nobody has looked at gets screened. One a reviewer has
-        answered carries their verdict, so screening it again would ask the
-        guard a question it already answered.
+        Screening again a draft a reviewer has answered would ask the guard a
+        question it has already answered.
         """
         match state.reply_run:
             case ReplyRun.APPROVED:

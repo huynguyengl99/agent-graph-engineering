@@ -86,10 +86,9 @@ class TicketSink(Sink):
         self, ticket_id: str, visibility: str, audience: str | None = None
     ) -> None:
         self.ticket_id = ticket_id
-        # Where the output is filed, which is not the same question as which
-        # agent thread produced it: a draft asked for as an internal note is
-        # still the customer lane's run, and a tool the team approved can be
-        # answered to the customer.
+        # Where the output is filed, which is a different question from
+        # which thread produced it: a draft asked for as an internal note is
+        # still the customer lane's run.
         self.visibility = visibility
         self.audience = audience or (
             CUSTOMER if visibility == Visibility.PUBLIC else TEAM
@@ -108,8 +107,8 @@ class TicketSink(Sink):
         # The same, for the reasoning of whichever step is being written.
         self.reasoning = ""
         self.reasoning_reference = ""
-        # The card this run stopped on, written when the run ends so it lands
-        # in the same transaction as the state behind it.
+        # Written when the run ends, so it lands in the same transaction as
+        # the state behind it.
         self.card: tuple[str, dict[str, Any]] | None = None
 
     async def _progress(
@@ -273,11 +272,10 @@ class TicketSink(Sink):
             await self._to_a_person(message)
 
     async def ended(self, awaiting: str, state: dict[str, Any]) -> None:
-        """What the agent handed back on its way out.
+        """What the agent handed back, and the card that goes with it.
 
-        Both or neither. The card and the state are two copies of the same
-        draft, and written apart a crash between them leaves a reviewer a card
-        to answer with no state to carry on from.
+        Both or neither: written apart, a crash between them leaves a
+        reviewer a card to answer and nothing to carry on from.
         """
         await self._remember(awaiting, state)
 

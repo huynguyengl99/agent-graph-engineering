@@ -31,11 +31,9 @@ logger = structlog.get_logger(__name__)
 def load_messages(raw: Any) -> list[ModelMessage]:
     """A cache over the record, so an unreadable one is dropped, not raised.
 
-    The blob is written by the model library and comes back on every turn. A
-    thread carrying one this version cannot parse, after a library upgrade or
-    a bad write, would raise here on every turn and never recover, because the
-    same blob is sent again next time. What is lost is the shape of past tool
-    calls; the conversation itself is in the record the backend sends.
+    The same blob comes back every turn, so raising on one this version
+    cannot parse would wedge the thread for good. What is lost is the shape
+    of past tool calls; the conversation is in the record.
     """
     if not raw:
         return []

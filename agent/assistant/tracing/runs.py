@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from typing import Any
 
+from assistant.graphs.states.base import ReplyRun, ToolRun
 from assistant.tracing.setup import tracer
 from assistant.tracing.store import RUN_ATTRIBUTE, THREAD_ATTRIBUTE
 
@@ -30,16 +31,23 @@ def run_span(name: str, run_key: str, thread: str) -> Iterator[None]:
         yield
 
 
-# The statuses a run cannot have arrived with unless a person answered first.
-_DECIDED = {"approved", "cancelled", "rejected"}
+# Statuses a run cannot have arrived with unless a person answered first.
+# Derived, because a list of them spelled out here would be a second place to
+# keep in step with the enums.
+_DECIDED = {
+    ToolRun.APPROVED,
+    ToolRun.CANCELLED,
+    ReplyRun.APPROVED,
+    ReplyRun.REJECTED,
+}
 
 
 def _carries_a_decision(state: Any) -> bool:
     """Whether this run is somebody's answer to one that stopped.
 
-    Read off the work, like every other router here: there is no flag saying
-    a run is a resume, and adding one just to label a span would be a second
-    place to keep in step.
+    Read off the work, like every router here: nothing says "this is a
+    resume", and adding a flag to label a span would be one more thing to
+    keep true.
     """
 
     def read(field: str) -> str:

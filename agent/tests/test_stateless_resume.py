@@ -58,3 +58,25 @@ class TestALaterRunFinishesIt:
         )
         assert out["result"] == ""
         assert out["tool_run"] == ToolRun.CANCELLED
+
+
+class TestAStateStoredBeforeTheRename:
+    """`NOT_STARTED` was spelled `""` while threads were being stored. The
+    blob comes back whole on the next turn, so a member that no longer parses
+    loses the thread rather than one stale field."""
+
+    def test_a_blank_status_reads_as_not_started(self) -> None:
+        stored = {**paused(), "tool_run": ""}
+
+        assert ToolState.model_validate(stored).tool_run is ToolRun.NOT_STARTED
+
+    def test_a_blank_reply_status_too(self) -> None:
+        from assistant.graphs.states import SupportState
+        from assistant.graphs.states.base import ReplyRun
+
+        stored = {
+            "context": Context(thread_id="t-1", audience="team"),
+            "reply_run": "",
+        }
+
+        assert SupportState.model_validate(stored).reply_run is ReplyRun.NOT_STARTED

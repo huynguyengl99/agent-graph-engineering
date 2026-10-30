@@ -9,7 +9,7 @@ same nine fields.
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
@@ -22,7 +22,7 @@ class ToolRun(StrEnum):
     it, and anything past that is their answer.
     """
 
-    NOT_STARTED = ""
+    NOT_STARTED = "not_started"
     PENDING = "pending"
     APPROVED = "approved"
     CANCELLED = "cancelled"
@@ -32,7 +32,7 @@ class ToolRun(StrEnum):
 class ReplyRun(StrEnum):
     """The same, for a drafted reply on its way to a customer."""
 
-    NOT_STARTED = ""
+    NOT_STARTED = "not_started"
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -65,6 +65,17 @@ class Tools(BaseModel):
     result: str = ""
     tool_error: str = ""
 
+    @field_validator("tool_run", mode="before")
+    @classmethod
+    def _tool_run_blank_is_unstarted(cls, value: Any) -> Any:
+        """A blank is a run that has not got there yet.
+
+        The member was spelled `""` until this state was stored, and a thread
+        parked before then would otherwise fail to validate on its way back
+        in, which is the whole thread lost rather than one stale field.
+        """
+        return value or ToolRun.NOT_STARTED
+
 
 class Delivery(BaseModel):
     """Shared with the delivery subgraph: everything between a draft and a send."""
@@ -75,3 +86,9 @@ class Delivery(BaseModel):
     guardrail_findings: Annotated[list[str], last_wins] = []
     reply_run: ReplyRun = ReplyRun.NOT_STARTED
     delivery_receipt: str = ""
+
+    @field_validator("reply_run", mode="before")
+    @classmethod
+    def _reply_run_blank_is_unstarted(cls, value: Any) -> Any:
+        """The same, for a state stored while `""` was the name."""
+        return value or ReplyRun.NOT_STARTED

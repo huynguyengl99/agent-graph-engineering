@@ -73,12 +73,13 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
     async def delivery_approval(
         self, state: DeliveryState
-    ) -> Command[Literal["delivery_await"]]:
+    ) -> Command[Literal["delivery_done"]]:
         """Hand the draft to a person and stop.
 
         The findings go out with the proposal rather than being left in state
         for the parent to merge, because the reviewer needs them now and the
-        run is about to end.
+        run is about to end. It leaves by the same exit as a reply that went
+        out; `reply_run` is what tells them apart.
         """
         answer = state.answer
         await self.emit(
@@ -90,11 +91,7 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
                 )
             )
         )
-        return Command(update={"reply_run": ReplyRun.PENDING}, goto="delivery_await")
-
-    async def delivery_await(self, state: DeliveryState) -> DeliveryState:
-        """Where the run stops while a reviewer reads the draft."""
-        return state
+        return Command(update={"reply_run": ReplyRun.PENDING}, goto="delivery_done")
 
     async def delivery_start(
         self, state: DeliveryState
@@ -153,7 +150,6 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
             "delivery_start": self.delivery_start,
             "delivery_screen": self.delivery_screen,
             "delivery_approval": self.delivery_approval,
-            "delivery_await": self.delivery_await,
             "delivery_send": self.delivery_send,
             "delivery_done": self.delivery_done,
         }
@@ -166,7 +162,6 @@ class DeliveryGraph(AnswerFeed, BaseGraph):
 
         graph.add_edge(START, "delivery_start")
         graph.add_edge("delivery_send", "delivery_done")
-        graph.add_edge("delivery_await", "delivery_done")
         graph.add_edge("delivery_done", END)
 
         return graph

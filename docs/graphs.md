@@ -82,12 +82,10 @@ graph TD;
 	tool\3atool_start(tool_start)
 	tool\3atool_plan(tool_plan)
 	tool\3atool_gate(tool_gate)
-	tool\3atool_await(tool_await)
 	tool\3atool_execute(tool_execute)
 	tool\3atool_done(tool_done)
-	tool\3atool_await --> tool\3atool_done;
 	tool\3atool_execute --> tool\3atool_done;
-	tool\3atool_gate -.-> tool\3atool_await;
+	tool\3atool_gate -.-> tool\3atool_done;
 	tool\3atool_plan -.-> tool\3atool_done;
 	tool\3atool_plan -.-> tool\3atool_execute;
 	tool\3atool_plan -.-> tool\3atool_gate;
@@ -99,11 +97,9 @@ graph TD;
 	delivery\3adelivery_start(delivery_start)
 	delivery\3adelivery_screen(delivery_screen)
 	delivery\3adelivery_approval(delivery_approval)
-	delivery\3adelivery_await(delivery_await)
 	delivery\3adelivery_send(delivery_send)
 	delivery\3adelivery_done(delivery_done)
-	delivery\3adelivery_approval -.-> delivery\3adelivery_await;
-	delivery\3adelivery_await --> delivery\3adelivery_done;
+	delivery\3adelivery_approval -.-> delivery\3adelivery_done;
 	delivery\3adelivery_screen -.-> delivery\3adelivery_approval;
 	delivery\3adelivery_screen -.-> delivery\3adelivery_done;
 	delivery\3adelivery_screen -.-> delivery\3adelivery_send;
@@ -115,12 +111,12 @@ graph TD;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc
-    classDef blocking stroke-width:3px,stroke-dasharray:4 3;
-    class delivery\3adelivery_await blocking;
-    class tool\3atool_await blocking;
 ```
 
-A dashed, thicker outline marks the node a run stops at to wait for a person. Those are the only two places a run stops on its own.
+Where a run stops for a person is not on the picture, and that is the design
+rather than an omission: a stop is a status the run ends with, not a place it
+sits. `tool_gate` and `delivery_approval` put the proposal in front of somebody
+and route to their graph's own exit, the same one a finished run leaves by.
 
 Four things to read off it. `knowledge` loops, search to refine and back,
 bounded by `KB_MAX_ATTEMPTS`. `tool` has its gate in the middle, so a proposal
@@ -135,7 +131,7 @@ and the parent collects all of them at `support_done`.
 
 Two things wait for a person, for different reasons.
 
-A **drafted reply** stops at `delivery_await` - but not every one, and that
+A **drafted reply** stops at `delivery_approval` - but not every one, and that
 is the point. Gating all of them meant the agent could never resolve a
 ticket and the customer sat in front of an empty thread while the answer waited
 on a screen they cannot see. `delivery.needs_a_person` decides: everything the
@@ -147,9 +143,9 @@ reading the reply, and it is rare. Every other draft is screened and sent.
 The screen runs on all of them either way: `delivery` is still the only route
 to `delivery_send`.
 
-A **tool call** stops at `tool_await` *before anything runs*. `tool_gate`
-puts the proposal on the table and marks `tool_run` as pending; the run then
-ends at `tool_await`, and the reviewer's answer arrives as a new run. The reviewer sees the
+A **tool call** stops *before anything runs*. `tool_gate` puts the proposal on
+the table, marks `tool_run` as pending and leaves by `tool_done`; the run ends
+there, and the reviewer's answer arrives as a new one. The reviewer sees the
 tool and the arguments the model chose, and can approve, **correct the
 arguments**, or cancel - correcting £29 to £9 means £9 is what gets refunded.
 Underneath, `@wrap_tool` refuses an approval-marked tool that arrives without

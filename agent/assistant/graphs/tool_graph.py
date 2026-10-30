@@ -106,11 +106,13 @@ class ToolGraph(BaseGraph):
             goto="tool_gate" if meta.requires_approval else "tool_execute",
         )
 
-    async def tool_gate(self, state: ToolState) -> Command[Literal["tool_await"]]:
+    async def tool_gate(self, state: ToolState) -> Command[Literal["tool_done"]]:
         """Put the proposal on the table and let the graph finish.
 
         The answer comes back as a new run, not as a value returned into this
-        function, so there is nothing to wait for here.
+        function, so there is nothing to wait for here. The run leaves by the
+        same exit as one that ran the tool; `tool_run` is what tells them
+        apart, and `tool_start` reads it back on the way in.
         """
         meta = metadata_for(state.tool)
         await self.emit(
@@ -131,17 +133,7 @@ class ToolGraph(BaseGraph):
                 )
             )
         )
-        return Command(update={"tool_run": ToolRun.PENDING}, goto="tool_await")
-
-    async def tool_await(self, state: ToolState) -> ToolState:
-        """Where the run stops while a person decides.
-
-        It does nothing on purpose. Stopping at a node rather than inside one
-        makes the stop a place with a name: drawn on the diagram, and the
-        last span of the run in a trace. The wait itself is the gap to the
-        run that carries on, since this one ends here.
-        """
-        return state
+        return Command(update={"tool_run": ToolRun.PENDING}, goto="tool_done")
 
     async def tool_start(
         self, state: ToolState
@@ -236,7 +228,6 @@ class ToolGraph(BaseGraph):
             "tool_start": self.tool_start,
             "tool_plan": self.tool_plan,
             "tool_gate": self.tool_gate,
-            "tool_await": self.tool_await,
             "tool_execute": self.tool_execute,
             "tool_done": self.tool_done,
         }
@@ -247,7 +238,6 @@ class ToolGraph(BaseGraph):
 
         graph.add_edge(START, "tool_start")
         graph.add_edge("tool_execute", "tool_done")
-        graph.add_edge("tool_await", "tool_done")
         graph.add_edge("tool_done", END)
 
         return graph

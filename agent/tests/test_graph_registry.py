@@ -1,37 +1,40 @@
-class TestTheDiagramSaysWhereItStops:
-    """A node that parks renders like any other unless it is marked, and the
-    diagram is the only place most readers look."""
+class TestTheDiagramIsTheGraph:
+    """Drawn from the compiled graph, so it cannot describe a flow the
+    service does not have."""
 
-    def test_both_gates_are_detected(self) -> None:
-        from assistant.graphs.registry import _blocking_nodes
-
-        assert _blocking_nodes() == {"tool_await", "delivery_await"}
-
-    def test_the_drawing_marks_them_by_the_id_it_drew_them_under(self) -> None:
-        """Expanded, a node inside a subgraph is drawn namespaced, so styling
-        it by the name in the code styles nothing at all - and says so in a
-        document that still parses, which is how this stayed broken."""
+    def test_xray_draws_the_subgraphs_inline(self) -> None:
         from assistant.graphs.registry import mermaid
 
         drawn = mermaid("support", xray=True)
 
-        assert "classDef blocking" in drawn
-        assert "class tool\\3atool_await blocking;" in drawn
-        assert "class delivery\\3adelivery_await blocking;" in drawn
-        assert "class tool_await blocking;" not in drawn
+        assert "tool\\3atool_plan" in drawn
+        assert "delivery\\3adelivery_screen" in drawn
 
-    def test_collapsed_it_marks_only_what_is_drawn(self) -> None:
-        """The subgraphs are single nodes, so neither gate appears."""
+    def test_collapsed_each_subgraph_is_one_node(self) -> None:
         from assistant.graphs.registry import mermaid
 
-        assert "blocking" not in mermaid("support", xray=False)
+        drawn = mermaid("support", xray=False)
 
-    def test_a_subgraph_drawn_on_its_own_marks_its_own_gate(self) -> None:
+        assert "tool_plan" not in drawn
+        assert "tool(tool)" in drawn
+
+
+class TestAStopIsAStatusRatherThanAPlace:
+    """There was a node per gate whose only job was to be the pause, so the
+    diagram could name it. It made the stop a position in the graph, which is
+    the thing `interrupt()` does and this design does not."""
+
+    def test_nothing_exists_only_to_be_the_pause(self) -> None:
         from assistant.graphs.registry import mermaid
 
-        assert "class tool_await blocking;" in mermaid("tool", xray=False)
+        assert "await" not in mermaid("support", xray=True)
 
-    def test_a_graph_with_no_gate_is_left_alone(self) -> None:
+    def test_a_stopped_run_leaves_by_the_exit_a_finished_one_uses(self) -> None:
         from assistant.graphs.registry import mermaid
 
-        assert "classDef blocking" not in mermaid("knowledge", xray=True)
+        drawn = mermaid("tool", xray=False)
+
+        # Dashed because the gate routes with a `Command`, not because it
+        # stops: every `Command` edge is drawn that way.
+        assert "tool_gate -.-> tool_done;" in drawn
+        assert "tool_execute --> tool_done;" in drawn

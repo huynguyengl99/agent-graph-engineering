@@ -22,7 +22,7 @@ class ToolRun(StrEnum):
     it, and anything past that is their answer.
     """
 
-    NONE = ""
+    NOT_STARTED = ""
     PENDING = "pending"
     APPROVED = "approved"
     CANCELLED = "cancelled"
@@ -32,7 +32,7 @@ class ToolRun(StrEnum):
 class ReplyRun(StrEnum):
     """The same, for a drafted reply on its way to a customer."""
 
-    NONE = ""
+    NOT_STARTED = ""
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -60,7 +60,7 @@ class Tools(BaseModel):
     tool: str = ""
     arguments: Annotated[dict[str, Any], last_wins] = {}
     unknown_arguments: list[str] = []
-    tool_run: ToolRun = ToolRun.NONE
+    tool_run: ToolRun = ToolRun.NOT_STARTED
     corrected: bool = False
     result: str = ""
     tool_error: str = ""
@@ -73,5 +73,5 @@ class Delivery(BaseModel):
     # who reads the message first: a person has already been sent for.
     escalation_reason: str = ""
     guardrail_findings: Annotated[list[str], last_wins] = []
-    reply_run: ReplyRun = ReplyRun.NONE
+    reply_run: ReplyRun = ReplyRun.NOT_STARTED
     delivery_receipt: str = ""

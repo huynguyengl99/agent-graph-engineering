@@ -66,8 +66,8 @@ async def test_a_second_question_starts_clean() -> None:
     fresh = Detached()._turn(ask(finished), context())
 
     assert not fresh.delivery_receipt, "the new turn inherited the last reply"
-    assert fresh.reply_run is ReplyRun.NONE
-    assert fresh.reply_run is ReplyRun.NONE
+    assert fresh.reply_run is ReplyRun.NOT_STARTED
+    assert fresh.reply_run is ReplyRun.NOT_STARTED
 
 
 async def test_a_second_question_still_remembers_the_thread() -> None:

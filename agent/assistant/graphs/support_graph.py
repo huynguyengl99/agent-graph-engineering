@@ -218,12 +218,12 @@ class SupportGraph(AnswerFeed, BaseGraph):
 
     async def support_respond(
         self, state: SupportState
-    ) -> Command[Literal["delivery", "__end__"]]:
+    ) -> Command[Literal["delivery", "support_done"]]:
         """Where both audiences end up. A customer's reply goes out through
         delivery; the team's is already where it was going."""
         if state.context.for_customer:
             return Command(update=await self._reply_to_customer(state), goto="delivery")
-        return Command(update=await self._answer_the_team(state), goto="__end__")
+        return Command(update=await self._answer_the_team(state), goto="support_done")
 
     async def _reply_to_customer(self, state: SupportState) -> Update:
         """Written here, screened and sent by the delivery subgraph.
@@ -292,18 +292,29 @@ class SupportGraph(AnswerFeed, BaseGraph):
         # cost the shape of past tool calls instead of the conversation.
         return load_messages(state.messages_json) or as_messages(state.context.history)
 
-    def route_after_tool(self, state: SupportState) -> str:
-        """A method rather than a `Command`, because only a parent can route
-        after a subgraph.
+    async def support_after_tool(
+        self, state: SupportState
+    ) -> Command[Literal["support_report_tool", "support_respond", "support_done"]]:
+        """Where a run goes once the tool subgraph hands control back.
+
+        A node rather than a conditional edge, so the one routing decision a
+        subgraph cannot make for itself is drawn like every other one and
+        gets its own span.
 
         A gate inside the subgraph ends the run rather than suspending it, so
-        the parent has to notice: carrying on here would report and answer a
-        tool call that has not happened yet.
+        this has to notice: carrying on would report and answer a tool call
+        that has not happened yet.
         """
         if state.tool_run is ToolRun.PENDING:
-            return "__end__"
+            return Command(goto="support_done")
         # A planner finding no tool is not a tool call.
-        return "support_report_tool" if state.tool else "support_respond"
+        if state.tool:
+            return Command(goto="support_report_tool")
+        return Command(goto="support_respond")
+
+    async def support_done(self, state: SupportState) -> SupportState:
+        """One exit for the whole run, whichever way it ended."""
+        return state
 
     # --- wiring -------------------------------------------------------------
 
@@ -316,6 +327,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
             "support_escalate": self.support_escalate,
             "support_report_tool": self.support_report_tool,
             "support_respond": self.support_respond,
+            "support_after_tool": self.support_after_tool,
+            "support_done": self.support_done,
         }
 
     def build(self) -> StateGraph[SupportState, None, SupportState, SupportState]:
@@ -334,15 +347,8 @@ class SupportGraph(AnswerFeed, BaseGraph):
 
         graph.add_edge(START, "support_start")
         graph.add_edge("knowledge", "support_respond")
-        graph.add_conditional_edges(
-            "tool",
-            self.route_after_tool,
-            {
-                "support_report_tool": "support_report_tool",
-                "support_respond": "support_respond",
-                "__end__": END,
-            },
-        )
-        graph.add_edge("delivery", END)
+        graph.add_edge("tool", "support_after_tool")
+        graph.add_edge("delivery", "support_done")
+        graph.add_edge("support_done", END)
 
         return graph

@@ -6,6 +6,7 @@ has to reach an interrupt inside a subgraph and the run has to finish there.
 
 from typing import Any
 
+import pytest
 from assistant.agents import (
     AgentConfig,
     Audience,
@@ -16,8 +17,15 @@ from assistant.agents import (
 from assistant.graphs.delivery_graph import DeliveryGraph
 from assistant.graphs.knowledge_graph import KnowledgeGraph
 from assistant.graphs.limits import KB_MAX_ATTEMPTS
+from assistant.graphs.states import (
+    DeliveryState,
+    KnowledgeState,
+    SupportState,
+    ToolState,
+)
 from assistant.graphs.states.base import ReplyRun
 from assistant.graphs.support_graph import SupportGraph
+from pydantic import BaseModel
 
 from tests.helpers.contexts import FLAGGED, resume_with, ticket_context
 
@@ -75,6 +83,8 @@ class TestComposition:
             "support_escalate",
             "support_report_tool",
             "support_respond",
+            "support_after_tool",
+            "support_done",
         }
         # The gate is one level down, and there is no other route to it.
         assert "delivery_send" in DeliveryGraph().nodes()
@@ -188,3 +198,46 @@ class TestACheckpointThreadBelongsToOneRun:
 
     def test_the_key_is_still_in_it(self) -> None:
         assert "abc" in SupportGraph.thread_for(Context(thread_id="abc"))
+
+
+class TestTheParentCarriesWhatItsSubgraphsWrite:
+    """A subgraph writing a key the parent does not have loses the write.
+
+    Not an error, not a warning: LangGraph drops it, the run carries on, and
+    the only symptom is a field that is mysteriously empty. Inheritance would
+    make it impossible, at the price of the parent carrying every subgraph's
+    private bookkeeping too, so this buys the same guarantee with a test.
+    """
+
+    @staticmethod
+    def shared(state: type[BaseModel]) -> set[str]:
+        """Fields a state gets from a mixin, which is what it shares upward.
+
+        Anything declared on the class itself is its own business: a
+        subgraph's attempt counter is not the parent's to know about.
+        """
+        return set(state.model_fields) - set(getattr(state, "__annotations__", {}))
+
+    @pytest.mark.parametrize(
+        ("child", "name"),
+        [
+            (KnowledgeState, "knowledge"),
+            (ToolState, "tool"),
+            (DeliveryState, "delivery"),
+        ],
+    )
+    def test_every_shared_key_exists_on_the_parent(
+        self, child: type[BaseModel], name: str
+    ) -> None:
+        missing = self.shared(child) - set(SupportState.model_fields)
+
+        assert not missing, (
+            f"the {name} subgraph writes {sorted(missing)}, which SupportState "
+            "does not carry, so those writes would be dropped in silence"
+        )
+
+    def test_what_a_subgraph_keeps_to_itself_stays_there(self) -> None:
+        """The other half, so the first test cannot be satisfied by giving the
+        parent every field there is."""
+        assert "kb_attempts" not in SupportState.model_fields
+        assert "plan" not in SupportState.model_fields

@@ -9,7 +9,7 @@ same nine fields.
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from assistant.agents.deps import Context
 from assistant.graphs.states.reducers import last_wins
@@ -92,3 +92,26 @@ class Delivery(BaseModel):
     def _reply_run_blank_is_unstarted(cls, value: Any) -> Any:
         """The same, for a state stored while `""` was the name."""
         return value or ReplyRun.NOT_STARTED
+
+
+class Decision(BaseModel):
+    """What a person answered, as the fields it sets on the next run.
+
+    The answer has to arrive as a status, because a status is all the entry
+    routers read. Spelling it as a model rather than loose keyword arguments
+    is not ceremony: a state ignores a key it does not know, so a mistyped
+    one used to leave `tool_run` at `pending`, and the run somebody had just
+    approved would quietly park again.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    tool_run: ToolRun | None = None
+    reply_run: ReplyRun | None = None
+    arguments: dict[str, Any] | None = None
+    corrected: bool | None = None
+    answer: dict[str, Any] | None = None
+
+    def over(self, carried: dict[str, Any]) -> dict[str, Any]:
+        """The carried state with the decision written onto it."""
+        return {**carried, **self.model_dump(exclude_none=True)}

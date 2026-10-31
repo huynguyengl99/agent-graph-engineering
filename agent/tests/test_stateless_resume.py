@@ -7,10 +7,11 @@ from typing import Any, Literal
 import pytest
 from assistant.agents.deps import Context
 from assistant.graphs.states import ToolState
-from assistant.graphs.states.base import ToolRun
+from assistant.graphs.states.base import Decision, ToolRun
 from assistant.graphs.tool_graph import ToolGraph
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
+from pydantic import ValidationError
 
 
 def paused() -> dict[str, object]:
@@ -160,3 +161,29 @@ class TestTheGraphCanChangeUnderAParkedRun:
 
         with pytest.raises(ValueError, match="unknown node `tool_gate`"):
             StaleReference().compile()
+
+
+class TestTheAnswerIsTypedOnTheWayIn:
+    """A reviewer's click becomes a status, and a status is all the entry
+    routers read. A state ignores a key it does not know, so a misspelled one
+    used to leave `tool_run` at `pending`: the run somebody had just approved
+    would park again, with nothing raised and nothing logged."""
+
+    def test_a_field_that_is_not_one_is_refused(self) -> None:
+        with pytest.raises(ValidationError):
+            Decision(tool_runn=ToolRun.APPROVED)  # type: ignore[call-arg]
+
+    def test_a_decision_writes_only_what_it_was_given(self) -> None:
+        carried = {**paused(), "result": "already there"}
+
+        merged = Decision(tool_run=ToolRun.APPROVED).over(carried)
+
+        assert merged["tool_run"] is ToolRun.APPROVED
+        assert merged["result"] == "already there", "an unset field cleared one"
+
+    def test_the_approval_reaches_the_router(self) -> None:
+        state = ToolState.model_validate(
+            Decision(tool_run=ToolRun.APPROVED).over(paused())
+        )
+
+        assert state.tool_run is ToolRun.APPROVED

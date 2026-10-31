@@ -11,7 +11,7 @@ from typing import Any
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.conversations import dump_messages
 from assistant.graphs.states import SupportState
-from assistant.graphs.states.base import ReplyRun
+from assistant.graphs.states.base import Decision, ReplyRun
 from assistant.graphs.support_graph import SupportGraph
 from assistant.messages.support import RunRequestPayload
 from assistant.ws.topics import SupportTopic
@@ -92,7 +92,7 @@ async def test_a_decision_keeps_everything_the_run_had() -> None:
         await graph.ainvoke(SupportState(context=context()))
     ).model_dump(mode="json")
 
-    resumed = Detached()._continue(parked, reply_run=ReplyRun.APPROVED)
+    resumed = Detached()._continue(parked, Decision(reply_run=ReplyRun.APPROVED))
 
     assert resumed.answer == SupportState.model_validate(parked).answer
     assert resumed.reply_run is ReplyRun.APPROVED

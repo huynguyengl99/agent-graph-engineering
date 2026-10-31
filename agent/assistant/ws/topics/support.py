@@ -11,7 +11,7 @@ from assistant.agents.config import AgentConfig
 from assistant.core.config import settings
 from assistant.core.layers import LAYER_ALIAS
 from assistant.graphs.states import SupportState
-from assistant.graphs.states.base import ReplyRun, ToolRun
+from assistant.graphs.states.base import Decision, ReplyRun, ToolRun
 from assistant.graphs.support_graph import SupportGraph
 from assistant.messages.support import (
     ApprovalDecisionMessage,
@@ -107,13 +107,13 @@ class SupportTopic(Publishes, Replays, Topic[SupportEvent]):
             messages_json=str(carried.get("messages_json") or ""),
         )
 
-    def _continue(self, carried: dict[str, Any], **decision: Any) -> SupportState:
+    def _continue(self, carried: dict[str, Any], decision: Decision) -> SupportState:
         """The same run, picked back up where it stopped.
 
         A whole state, not an update: nothing is kept here, so a field left
         out would default rather than hold what the stopped run had.
         """
-        return SupportState.model_validate({**carried, **decision})
+        return SupportState.model_validate(decision.over(carried))
 
     async def _run(self, state: SupportState, models: Any) -> None:
         """Drive the graph, then hand back what it ended with.
@@ -150,11 +150,13 @@ class SupportTopic(Publishes, Replays, Topic[SupportEvent]):
         await self._resumed_run(
             payload.state,
             payload.models,
-            reply_run=ReplyRun.APPROVED if payload.approved else ReplyRun.REJECTED,
-            **self._edit(payload.state, payload.content),
+            Decision(
+                reply_run=ReplyRun.APPROVED if payload.approved else ReplyRun.REJECTED,
+                answer=self._edit(payload.state, payload.content),
+            ),
         )
 
-    def _edit(self, carried: Any, content: str | None) -> dict[str, Any]:
+    def _edit(self, carried: Any, content: str | None) -> dict[str, Any] | None:
         """A reviewer's rewrite, put inside the answer rather than beside it.
 
         A state is validated as a state, so a loose key is dropped in
@@ -163,8 +165,8 @@ class SupportTopic(Publishes, Replays, Topic[SupportEvent]):
         """
         answer = (carried or {}).get("answer")
         if not content or not isinstance(answer, dict):
-            return {}
-        return {"answer": {**answer, "content": content}}
+            return None
+        return {**answer, "content": content}
 
     @ws_handler(
         summary="Approve, correct, or cancel a proposed tool call",
@@ -176,28 +178,24 @@ class SupportTopic(Publishes, Replays, Topic[SupportEvent]):
     )
     async def handle_tool_decision(self, message: ToolDecisionMessage) -> None:
         payload = message.payload
-        extra: dict[str, Any] = {}
+        decision = Decision(
+            tool_run=ToolRun.APPROVED if payload.approved else ToolRun.CANCELLED
+        )
         if payload.arguments:
             # Corrections replace the proposal wholesale, so what the reviewer
             # saw is exactly what runs. Whether they changed anything is worth
             # carrying: the answer reads a corrected amount as an error unless
             # it is told the smaller number was somebody's decision.
-            arguments = dict(payload.arguments)
+            decision.arguments = dict(payload.arguments)
             proposed = (payload.state or {}).get("arguments") or {}
-            extra["arguments"] = arguments
-            extra["corrected"] = arguments != proposed
-        await self._resumed_run(
-            payload.state,
-            None,
-            tool_run=ToolRun.APPROVED if payload.approved else ToolRun.CANCELLED,
-            **extra,
-        )
+            decision.corrected = decision.arguments != proposed
+        await self._resumed_run(payload.state, None, decision)
 
     async def _resumed_run(
         self,
         carried: dict[str, Any] | None,
         models: Any,
-        **decision: Any,
+        decision: Decision,
     ) -> None:
         """Start a run from what the paused one left, plus the reviewer's answer."""
         if not carried:
@@ -205,7 +203,7 @@ class SupportTopic(Publishes, Replays, Topic[SupportEvent]):
             await self._fail()
             return
         try:
-            await self._run(self._continue(carried, **decision), models)
+            await self._run(self._continue(carried, decision), models)
         except Exception:
             await logger.aexception("support.resume_failed", thread=self.topic)
             await self._fail()

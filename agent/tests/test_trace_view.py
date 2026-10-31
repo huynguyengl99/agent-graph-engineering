@@ -158,3 +158,34 @@ class TestFramesThatOnlyWrap:
 
         assert run["name"] == "support run"
         assert [child["name"] for child in run["children"]] == ["node.support_decide"]
+
+
+class TestWhatTheStateDumpLeavesOut:
+    """A node span carries the state it was handed. The conversation is the
+    one field that is not what the node decided: the same blob on every node
+    of a run, and already visible on the model calls nested under it."""
+
+    def test_the_conversation_is_named_rather_than_copied(self) -> None:
+        from assistant.tracing.nodes import _as_json
+
+        dumped = _as_json(
+            {"tool_run": "pending", "messages_json": '[{"parts": "a long history"}]'}
+        )
+
+        assert "on the model call spans" in dumped
+        assert "a long history" not in dumped
+
+    def test_the_fields_a_node_decided_are_kept_whole(self) -> None:
+        from assistant.tracing.nodes import _as_json
+
+        dumped = _as_json({"arguments": {"amount": 29}, "tool": "issue_refund"})
+
+        assert '"amount": 29' in dumped
+        assert "issue_refund" in dumped
+
+    def test_an_empty_history_stays_empty(self) -> None:
+        """Naming a field that holds nothing would read as one that holds
+        something somewhere else."""
+        from assistant.tracing.nodes import _as_json
+
+        assert '"messages_json": ""' in _as_json({"messages_json": ""})

@@ -58,12 +58,24 @@ STATE_UPDATE = "graph.state_update"
 GOTO = "graph.goto"
 
 
+# The conversation, which is not what a node decided. It is the same blob on
+# every node of a run and about seven tenths of the state, and the model calls
+# nested under each node already show what was actually sent.
+ELSEWHERE = {"messages_json": "<on the model call spans>"}
+
+
 def _as_json(value: Any) -> str:
-    """Whole, not summarised. A run is a sequence of state changes, and a state
-    cut to fit an attribute answers nothing."""
+    """The state a node was handed, whole apart from the conversation.
+
+    Summarising the rest would answer nothing: a run is a sequence of state
+    changes and the fields are the changes. The history is named rather than
+    dropped, so a reader can see it was there and where to go for it.
+    """
     try:
         if hasattr(value, "model_dump"):
             value = value.model_dump(mode="json")
+        if isinstance(value, dict):
+            value = {k: ELSEWHERE.get(k, v) if v else v for k, v in value.items()}
         return json.dumps(value, default=str, ensure_ascii=False)
     except (TypeError, ValueError):
         return str(value)

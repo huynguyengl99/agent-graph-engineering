@@ -11,9 +11,11 @@ a redelivered decision claims the key its interrupted attempt made, while a
 second refund somebody genuinely asked for is a new turn, a new id and a new
 key. The claim is kept in the agent's own Postgres so it survives the restart.
 
-The honest limit: if the process dies between claiming and recording, nobody
-knows whether the call went through. That is reported rather than guessed, so a
-person checks - retrying risks a second refund and skipping risks none at all.
+The honest limit: if the process dies between claiming and recording, or the
+call fails in a way that may have reached the other side (a timeout, a 5xx),
+nobody knows whether it went through. The claim is kept and the outcome is
+reported rather than guessed, so a person checks - retrying risks a second
+refund and skipping risks none at all.
 """
 
 import json

@@ -12,9 +12,14 @@ class ToolError(Exception):
 
     `message` is LLM-facing and may carry technical detail. `user_message` is
     what a human sees; it defaults to the message when not given.
+
+    `may_have_acted` says whether the outside world could have changed anyway.
+    A refusal raised before the call went out did not; a timeout or a 5xx may
+    have, after the request was already received.
     """
 
     error_type = "tool_error"
+    may_have_acted = False
 
     def __init__(self, message: str, *, user_message: str | None = None) -> None:
         super().__init__(message)
@@ -40,6 +45,7 @@ class UpstreamServiceError(ToolError):
     """A dependency failed: 5xx, timeout, DNS, connection reset."""
 
     error_type = "upstream_error"
+    may_have_acted = True
 
 
 class ApprovalRequiredError(ToolError):

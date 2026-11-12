@@ -11,7 +11,11 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
 
-from assistant.tools.core.errors import ApprovalRequiredError, ToolError
+from assistant.tools.core.errors import (
+    ApprovalRequiredError,
+    ToolError,
+    UpstreamServiceError,
+)
 from assistant.tools.core.metadata import Failed, Succeeded, ToolMetadata, ToolOutcome
 from assistant.tools.core.schema import arguments_schema
 
@@ -80,10 +84,11 @@ def wrap_tool(
             except ToolError as error:
                 return _failure(error)
             except TimeoutError:
+                # Abandoned, not refused: the request may have landed.
                 return _failure(
-                    ToolError(
+                    UpstreamServiceError(
                         f"{tool_id} timed out after {metadata.timeout}s.",
-                        user_message="That took too long. Please try again.",
+                        user_message="That took too long to answer.",
                     )
                 )
             return Succeeded(result=result)
@@ -100,6 +105,7 @@ def _failure(error: ToolError) -> Failed:
         kind=error.error_type,
         error=error.message,
         user_error=error.user_message,
+        may_have_acted=error.may_have_acted,
     )
 
 

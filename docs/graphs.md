@@ -156,9 +156,11 @@ backend holding the state the run started from, so the redelivered decision
 re-enters the graph, reaches that node again and refunds twice. A ledger keyed on
 the run's own id and the tool claims the call before it is made and records the
 result after, so the second attempt returns the first one's result while a
-refund asked for later, in a new run, goes through. If the process dies between those two, nobody can know
-whether the money moved, so the run says exactly that and asks a person to check
-rather than guessing.
+refund asked for later, in a new run, goes through. If the process dies between those two, or the call
+times out or gets a 5xx and may have landed anyway, nobody can know whether the
+money moved, so the claim is kept, the run says exactly that and asks a person
+to check rather than guessing. Only a refusal that never reached the outside
+world frees the key for another attempt.
 
 ## Forms generated from a schema
 

@@ -65,11 +65,13 @@ class Failed:
     `kind` is what a caller branches on, so recovery never depends on matching
     error text. `error` is LLM-facing and may carry technical detail; `user_error`
     is what a person reads, and `ToolError` guarantees both are present.
+    `may_have_acted` is the one a ledger branches on.
     """
 
     kind: str
     error: str
     user_error: str
+    may_have_acted: bool = False
 
 
 # Two types rather than one with four optionals, which let `result` and `error`

@@ -86,13 +86,16 @@ async def test_approval_gated_tools_refuse_to_run_unapproved() -> None:
 
 
 async def test_timeout_is_reported_not_raised() -> None:
+    """Abandoned rather than refused, so the request may still have landed."""
+
     @wrap_tool(description="Too slow.", timeout=0.01)
     async def slow() -> None:
         await asyncio.sleep(1)
 
     outcome = await slow()
     assert isinstance(outcome, Failed)
-    assert outcome.kind == "tool_error"
+    assert outcome.kind == "upstream_error"
+    assert outcome.may_have_acted
     assert "timed out" in outcome.error
 
 

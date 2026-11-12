@@ -16,6 +16,7 @@ from assistant.outputs.tools import ToolProposal
 from assistant.tools.core import (
     Failed,
     Succeeded,
+    ToolOutcome,
     all_tools,
     get_tool,
     metadata_for,
@@ -192,34 +193,36 @@ class ToolGraph(BaseGraph):
         if claim.settled:
             return {"result": str(claim.result), "tool_run": ToolRun.DONE}
         if claim.unknown:
-            return {
-                "tool_error": (
-                    f"A previous attempt to run {state.tool} was interrupted and "
-                    "its outcome is unknown. Check before running it again."
-                )
-            }
+            return _outcome_unknown(
+                f"A previous attempt to run {state.tool} was interrupted"
+            )
 
-        update = await self._call(state, arguments)
-        if result := update.get("result"):
-            await ledger().settle(key, result)
-        else:
-            # It refused rather than acted, so the next attempt may try again.
-            await ledger().release(key)
-        return update
-
-    async def _call(self, state: ToolState, arguments: dict[str, Any]) -> Update:
-        tool = get_tool(state.tool)
-        try:
-            outcome = await tool(**arguments)
-        except TypeError as error:
-            # A made-up argument name or a bug, not something the caller did.
-            return {"tool_error": f"{state.tool} could not be called: {error}"}
-
+        outcome = await self._invoke(state, arguments)
         match outcome:
             case Succeeded(result=result):
-                return {"result": str(result), "tool_run": ToolRun.DONE}
-            case Failed(user_error=user_error):
-                return {"tool_error": user_error}
+                await ledger().settle(key, str(result))
+            case Failed(may_have_acted=True, user_error=user_error):
+                # Left claimed: retrying could act twice, and only a person
+                # can find out whether this one did.
+                return _outcome_unknown(
+                    f"{state.tool} did not answer cleanly ({user_error})"
+                )
+            case Failed():
+                # It refused rather than acted, so the next attempt may try again.
+                await ledger().release(key)
+        return _update(outcome)
+
+    async def _call(self, state: ToolState, arguments: dict[str, Any]) -> Update:
+        return _update(await self._invoke(state, arguments))
+
+    async def _invoke(self, state: ToolState, arguments: dict[str, Any]) -> ToolOutcome:
+        tool = get_tool(state.tool)
+        try:
+            return await tool(**arguments)
+        except TypeError as error:
+            # A made-up argument name or a bug, not something the caller did.
+            message = f"{state.tool} could not be called: {error}"
+            return Failed(kind="invalid_call", error=message, user_error=message)
 
     # --- wiring -------------------------------------------------------------
 
@@ -241,3 +244,20 @@ class ToolGraph(BaseGraph):
         graph.add_edge("tool_done", END)
 
         return graph
+
+
+def _update(outcome: ToolOutcome) -> Update:
+    match outcome:
+        case Succeeded(result=result):
+            return {"result": str(result), "tool_run": ToolRun.DONE}
+        case Failed(user_error=user_error):
+            return {"tool_error": user_error}
+
+
+def _outcome_unknown(what_happened: str) -> Update:
+    return {
+        "tool_error": (
+            f"{what_happened}, so its outcome is unknown. "
+            "Check before running it again."
+        )
+    }

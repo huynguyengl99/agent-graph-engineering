@@ -8,8 +8,14 @@ import pytest
 from assistant.agents import AgentConfig, Context, ModelConfig, ModelPurpose
 from assistant.graphs.states.base import ToolRun
 from assistant.graphs.tool_graph import ToolGraph
-from assistant.tools.core import get_tool
+from assistant.tools.core import (
+    Failed,
+    ToolError,
+    UpstreamServiceError,
+    get_tool,
+)
 from assistant.tools.core.ledger import MemoryLedger, install_ledger, ledger
+from assistant.tools.core.wrapper import _failure  # pyright: ignore[reportPrivateUsage]
 
 from tests.helpers.contexts import resume_with
 from tests.helpers.openai_mock import mock_openai, tool_call
@@ -194,3 +200,45 @@ class TestTwoTurnsOnOneTicket:
         )
 
         assert "Refunded £50.00" in again["result"]
+
+
+class Answering:
+    """Stands in for the tool, counting calls and answering with `outcome`."""
+
+    def __init__(self, outcome: Failed) -> None:
+        self.calls: list[dict[str, Any]] = []
+        self.outcome = outcome
+
+    async def __call__(self, **kwargs: Any) -> Failed:
+        self.calls.append(kwargs)
+        return self.outcome
+
+
+class TestAFailureThatMayHaveLanded:
+    """A timeout or a 5xx comes back after the request went out, so the other
+    side may have acted. Treating it like a refusal frees the key, and the
+    retry refunds a second time."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            UpstreamServiceError("upstream 502"),
+            UpstreamServiceError("issue_refund timed out after 10.0s."),
+        ],
+    )
+    async def test_it_is_not_retried(
+        self, monkeypatch: pytest.MonkeyPatch, error: ToolError
+    ) -> None:
+        compiled, config, parked = await park(f"t-{error.message[:12]}")
+        answering = Answering(_failure(error))
+        monkeypatch.setattr(
+            "assistant.graphs.tool_graph.get_tool", lambda _id: answering
+        )
+
+        approve = resume_with(parked, tool_run=ToolRun.APPROVED)
+        first = await compiled.ainvoke(approve, config=config)
+        again = await compiled.ainvoke(approve, config=config)
+
+        assert len(answering.calls) == 1, "the money may have moved twice"
+        assert "outcome is unknown" in first["tool_error"]
+        assert "outcome is unknown" in again["tool_error"]

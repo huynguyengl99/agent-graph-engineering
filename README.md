@@ -8,6 +8,8 @@ What makes it worth reading is that the agent's flow is a **declared graph** rat
 
 Every decision in it is explained by the **[Agent Graph Engineering](https://huynguyengl99.github.io/series/agent-graph-engineering/)** series. The code is the artifact; the series is its documentation.
 
+Prefer video? The series is also on YouTube, one video per part: **[watch the playlist](https://www.youtube.com/playlist?list=PLeB6nhraTiLY)** on The Tabby Dev.
+
 ![The staff console: a refund request, the agent's tool steps, and its reply with a drafted customer message](docs/images/console.png)
 
 ## Run it
